@@ -194,6 +194,9 @@ ezVariant BuildTypedVariant(const char* szType, const ezVariant& Value, const ez
   if (ezStringUtils::IsEqual(szType, "mat4"))
     return BuildTypedVariant_binary<ezMat4>(Binary, out_Result);
 
+  if (ezStringUtils::IsEqual(szType, "uuid"))
+    return BuildTypedVariant_binary<ezUuid>(Binary, out_Result);
+
   return ezVariant();
 }
 
@@ -224,7 +227,7 @@ void ezExtendedJSONReader::OnEndObject()
     {
       Element& Parent = m_Stack[m_Stack.GetCount() - 2];
 
-      if (Parent.m_iMode == 0)
+      if (Parent.m_Mode == ElementMode::Array)
       {
         Parent.m_Array.PushBack(v);
       }
@@ -250,7 +253,7 @@ void ezExtendedJSONReader::OnEndObject()
     {
       Element& Parent = m_Stack[m_Stack.GetCount() - 2];
 
-      if (Parent.m_iMode == 0)
+      if (Parent.m_Mode == ElementMode::Array)
       {
         Parent.m_Array.PushBack(Child.m_Dictionary);
       }
@@ -267,3 +270,8 @@ void ezExtendedJSONReader::OnEndObject()
     }
   }
 }
+
+
+
+EZ_STATICLINK_FILE(Foundation, Foundation_IO_Implementation_ExtendedJSONReader);
+

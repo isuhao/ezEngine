@@ -27,6 +27,7 @@ private:
   friend class ezWorld;
   friend class ezInternal::WorldData;
   friend class ezMemoryUtils;
+  friend class ezGameObjectDummyAllocator; // TODO: This is a temporary hack
 
   ezGameObject();
   ezGameObject(const ezGameObject& other);
@@ -36,15 +37,13 @@ private:
 
 public:
   /// \brief Iterates over all children of one object.
-  class EZ_CORE_DLL ChildIterator
+  class EZ_CORE_DLL ConstChildIterator
   {
   public:
-    ChildIterator();
+    const ezGameObject& operator*() const;
+    const ezGameObject* operator->() const;
 
-    ezGameObject& operator*() const;
-    ezGameObject* operator->() const;
-
-    operator ezGameObject*() const;
+    operator const ezGameObject*() const;
 
     /// \brief Advances the iterator to the next child object. The iterator will not be valid anymore, if the last child is reached.
     void Next();
@@ -58,9 +57,23 @@ public:
   private:
     friend class ezGameObject;
 
-    ChildIterator(ezGameObject* pObject);
+    ConstChildIterator(ezGameObject* pObject);
 
     ezGameObject* m_pObject;
+  };
+
+  class EZ_CORE_DLL ChildIterator : public ConstChildIterator
+  {
+  public:
+    ezGameObject& operator*();
+    ezGameObject* operator->();
+
+    operator ezGameObject*();
+
+  private:
+    friend class ezGameObject;
+
+    ChildIterator(ezGameObject* pObject);
   };
 
   /// \brief Returns a handle to this object.
@@ -97,7 +110,10 @@ public:
   void SetParent(const ezGameObjectHandle& parent);
 
   /// \brief Gets the parent of this object or nullptr if this is a top-level object.
-  ezGameObject* GetParent() const;
+  ezGameObject* GetParent();
+
+  /// \brief Gets the parent of this object or nullptr if this is a top-level object.
+  const ezGameObject* GetParent() const;
 
   /// \brief Adds the given object as a child object. Note that the actual re-parenting is postponed.
   void AddChild(const ezGameObjectHandle& child);
@@ -115,10 +131,14 @@ public:
   ezUInt32 GetChildCount() const;
 
   /// \brief Returns an iterator over all children of this object.
-  ChildIterator GetChildren() const;
+  ChildIterator GetChildren();
+
+  /// \brief Returns an iterator over all children of this object.
+  ConstChildIterator GetChildren() const;
 
 
-  ezWorld* GetWorld() const;
+  ezWorld* GetWorld();
+  const ezWorld* GetWorld() const;
 
   void SetLocalPosition(const ezVec3& position);
   const ezVec3& GetLocalPosition() const;
@@ -172,6 +192,9 @@ public:
   /// \brief Sends a message to all components of this object. Depending on the routing options the message is also send to parents or children.
   void SendMessage(ezMessage& msg, ezObjectMsgRouting::Enum routing = ezObjectMsgRouting::Default);
 
+  /// \brief Sends a message to all components of this object. Depending on the routing options the message is also send to parents or children.
+  void SendMessage(ezMessage& msg, ezObjectMsgRouting::Enum routing = ezObjectMsgRouting::Default) const;
+
   /// \brief Queues the message for the given phase and processes it later in that phase.
   void PostMessage(ezMessage& msg, ezObjectMsgQueueType::Enum queueType, 
     ezObjectMsgRouting::Enum routing = ezObjectMsgRouting::Default);
@@ -179,12 +202,11 @@ public:
   /// \brief Queues the message for the given phase. The message is processed after the given delay in the corresponding phase.
   void PostMessage(ezMessage& msg, ezObjectMsgQueueType::Enum queueType, ezTime delay,
     ezObjectMsgRouting::Enum routing = ezObjectMsgRouting::Default);
-  
+
 private:
   friend class ezGameObjectTest;
 
   void FixComponentPointer(ezComponent* pOldPtr, ezComponent* pNewPtr);
-  void OnMessage(ezMessage& msg, ezObjectMsgRouting::Enum routing);
 
   struct EZ_ALIGN_16(TransformationData)
   {

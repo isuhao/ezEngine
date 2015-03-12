@@ -1,4 +1,4 @@
-#include <PCH.h>
+﻿#include <PCH.h>
 #include <Foundation/IO/OSFile.h>
 #include <Foundation/IO/JSONWriter.h>
 #include <Foundation/IO/ExtendedJSONWriter.h>
@@ -114,7 +114,7 @@ EZ_CREATE_SIMPLE_TEST(IO, StandardJSONWriter)
 
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "AddVariableString")
   {
-    StreamComparer sc("\"var1\" : \"bla\",\n\"var2\" : \"blub\",\n\"special\" : \"I\\\\m\\t\\\"s\\bec\\/al\\\" \\f\\n\\/\\/\\\\\\r\"");
+    StreamComparer sc("\"var1\" : \"bla\",\n\"var2\" : \"blub\",\n\"special\" : \"I\\\\m\\t\\\"s\\bec/al\\\" \\f\\n//\\\\\\r\"");
 
     ezStandardJSONWriter js;
     js.SetOutputStream(&sc);
@@ -144,6 +144,22 @@ EZ_CREATE_SIMPLE_TEST(IO, StandardJSONWriter)
 
     js.AddVariableTime("var1", ezTime::Seconds(0.5));
     js.AddVariableTime("var2", ezTime::Seconds(2.25));
+  }
+
+  EZ_TEST_BLOCK(ezTestBlock::Enabled, "AddVariableUuid")
+  {
+    ezUuid guid;
+    ezUInt64 val[2];
+    val[0] = 0x1122334455667788;
+    val[1] = 0x99AABBCCDDEEFF00;
+    ezMemoryUtils::Copy(reinterpret_cast<ezUInt64*>(&guid), val, 2);
+    
+    StreamComparer sc("\"uuid_var\" : { \"$t\" : \"uuid\", \"$b\" : \"0x887766554433221100FFEEDDCCBBAA99\" }");
+
+    ezStandardJSONWriter js;
+    js.SetOutputStream(&sc);
+
+    js.AddVariableUuid("uuid_var", guid);
   }
 
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "AddVariableColor")
@@ -289,18 +305,18 @@ EZ_CREATE_SIMPLE_TEST(IO, StandardJSONWriter)
 
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "Complex Objects")
   {
-    StreamComparer sc("\
+    ezStringUtf8 sExp(L"\
 {\n\
-  \"String\" : \"testvalue\",\n\
+  \"String\" : \"testvälue\",\n\
   \"double\" : 43.56,\n\
   \"float\" : 64.720001,\n\
-  \"bool\" : true,\n\
+  \"bööl\" : true,\n\
   \"int\" : 23,\n\
   \"myarray\" : [ 1, 2.2, 3.3, false, \"ende\" ],\n\
   \"object\" : {\n\
-    \"variable in object\" : \"bla\",\n\
+    \"variable in object\" : \"bla/*asdf*/ //tuff\",\n\
     \"Subobject\" : {\n\
-      \"variable in subobject\" : \"bla\",\n\
+      \"variable in subobject\" : \"bla\\\\\",\n\
       \"array in sub\" : [ {\n\
           \"obj var\" : 234\n\
         },\n\
@@ -312,15 +328,17 @@ EZ_CREATE_SIMPLE_TEST(IO, StandardJSONWriter)
   \"test\" : \"text\"\n\
 }");
 
+    StreamComparer sc(sExp.GetData());
+
     ezStandardJSONWriter js;
     js.SetOutputStream(&sc);
 
     js.BeginObject();
 
-      js.AddVariableString("String", "testvalue");
+      js.AddVariableString("String", ezStringUtf8(L"testvälue").GetData()); // Unicode / Utf-8 test (in string)
       js.AddVariableDouble("double", 43.56);
       js.AddVariableFloat("float", 64.72f);
-      js.AddVariableBool("bool", true);
+      js.AddVariableBool(ezStringUtf8(L"bööl").GetData(), true); // Unicode / Utf-8 test (identifier)
       js.AddVariableInt32("int", 23);
 
       js.BeginArray("myarray");
@@ -332,9 +350,9 @@ EZ_CREATE_SIMPLE_TEST(IO, StandardJSONWriter)
       js.EndArray();
 
       js.BeginObject("object");
-        js.AddVariableString("variable in object", "bla");
+        js.AddVariableString("variable in object", "bla/*asdf*/ //tuff"); // 'comment' in string
         js.BeginObject("Subobject");
-          js.AddVariableString("variable in subobject", "bla");
+          js.AddVariableString("variable in subobject", "bla\\"); // character to be escaped
 
           js.BeginArray("array in sub");
             js.BeginObject();

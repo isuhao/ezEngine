@@ -149,7 +149,7 @@ void ezIdTableBase<IdType, ValueType>::Reserve(IndexType uiCapacity)
     return;
 
   IndexType uiNewCapacity = ezMath::Max(m_uiCapacity + (m_uiCapacity / 2), uiCapacity + CAPACITY_ALIGNMENT);
-  uiNewCapacity = (uiNewCapacity + (CAPACITY_ALIGNMENT-1)) & ~(CAPACITY_ALIGNMENT-1);
+  uiNewCapacity = (uiNewCapacity + (CAPACITY_ALIGNMENT - 1)) & ~(CAPACITY_ALIGNMENT - 1);
   SetCapacity(uiNewCapacity);
 }
 
@@ -211,7 +211,7 @@ bool ezIdTableBase<IdType, ValueType>::Remove(const IdType id, ValueType* out_ol
 
   const IndexType uiIndex = id.m_InstanceIndex;
   Entry& entry = m_pEntries[uiIndex];
-  if (entry.id != id)
+  if (!entry.id.IsIndexAndGenerationEqual(id))
     return false;
 
   if (out_oldValue != nullptr)
@@ -224,7 +224,7 @@ bool ezIdTableBase<IdType, ValueType>::Remove(const IdType id, ValueType* out_ol
 
   m_pEntries[m_uiFreelistEnqueue].id.m_InstanceIndex = uiIndex;
   m_uiFreelistEnqueue = uiIndex;
-  
+
   --m_uiCount;
   return true;
 }
@@ -233,7 +233,7 @@ template <typename IdType, typename ValueType>
 EZ_FORCE_INLINE bool ezIdTableBase<IdType, ValueType>::TryGetValue(const IdType id, ValueType& out_value) const
 {
   const IndexType index = id.m_InstanceIndex;
-  if (index < m_uiCapacity && m_pEntries[index].id == id)
+  if (index < m_uiCapacity && m_pEntries[index].id.IsIndexAndGenerationEqual(id))
   {
     out_value = m_pEntries[index].value;
     return true;
@@ -245,7 +245,7 @@ template <typename IdType, typename ValueType>
 EZ_FORCE_INLINE bool ezIdTableBase<IdType, ValueType>::TryGetValue(const IdType id, ValueType*& out_pValue) const
 {
   const IndexType index = id.m_InstanceIndex;
-  if (index < m_uiCapacity && m_pEntries[index].id == id)
+  if (index < m_uiCapacity && m_pEntries[index].id.IsIndexAndGenerationEqual(id))
   {
     out_pValue = &m_pEntries[index].value;
     return true;
@@ -256,10 +256,10 @@ EZ_FORCE_INLINE bool ezIdTableBase<IdType, ValueType>::TryGetValue(const IdType 
 template <typename IdType, typename ValueType>
 EZ_FORCE_INLINE const ValueType& ezIdTableBase<IdType, ValueType>::operator[](const IdType id) const
 {
-  EZ_ASSERT(id.m_InstanceIndex < m_uiCapacity, "Out of bounds access. Table has %i elements, trying to access element at index %i.", m_uiCapacity, id.m_InstanceIndex);
+  EZ_ASSERT_DEV(id.m_InstanceIndex < m_uiCapacity, "Out of bounds access. Table has %i elements, trying to access element at index %i.", m_uiCapacity, id.m_InstanceIndex);
   Entry& entry = m_pEntries[id.m_InstanceIndex];
-  EZ_ASSERT(entry.id == id,
-    "Stale access. Trying to access a value (generation: %i) that has been removed and replaced by a new value (generation: %i)", entry.id.m_Generation, id.m_Generation);
+  EZ_ASSERT_DEV(entry.id.IsIndexAndGenerationEqual(id),
+            "Stale access. Trying to access a value (generation: %i) that has been removed and replaced by a new value (generation: %i)", entry.id.m_Generation, id.m_Generation);
 
   return entry.value;
 }
@@ -267,10 +267,10 @@ EZ_FORCE_INLINE const ValueType& ezIdTableBase<IdType, ValueType>::operator[](co
 template <typename IdType, typename ValueType>
 EZ_FORCE_INLINE ValueType& ezIdTableBase<IdType, ValueType>::operator[](const IdType id)
 {
-  EZ_ASSERT(id.m_InstanceIndex < m_uiCapacity, "Out of bounds access. Table has %i elements, trying to access element at index %i.", m_uiCapacity, id.m_InstanceIndex);
+  EZ_ASSERT_DEV(id.m_InstanceIndex < m_uiCapacity, "Out of bounds access. Table has %i elements, trying to access element at index %i.", m_uiCapacity, id.m_InstanceIndex);
   Entry& entry = m_pEntries[id.m_InstanceIndex];
-  EZ_ASSERT(entry.id == id,
-    "Stale access. Trying to access a value (generation: %i) that has been removed and replaced by a new value (generation: %i)", entry.id.m_Generation, id.m_Generation);
+  EZ_ASSERT_DEV(entry.id.IsIndexAndGenerationEqual(id),
+            "Stale access. Trying to access a value (generation: %i) that has been removed and replaced by a new value (generation: %i)", entry.id.m_Generation, id.m_Generation);
 
   return entry.value;
 }
@@ -278,14 +278,14 @@ EZ_FORCE_INLINE ValueType& ezIdTableBase<IdType, ValueType>::operator[](const Id
 template <typename IdType, typename ValueType>
 EZ_FORCE_INLINE const ValueType& ezIdTableBase<IdType, ValueType>::GetValueUnchecked(const IndexType index) const
 {
-  EZ_ASSERT(index < m_uiCapacity, "Out of bounds access. Table has %i elements, trying to access element at index %i.", m_uiCapacity, index);
+  EZ_ASSERT_DEV(index < m_uiCapacity, "Out of bounds access. Table has %i elements, trying to access element at index %i.", m_uiCapacity, index);
   return m_pEntries[index].value;
 }
 
 template <typename IdType, typename ValueType>
 EZ_FORCE_INLINE ValueType& ezIdTableBase<IdType, ValueType>::GetValueUnchecked(const IndexType index)
 {
-  EZ_ASSERT(index < m_uiCapacity, "Out of bounds access. Table has %i elements, trying to access element at index %i.", m_uiCapacity, index);
+  EZ_ASSERT_DEV(index < m_uiCapacity, "Out of bounds access. Table has %i elements, trying to access element at index %i.", m_uiCapacity, index);
   return m_pEntries[index].value;
 }
 
@@ -293,7 +293,7 @@ template <typename IdType, typename ValueType>
 EZ_FORCE_INLINE bool ezIdTableBase<IdType, ValueType>::Contains(const IdType id) const
 {
   const IndexType index = id.m_InstanceIndex;
-  return index < m_uiCapacity && m_pEntries[index].id == id;
+  return index < m_uiCapacity && m_pEntries[index].id.IsIndexAndGenerationEqual(id);
 }
 
 template <typename IdType, typename ValueType>
@@ -301,7 +301,7 @@ EZ_FORCE_INLINE typename ezIdTableBase<IdType, ValueType>::Iterator ezIdTableBas
 {
   return Iterator(*this);
 }
-  
+
 template <typename IdType, typename ValueType>
 EZ_FORCE_INLINE typename ezIdTableBase<IdType, ValueType>::ConstIterator ezIdTableBase<IdType, ValueType>::GetIterator() const
 {
@@ -337,16 +337,15 @@ bool ezIdTableBase<IdType, ValueType>::IsFreelistValid() const
 template <typename IdType, typename ValueType>
 void ezIdTableBase<IdType, ValueType>::SetCapacity(IndexType uiCapacity)
 {
-  Entry* pNewEntries = EZ_NEW_RAW_BUFFER(m_pAllocator, Entry, (size_t)uiCapacity);
+  Entry* pNewEntries = EZ_NEW_RAW_BUFFER(m_pAllocator, Entry, (size_t) uiCapacity);
 
   for (IndexType i = 0; i < m_uiCapacity; ++i)
   {
     pNewEntries[i].id = m_pEntries[i].id;
-    
+
     if (m_pEntries[i].id.m_InstanceIndex == i)
     {
-      ezMemoryUtils::Construct(&pNewEntries[i].value, &m_pEntries[i].value, 1);
-      ezMemoryUtils::Destruct(&m_pEntries[i].value, 1);
+      ezMemoryUtils::RelocateConstruct(&pNewEntries[i].value, &m_pEntries[i].value, 1);
     }
   }
 
@@ -354,7 +353,7 @@ void ezIdTableBase<IdType, ValueType>::SetCapacity(IndexType uiCapacity)
   m_pEntries = pNewEntries;
 
   InitializeFreelist(m_uiCapacity, uiCapacity);
-  m_uiCapacity = uiCapacity;  
+  m_uiCapacity = uiCapacity;
 }
 
 template <typename IdType, typename ValueType>
@@ -368,6 +367,7 @@ inline void ezIdTableBase<IdType, ValueType>::InitializeFreelist(IndexType uiSta
 
   m_uiFreelistEnqueue = uiEnd - 1;
 }
+
 
 template <typename IdType, typename V, typename A>
 ezIdTable<IdType, V, A>::ezIdTable() : ezIdTableBase<IdType, V>(A::GetAllocator())
@@ -385,7 +385,7 @@ ezIdTable<IdType, V, A>::ezIdTable(const ezIdTable<IdType, V, A>& other) : ezIdT
 }
 
 template <typename IdType, typename V, typename A>
-ezIdTable<IdType, V, A>:: ezIdTable(const ezIdTableBase<IdType, V>& other) : ezIdTableBase<IdType, V>(other, A::GetAllocator())
+ezIdTable<IdType, V, A>::ezIdTable(const ezIdTableBase<IdType, V>& other) : ezIdTableBase<IdType, V>(other, A::GetAllocator())
 {
 }
 

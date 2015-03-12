@@ -26,9 +26,9 @@ struct TgaHeader
 EZ_CHECK_AT_COMPILETIME(sizeof(TgaHeader) == 18);
 
 
-static inline ezColorBgra8UNorm GetPixelColor(const ezImage& image, ezUInt32 x, ezUInt32 y, const ezUInt32 uiHeight)
+static inline ezColorLinearUB GetPixelColor(const ezImage& image, ezUInt32 x, ezUInt32 y, const ezUInt32 uiHeight)
 {
-  ezColorBgra8UNorm c(255, 255, 255, 255);
+  ezColorLinearUB c(255, 255, 255, 255);
 
   const ezUInt8* pPixel = image.GetPixelPointer<ezUInt8>(0, 0, 0, x, uiHeight - y - 1, 0);
 
@@ -82,7 +82,7 @@ ezResult ezTgaFileFormat::WriteImage(ezStreamWriterBase& stream, const ezImage& 
     if (ezImageConversionBase::Convert(image, convertedImage, format) != EZ_SUCCESS)
     {
       // This should never happen
-      EZ_ASSERT(false, "ezImageConversion::Convert failed even though the conversion was to the format returned by FindClosestCompatibleFormat.");
+      EZ_ASSERT_DEV(false, "ezImageConversion::Convert failed even though the conversion was to the format returned by FindClosestCompatibleFormat.");
       return EZ_FAILURE;
     }
 
@@ -129,7 +129,7 @@ ezResult ezTgaFileFormat::WriteImage(ezStreamWriterBase& stream, const ezImage& 
     {
       for (ezUInt32 x = 0; x < uiHeight; ++x)
       {
-        const ezColorBgra8UNorm c = GetPixelColor(image, x, y, uiHeight);
+        const ezColorLinearUB c = GetPixelColor(image, x, y, uiHeight);
 
         stream << c.b;
         stream << c.g;
@@ -146,15 +146,15 @@ ezResult ezTgaFileFormat::WriteImage(ezStreamWriterBase& stream, const ezImage& 
 
     ezInt32 iRLE = 0;
 
-    ezColorBgra8UNorm pc;
-    ezStaticArray<ezColorBgra8UNorm, 129> unequal;
+    ezColorLinearUB pc;
+    ezStaticArray<ezColorLinearUB, 129> unequal;
     ezInt32 iEqual = 0;
 
     for (ezUInt32 y = 0; y < uiHeight; ++y)
     {
       for (ezUInt32 x = 0; x < uiWidth; ++x)
       {
-        const ezColorBgra8UNorm c = GetPixelColor(image, x, y, uiHeight);
+        const ezColorLinearUB c = GetPixelColor(image, x, y, uiHeight);
 
         if (iRLE == 0) // no comparison possible yet
         {
@@ -334,7 +334,7 @@ ezResult ezTgaFileFormat::ReadImage(ezStreamReaderBase& stream, ezImage& image, 
     // compressed
 
     ezInt32 iCurrentPixel = 0;
-    const int iPixelCount = Header.m_iImageWidth * Header.m_iImageWidth;
+    const int iPixelCount = Header.m_iImageWidth * Header.m_iImageHeight;
 
     do
     {

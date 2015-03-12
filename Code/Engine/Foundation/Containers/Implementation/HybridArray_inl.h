@@ -112,8 +112,7 @@ void ezHybridArrayBase<T, Size>::SetCapacity(ezUInt32 uiCapacity)
     pNewData = EZ_NEW_RAW_BUFFER(m_pAllocator, T, this->m_uiCapacity);
   }
 
-  ezMemoryUtils::Construct(pNewData, this->m_pElements, this->m_uiCount);
-  ezMemoryUtils::Destruct(this->m_pElements, this->m_uiCount);
+  ezMemoryUtils::RelocateConstruct(pNewData, this->m_pElements, this->m_uiCount);
 
   // if the previous buffer is not the static array, deallocate it
   if (this->m_pElements != GetStaticArray())
@@ -130,7 +129,7 @@ void ezHybridArrayBase<T, Size>::Reserve(ezUInt32 uiCapacity)
     return;
 
   ezUInt32 uiNewCapacity = ezMath::Max(this->m_uiCapacity + (this->m_uiCapacity / 2), uiCapacity);
-  uiNewCapacity = (uiNewCapacity + (CAPACITY_ALIGNMENT-1)) & ~(CAPACITY_ALIGNMENT-1);
+  uiNewCapacity = (uiNewCapacity + (CAPACITY_ALIGNMENT - 1)) & ~(CAPACITY_ALIGNMENT - 1);
 
   SetCapacity(uiNewCapacity);
 }
@@ -149,12 +148,20 @@ void ezHybridArrayBase<T, Size>::Compact()
   }
   else
   {
-    const ezUInt32 uiNewCapacity = (this->m_uiCount + (CAPACITY_ALIGNMENT-1)) & ~(CAPACITY_ALIGNMENT-1);
+    const ezUInt32 uiNewCapacity = (this->m_uiCount + (CAPACITY_ALIGNMENT - 1)) & ~(CAPACITY_ALIGNMENT - 1);
     if (this->m_uiCapacity != uiNewCapacity)
       SetCapacity(uiNewCapacity);
   }
 }
 
+template <typename T, ezUInt32 Size>
+ezUInt64 ezHybridArrayBase<T, Size>::GetHeapMemoryUsage() const
+{
+  if (this->m_uiCapacity <= Size)
+    return 0;
+
+  return (ezUInt64) sizeof(T) * (ezUInt64) this->m_uiCapacity;
+}
 
 template <typename T, ezUInt32 Size, typename A>
 ezHybridArray<T, Size, A>::ezHybridArray() : ezHybridArrayBase<T, Size>(A::GetAllocator())
@@ -162,7 +169,7 @@ ezHybridArray<T, Size, A>::ezHybridArray() : ezHybridArrayBase<T, Size>(A::GetAl
 }
 
 template <typename T, ezUInt32 Size, typename A>
-ezHybridArray<T, Size, A>:: ezHybridArray(ezAllocatorBase* pAllocator) : ezHybridArrayBase<T, Size>(pAllocator)
+ezHybridArray<T, Size, A>::ezHybridArray(ezAllocatorBase* pAllocator) : ezHybridArrayBase<T, Size>(pAllocator)
 {
 }
 
@@ -172,7 +179,7 @@ ezHybridArray<T, Size, A>::ezHybridArray(const ezHybridArray<T, Size, A>& other)
 }
 
 template <typename T, ezUInt32 Size, typename A>
-ezHybridArray<T, Size, A>:: ezHybridArray(const ezHybridArrayBase<T, Size>& other) : ezHybridArrayBase<T, Size>(other, A::GetAllocator())
+ezHybridArray<T, Size, A>::ezHybridArray(const ezHybridArrayBase<T, Size>& other) : ezHybridArrayBase<T, Size>(other, A::GetAllocator())
 {
 }
 
@@ -182,7 +189,7 @@ ezHybridArray<T, Size, A>::ezHybridArray(ezHybridArray<T, Size, A>&& other) : ez
 }
 
 template <typename T, ezUInt32 Size, typename A>
-ezHybridArray<T, Size, A>:: ezHybridArray(ezHybridArrayBase<T, Size>&& other) : ezHybridArrayBase<T, Size>(std::move(other), A::GetAllocator())
+ezHybridArray<T, Size, A>::ezHybridArray(ezHybridArrayBase<T, Size>&& other) : ezHybridArrayBase<T, Size>(std::move(other), A::GetAllocator())
 {
 }
 

@@ -13,7 +13,7 @@ EZ_FORCE_INLINE ezGameObjectHandle ezWorld::CreateObject(const ezGameObjectDesc&
 EZ_FORCE_INLINE bool ezWorld::IsValidObject(const ezGameObjectHandle& object) const
 {
   CheckForMultithreadedAccess();
-  EZ_ASSERT(object.m_InternalId.m_WorldIndex == m_uiIndex, 
+  EZ_ASSERT_DEV(object.IsInvalidated() || object.m_InternalId.m_WorldIndex == m_uiIndex,
     "Object does not belong to this world. Expected world id %d got id %d", m_uiIndex, object.m_InternalId.m_WorldIndex);
 
   return m_Data.m_Objects.Contains(object);
@@ -22,7 +22,7 @@ EZ_FORCE_INLINE bool ezWorld::IsValidObject(const ezGameObjectHandle& object) co
 EZ_FORCE_INLINE bool ezWorld::TryGetObject(const ezGameObjectHandle& object, ezGameObject*& out_pObject) const
 {
   CheckForMultithreadedAccess();
-  EZ_ASSERT(object.m_InternalId.m_WorldIndex == m_uiIndex, 
+  EZ_ASSERT_DEV(object.IsInvalidated() || object.m_InternalId.m_WorldIndex == m_uiIndex,
     "Object does not belong to this world. Expected world id %d got id %d", m_uiIndex, object.m_InternalId.m_WorldIndex);
 
   ObjectStorageEntry storageEntry = { nullptr };
@@ -36,7 +36,12 @@ EZ_FORCE_INLINE ezUInt32 ezWorld::GetObjectCount() const
   return m_Data.m_ObjectStorage.GetCount();
 }
 
-EZ_FORCE_INLINE ezBlockStorage<ezGameObject>::Iterator ezWorld::GetObjects()
+EZ_FORCE_INLINE ezInternal::WorldData::ObjectStorage::Iterator ezWorld::GetObjects()
+{
+  return m_Data.m_ObjectStorage.GetIterator(0);
+}
+
+EZ_FORCE_INLINE ezInternal::WorldData::ObjectStorage::ConstIterator ezWorld::GetObjects() const
 {
   return m_Data.m_ObjectStorage.GetIterator(0);
 }
@@ -81,6 +86,8 @@ ManagerType* ezWorld::CreateComponentManager()
 template <typename ManagerType>
 void ezWorld::DeleteComponentManager()
 {
+  CheckForMultithreadedAccess();
+
   const ezUInt16 uiTypeId = ManagerType::TypeId();
   if (uiTypeId < m_Data.m_ComponentManagers.GetCount())
   {
@@ -89,6 +96,7 @@ void ezWorld::DeleteComponentManager()
       m_Data.m_ComponentManagers[uiTypeId] = nullptr;
 
       pManager->Deinitialize();
+      DeregisterUpdateFunctions(pManager);
       EZ_DELETE(&m_Data.m_Allocator, pManager);
     }
   }
@@ -108,7 +116,7 @@ EZ_FORCE_INLINE ManagerType* ezWorld::GetComponentManager() const
     pManager = static_cast<ManagerType*>(m_Data.m_ComponentManagers[uiTypeId]);
   }
 
-  EZ_ASSERT(pManager != nullptr, "Component Manager '%s' (id: %u) does not exists. Call 'CreateComponentManager' first.", 
+  EZ_ASSERT_DEV(pManager != nullptr, "Component Manager '%s' (id: %u) does not exists. Call 'CreateComponentManager' first.", 
     ezGetStaticRTTI<typename ManagerType::ComponentType>()->GetTypeName(), uiTypeId);
   return pManager;
 }
@@ -160,7 +168,7 @@ EZ_FORCE_INLINE void ezWorld::SendMessage(const ezGameObjectHandle& receiverObje
   ezGameObject* pReceiverObject = NULL;
   if (TryGetObject(receiverObject, pReceiverObject))
   {
-    pReceiverObject->OnMessage(msg, routing);
+    pReceiverObject->SendMessage(msg, routing);
   }
 }
 
@@ -174,7 +182,7 @@ EZ_FORCE_INLINE ezAllocatorBase* ezWorld::GetAllocator()
   return &m_Data.m_Allocator;
 }
 
-EZ_FORCE_INLINE ezLargeBlockAllocator* ezWorld::GetBlockAllocator()
+EZ_FORCE_INLINE ezInternal::WorldLargeBlockAllocator* ezWorld::GetBlockAllocator()
 {
   return &m_Data.m_BlockAllocator;
 }
@@ -208,8 +216,8 @@ EZ_FORCE_INLINE ezWorld* ezWorld::GetWorld(ezUInt32 uiIndex)
 
 EZ_FORCE_INLINE void ezWorld::CheckForMultithreadedAccess() const
 {
-  EZ_ASSERT(!m_Data.m_bIsInAsyncPhase, "World must not be accessed while in async update phase.");
-  EZ_ASSERT(m_Data.m_ThreadID == ezThreadUtils::GetCurrentThreadID(), "World must not be accessed from another thread than the creation thread.");
+  EZ_ASSERT_DEV(!m_Data.m_bIsInAsyncPhase, "World must not be accessed while in async update phase.");
+  EZ_ASSERT_DEV(m_Data.m_ThreadID == ezThreadUtils::GetCurrentThreadID(), "World must not be accessed from another thread than the creation thread.");
 }
 
 EZ_FORCE_INLINE ezGameObject* ezWorld::GetObjectUnchecked(ezUInt32 uiIndex) const

@@ -4,6 +4,7 @@
 #include <Foundation/Containers/HybridArray.h>
 #include <Foundation/Containers/IdTable.h>
 #include <Foundation/Memory/BlockStorage.h>
+#include <Foundation/Reflection/Reflection.h>
 
 #include <Core/World/Declarations.h>
 #include <Core/World/Component.h>
@@ -38,6 +39,9 @@ public:
 
   /// \brief Deletes the given component. Note that the component will be invalidated first and the actual deletion is postponed.
   void DeleteComponent(const ezComponentHandle& component);
+
+  /// \brief Returns the rtti info of the component type that this manager handles.
+  virtual const ezRTTI* GetComponentType() const = 0;
 
 protected:
   friend class ezWorld;
@@ -84,12 +88,12 @@ protected:
   ezAllocatorBase* GetAllocator();
 
   /// \brief Returns the block allocator used by the world.
-  ezLargeBlockAllocator* GetBlockAllocator();
+  ezInternal::WorldLargeBlockAllocator* GetBlockAllocator();
 
 protected:
   /// \cond
   // internal methods
-  typedef ezBlockStorage<ezComponent>::Entry ComponentStorageEntry;
+  typedef ezBlockStorage<ezComponent, ezInternal::DEFAULT_BLOCK_SIZE, false>::Entry ComponentStorageEntry;
 
   ezComponentHandle CreateComponent(ComponentStorageEntry storageEntry, ezUInt16 uiTypeId);
   void DeinitializeComponent(ezComponent* pComponent);
@@ -113,7 +117,7 @@ private:
   ezWorld* m_pWorld;
 };
 
-template <typename T>
+template <typename T, bool CompactStorage = false>
 class ezComponentManager : public ezComponentManagerBase
 {
 public:
@@ -133,7 +137,10 @@ public:
   bool TryGetComponent(const ezComponentHandle& component, ComponentType*& out_pComponent) const;
 
   /// \brief Returns an iterator over all components.
-  typename ezBlockStorage<ComponentType>::Iterator GetComponents();
+  typename ezBlockStorage<ComponentType, ezInternal::DEFAULT_BLOCK_SIZE, CompactStorage>::Iterator GetComponents();
+
+  /// \brief Returns the rtti info of the component type that this manager handles.
+  virtual const ezRTTI* GetComponentType() const override;
 
   /// \brief Returns the type id corresponding to the component type managed by this manager.
   static ezUInt16 TypeId();
@@ -145,7 +152,7 @@ protected:
 
   void RegisterUpdateFunction(UpdateFunctionDesc& desc);
 
-  ezBlockStorage<ComponentType> m_ComponentStorage;
+  ezBlockStorage<ComponentType, ezInternal::DEFAULT_BLOCK_SIZE, CompactStorage> m_ComponentStorage;
 };
 
 /// \brief Simple component manager implementation that calls an update method on all components every frame.

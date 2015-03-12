@@ -9,7 +9,7 @@ ezHashTableBase<K, V, H>::ConstIterator::ConstIterator(const ezHashTableBase<K, 
 {
   if (m_hashTable.IsEmpty())
     return;
-  
+
   while (!m_hashTable.IsValidEntry(m_uiCurrentIndex))
   {
     ++m_uiCurrentIndex;
@@ -186,7 +186,7 @@ void ezHashTableBase<K, V, H>::Compact()
   }
   else
   {
-    const ezUInt32 uiNewCapacity = (m_uiCount + (CAPACITY_ALIGNMENT-1)) & ~(CAPACITY_ALIGNMENT-1);
+    const ezUInt32 uiNewCapacity = (m_uiCount + (CAPACITY_ALIGNMENT - 1)) & ~(CAPACITY_ALIGNMENT - 1);
     if (m_uiCapacity != uiNewCapacity)
       SetCapacity(uiNewCapacity);
   }
@@ -239,7 +239,7 @@ bool ezHashTableBase<K, V, H>::Insert(const K& key, const V& value, V* out_oldVa
     else if (H::Equal(m_pEntries[uiIndex].key, key))
     {
       if (out_oldValue != nullptr)
-        *out_oldValue = m_pEntries[uiIndex].value;
+        *out_oldValue = std::move(m_pEntries[uiIndex].value);
 
       m_pEntries[uiIndex].value = value;
       return true;
@@ -250,12 +250,12 @@ bool ezHashTableBase<K, V, H>::Insert(const K& key, const V& value, V* out_oldVa
 
     ++uiCounter;
   }
-  
+
   // new entry
   uiIndex = uiDeletedIndex != ezInvalidIndex ? uiDeletedIndex : uiIndex;
 
-  ezMemoryUtils::Construct(&m_pEntries[uiIndex].key, key, 1);
-  ezMemoryUtils::Construct(&m_pEntries[uiIndex].value, value, 1);
+  ezMemoryUtils::CopyConstruct(&m_pEntries[uiIndex].key, &key, 1);
+  ezMemoryUtils::CopyConstruct(&m_pEntries[uiIndex].value, &value, 1);
   MarkEntryAsValid(uiIndex);
   ++m_uiCount;
 
@@ -269,7 +269,7 @@ bool ezHashTableBase<K, V, H>::Remove(const K& key, V* out_oldValue /*= nullptr*
   if (uiIndex != ezInvalidIndex)
   {
     if (out_oldValue != nullptr)
-      *out_oldValue = m_pEntries[uiIndex].value;
+      *out_oldValue = std::move(m_pEntries[uiIndex].value);
 
     ezMemoryUtils::Destruct(&m_pEntries[uiIndex].key, 1);
     ezMemoryUtils::Destruct(&m_pEntries[uiIndex].value, 1);
@@ -321,7 +321,7 @@ inline bool ezHashTableBase<K, V, H>::TryGetValue(const K& key, V& out_value) co
 
   return false;
 }
-      
+
 template <typename K, typename V, typename H>
 inline bool ezHashTableBase<K, V, H>::TryGetValue(const K& key, V*& out_pValue) const
 {
@@ -346,14 +346,14 @@ inline V& ezHashTableBase<K, V, H>::operator[](const K& key)
     Reserve(m_uiCount + 1);
 
     // search for suitable insertion index again, table might have been resized
-    uiIndex = uiHash % m_uiCapacity;   
+    uiIndex = uiHash % m_uiCapacity;
     while (IsValidEntry(uiIndex))
     {
       ++uiIndex;
       if (uiIndex == m_uiCapacity)
         uiIndex = 0;
     }
-  
+
     // new entry
     ezMemoryUtils::Construct(&m_pEntries[uiIndex].key, key, 1);
     ezMemoryUtils::DefaultConstruct(&m_pEntries[uiIndex].value, 1);
@@ -364,7 +364,7 @@ inline V& ezHashTableBase<K, V, H>::operator[](const K& key)
 }
 
 template <typename K, typename V, typename H>
-EZ_FORCE_INLINE bool ezHashTableBase<K, V, H>::KeyExists(const K& key) const
+EZ_FORCE_INLINE bool ezHashTableBase<K, V, H>::Contains(const K& key) const
 {
   return FindEntry(key) != ezInvalidIndex;
 }
@@ -374,7 +374,7 @@ EZ_FORCE_INLINE typename ezHashTableBase<K, V, H>::Iterator ezHashTableBase<K, V
 {
   return Iterator(*this);
 }
-  
+
 template <typename K, typename V, typename H>
 EZ_FORCE_INLINE typename ezHashTableBase<K, V, H>::ConstIterator ezHashTableBase<K, V, H>::GetIterator() const
 {
@@ -387,6 +387,11 @@ EZ_FORCE_INLINE ezAllocatorBase* ezHashTableBase<K, V, H>::GetAllocator() const
   return m_pAllocator;
 }
 
+template <typename K, typename V, typename H>
+ezUInt64 ezHashTableBase<K, V, H>::GetHeapMemoryUsage() const
+{
+  return ((ezUInt64) m_uiCapacity * sizeof(Entry)) + (sizeof(ezUInt32) * (ezUInt64) GetFlagsCapacity());
+}
 
 // private methods
 template <typename K, typename V, typename H>
@@ -413,7 +418,7 @@ void ezHashTableBase<K, V, H>::SetCapacity(ezUInt32 uiCapacity)
       ezMemoryUtils::Destruct(&pOldEntries[i].value, 1);
     }
   }
-  
+
   EZ_DELETE_RAW_BUFFER(m_pAllocator, pOldEntries);
   EZ_DELETE_RAW_BUFFER(m_pAllocator, pOldEntryFlags);
 }
@@ -477,11 +482,11 @@ void ezHashTableBase<K, V, H>::SetFlags(ezUInt32 uiEntryIndex, ezUInt32 uiFlags)
 #if EZ_ENABLED(EZ_HASHTABLE_USE_BITFLAGS)
   const ezUInt32 uiIndex = uiEntryIndex / 16;
   const ezUInt32 uiSubIndex = (uiEntryIndex & 15) * 2;
-  EZ_ASSERT(uiIndex < GetFlagsCapacity(), "Out of bounds access");
+  EZ_ASSERT_DEV(uiIndex < GetFlagsCapacity(), "Out of bounds access");
   m_pEntryFlags[uiIndex] &= ~(FLAGS_MASK << uiSubIndex);
-  m_pEntryFlags[uiIndex] |= (uiFlags << uiSubIndex);  
+  m_pEntryFlags[uiIndex] |= (uiFlags << uiSubIndex);
 #else
-  EZ_ASSERT(uiEntryIndex < GetFlagsCapacity(), "Out of bounds access");
+  EZ_ASSERT_DEV(uiEntryIndex < GetFlagsCapacity(), "Out of bounds access");
   m_pEntryFlags[uiEntryIndex] = uiFlags;
 #endif
 }
@@ -539,7 +544,7 @@ ezHashTable<K, V, H, A>::ezHashTable(const ezHashTable<K, V, H, A>& other) : ezH
 }
 
 template <typename K, typename V, typename H, typename A>
-ezHashTable<K, V, H, A>:: ezHashTable(const ezHashTableBase<K, V, H>& other) : ezHashTableBase<K, V, H>(other, A::GetAllocator())
+ezHashTable<K, V, H, A>::ezHashTable(const ezHashTableBase<K, V, H>& other) : ezHashTableBase<K, V, H>(other, A::GetAllocator())
 {
 }
 

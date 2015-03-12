@@ -30,11 +30,12 @@ public:
 
   // Test execution
   void ResetTests();
-  void ExecuteAllTests();
+  ezTestAppRun RunTestExecutionLoop();
 
   void StartTests();
-  void ExecuteTest(ezUInt32 uiTestIndex);
+  void ExecuteNextTest();
   void EndTests();
+  void AbortTests();
 
   // Test queries
   ezUInt32 GetTestCount() const;
@@ -60,6 +61,9 @@ public:
   ezInt32 GetTestsPassedCount() const;
   ezInt32 GetTestsFailedCount() const;
   double GetTotalTestDuration() const;
+
+  // Image comparison
+  bool CompareImages(ezUInt32 uiMaxError, char* szErrorMsg);
 
 protected:
   virtual void ErrorImpl(const char* szError, const char* szFile, ezInt32 iLine, const char* szFunction, const char* szMsg);
@@ -98,6 +102,16 @@ private:
   std::deque<ezTestEntry> m_TestEntries;
   ezTestFrameworkResult m_Result;
   ezAssertHandler m_PreviousAssertHandler;
+
+  ezInt32 m_iExecutingTest;
+  ezInt32 m_iExecutingSubTest;
+  ezInt32 m_iImageCounter;
+  bool m_bSubTestInitialized;
+  bool m_bAbortTests;
+  ezUInt8 m_uiPassesLeft;
+  double m_fTotalTestDuration;
+  double m_fTotalSubTestDuration;
+  ezInt32 m_iErrorCountBeforeTest;
 
 protected:
   ezInt32 m_iCurrentTestIndex;
@@ -333,6 +347,15 @@ inline float ToFloat(double f) { return (float) f; }
       } \
     } \
   } \
+}
+
+#define EZ_TEST_IMAGE(MaxError) EZ_TEST_IMAGE_MSG(MaxError, "")
+
+#define EZ_TEST_IMAGE_MSG(MaxError, msg, ...) \
+{ \
+  char szLocal_TestMacro[512] = ""; \
+  if (!ezTestFramework::GetInstance()->CompareImages(MaxError, szLocal_TestMacro)) \
+    EZ_TEST_FAILURE(szLocal_TestMacro, msg, ##__VA_ARGS__); \
 }
 
 

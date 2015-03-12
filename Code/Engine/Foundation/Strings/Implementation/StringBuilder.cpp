@@ -2,6 +2,51 @@
 #include <Foundation/Strings/StringBuilder.h>
 #include <Foundation/Containers/DynamicArray.h>
 
+ezStringBuilder::ezStringBuilder(const char* pData1, const char* pData2, const char* pData3, const char* pData4, const char* pData5, const char* pData6)
+{
+  m_uiCharacterCount = 0;
+  AppendTerminator();
+
+  Append(pData1, pData2, pData3, pData4, pData5, pData6);
+}
+
+void ezStringBuilder::Set(const char* pData1, const char* pData2, const char* pData3, const char* pData4, const char* pData5, const char* pData6)
+{
+  Clear();
+  Append(pData1, pData2, pData3, pData4, pData5, pData6);
+}
+
+void ezStringBuilder::SetSubString_FromTo(const char* pStart, const char* pEnd)
+{
+  EZ_ASSERT_DEBUG(ezUnicodeUtils::IsValidUtf8(pStart), "Invalid substring, the start does not point to a valid Utf-8 character");
+  EZ_ASSERT_DEBUG(ezUnicodeUtils::IsValidUtf8(pEnd), "Invalid substring, the end does not point to a valid Utf-8 character");
+
+  ezStringView view(pStart, pEnd);
+  *this = view;
+}
+
+void ezStringBuilder::SetSubString_ElementCount(const char* pStart, ezUInt32 uiElementCount)
+{
+  EZ_ASSERT_DEBUG(ezStringUtils::GetStringElementCount(pStart) >= uiElementCount, "Invalid substring, it does not contain %u bytes", uiElementCount);
+  EZ_ASSERT_DEBUG(ezUnicodeUtils::IsValidUtf8(pStart), "Invalid substring, the start does not point to a valid Utf-8 character");
+  EZ_ASSERT_DEBUG(ezUnicodeUtils::IsValidUtf8(pStart + uiElementCount), "Invalid substring, the end does not point to a valid Utf-8 character");
+
+  ezStringView view(pStart, pStart + uiElementCount);
+  *this = view;
+}
+
+void ezStringBuilder::SetSubString_CharacterCount(const char* pStart, ezUInt32 uiCharacterCount)
+{
+  EZ_ASSERT_DEBUG(ezUnicodeUtils::IsValidUtf8(pStart), "Invalid substring, the start does not point to a valid Utf-8 character");
+  EZ_ASSERT_DEBUG(ezStringUtils::GetCharacterCount(pStart) >= uiCharacterCount, "Invalid substring, it does not contain %u characters", uiCharacterCount);
+
+  const char* pEnd = pStart;
+  ezUnicodeUtils::MoveToNextUtf8(pEnd, uiCharacterCount);
+
+  ezStringView view(pStart, pEnd);
+  *this = view;
+}
+
 void ezStringBuilder::Append(const char* pData1, const char* pData2, const char* pData3, const char* pData4, const char* pData5, const char* pData6)
 {
   // it is not possible to find out how many parameters were passed to a vararg function
@@ -27,11 +72,11 @@ void ezStringBuilder::Append(const char* pData1, const char* pData2, const char*
     uiMoreBytes += uiStrLen[i];
     m_uiCharacterCount += uiCharacters;
 
-    EZ_ASSERT(ezUnicodeUtils::IsValidUtf8(pStrings[i]), "Parameter %i is not a valid Utf8 sequence.", i + 1);
+    EZ_ASSERT_DEV(ezUnicodeUtils::IsValidUtf8(pStrings[i]), "Parameter %i is not a valid Utf8 sequence.", i + 1);
   }
 
   ezUInt32 uiPrevCount = m_Data.GetCount(); // already contains a 0 terminator
-  EZ_ASSERT(uiPrevCount > 0, "There should be a 0 terminator somewhere around here.");
+  EZ_ASSERT_DEBUG(uiPrevCount > 0, "There should be a 0 terminator somewhere around here.");
 
   // now resize
   m_Data.SetCount(uiPrevCount + uiMoreBytes);
@@ -43,7 +88,7 @@ void ezStringBuilder::Append(const char* pData1, const char* pData2, const char*
       continue;
 
     // make enough room to copy the entire string, including the T-800
-    ezStringUtils::Copy(&m_Data[uiPrevCount-1], uiStrLen[i] + 1, pStrings[i]);
+    ezStringUtils::Copy(&m_Data[uiPrevCount-1], uiStrLen[i] + 1, pStrings[i], pStrings[i] + uiStrLen[i]);
 
     uiPrevCount += uiStrLen[i];
   }
@@ -74,17 +119,17 @@ void ezStringBuilder::Prepend(const char* pData1, const char* pData2, const char
     uiMoreBytes += uiStrLen[i];
     m_uiCharacterCount += uiCharacters;
 
-    EZ_ASSERT(ezUnicodeUtils::IsValidUtf8(pStrings[i]), "Parameter %i is not a valid Utf8 sequence.", i + 1);
+    EZ_ASSERT_DEV(ezUnicodeUtils::IsValidUtf8(pStrings[i]), "Parameter %i is not a valid Utf8 sequence.", i + 1);
   }
 
   ezUInt32 uiPrevCount = m_Data.GetCount(); // already contains a 0 terminator
-  EZ_ASSERT(uiPrevCount > 0, "There should be a 0 terminator somewhere around here.");
+  EZ_ASSERT_DEBUG(uiPrevCount > 0, "There should be a 0 terminator somewhere around here.");
 
   // now resize
   m_Data.SetCount(uiPrevCount + uiMoreBytes);
 
   // move the previous string data at the end
-  ezMemoryUtils::Move(&m_Data[0] + uiMoreBytes, GetData(), uiPrevCount);
+  ezMemoryUtils::CopyOverlapped(&m_Data[0] + uiMoreBytes, GetData(), uiPrevCount);
 
   ezUInt32 uiWritePos = 0;
 
@@ -111,7 +156,7 @@ void ezStringBuilder::AppendFormatArgs(const char* szUtf8Format, va_list args0)
   char szTemp[TempBuffer];
   const ezInt32 iCount = ezStringUtils::vsnprintf(szTemp, TempBuffer - 1, szUtf8Format, args);
 
-  EZ_ASSERT(iCount != -1, "There was an error while formatting the string. Probably and unescaped usage of the %% sign.");
+  EZ_ASSERT_DEV(iCount != -1, "There was an error while formatting the string. Probably and unescaped usage of the %% sign.");
 
   if (iCount == -1)
   {
@@ -146,7 +191,7 @@ void ezStringBuilder::PrependFormatArgs(const char* szUtf8Format, va_list args0)
   char szTemp[TempBuffer];
   const ezInt32 iCount = ezStringUtils::vsnprintf(szTemp, TempBuffer - 1, szUtf8Format, args);
 
-  EZ_ASSERT(iCount != -1, "There was an error while formatting the string. Probably and unescaped usage of the %% sign.");
+  EZ_ASSERT_DEV(iCount != -1, "There was an error while formatting the string. Probably and unescaped usage of the %% sign.");
 
   if (iCount == -1)
   {
@@ -202,7 +247,7 @@ void ezStringBuilder::ChangeCharacterNonASCII(ezStringView& It, ezUInt32 uiChara
     const ezUInt32 uiTrailStringBytes = (ezUInt32) (It.GetEndPosition() - It.GetData() - uiOldCharLength + 1); // ???
 
     // move the trailing characters forwards
-    ezMemoryUtils::Move(pPos, pPos + uiDifference, uiTrailStringBytes);
+    ezMemoryUtils::CopyOverlapped(pPos, pPos + uiDifference, uiTrailStringBytes);
 
     // update the data array
     m_Data.PopBack(uiDifference);
@@ -232,7 +277,7 @@ void ezStringBuilder::ChangeCharacterNonASCII(ezStringView& It, ezUInt32 uiChara
     It = NewIt;
     
     // move the trailing string backwards
-    ezMemoryUtils::Move(pPos + uiNewCharLength, pPos + uiOldCharLength, uiTrailStringBytes);
+    ezMemoryUtils::CopyOverlapped(pPos + uiNewCharLength, pPos + uiOldCharLength, uiTrailStringBytes);
 
     // just overwrite all characters at the given position with the new Utf8 string
     ezUnicodeUtils::EncodeUtf32ToUtf8(uiCharacter, pPos);
@@ -280,7 +325,7 @@ void ezStringBuilder::Shrink(ezUInt32 uiShrinkCharsFront, ezUInt32 uiShrinkChars
   {
     const ezUInt32 uiLessBytes = (ezUInt32) (szNewStart - &m_Data[0]);
 
-    ezMemoryUtils::Move(&m_Data[0], szNewStart, m_Data.GetCount() - uiLessBytes);
+    ezMemoryUtils::CopyOverlapped(&m_Data[0], szNewStart, m_Data.GetCount() - uiLessBytes);
     m_Data.PopBack(uiLessBytes);
   }
 
@@ -290,9 +335,9 @@ void ezStringBuilder::Shrink(ezUInt32 uiShrinkCharsFront, ezUInt32 uiShrinkChars
 
 void ezStringBuilder::ReplaceSubString(const char* szStartPos, const char* szEndPos, const ezStringView& szReplaceWith)
 {
-  EZ_ASSERT(ezMath::IsInRange(szStartPos, GetData(), GetData() + m_Data.GetCount()), "szStartPos is not inside this string.");
-  EZ_ASSERT(ezMath::IsInRange(szEndPos, GetData(), GetData() + m_Data.GetCount()), "szStartPos is not inside this string.");
-  EZ_ASSERT(szStartPos <= szEndPos, "ezStartPos must be before ezEndPos");
+  EZ_ASSERT_DEV(ezMath::IsInRange(szStartPos, GetData(), GetData() + m_Data.GetCount()), "szStartPos is not inside this string.");
+  EZ_ASSERT_DEV(ezMath::IsInRange(szEndPos, GetData(), GetData() + m_Data.GetCount()), "szStartPos is not inside this string.");
+  EZ_ASSERT_DEV(szStartPos <= szEndPos, "ezStartPos must be before ezEndPos");
 
   ezUInt32 uiWordChars = 0;
   ezUInt32 uiWordBytes = 0;
@@ -337,7 +382,7 @@ void ezStringBuilder::ReplaceSubString(const char* szStartPos, const char* szEnd
     const char* szStringEnd = GetData() + m_Data.GetCount();
 
     // now move all the characters from behind the replaced string to the correct position
-    ezMemoryUtils::Move(szWritePos + uiWordBytes, szWritePos + uiSubStringBytes, szStringEnd - (szWritePos + uiSubStringBytes));
+    ezMemoryUtils::CopyOverlapped(szWritePos + uiWordBytes, szWritePos + uiSubStringBytes, szStringEnd - (szWritePos + uiSubStringBytes));
 
     m_Data.PopBack(uiDifference);
 
@@ -360,7 +405,7 @@ void ezStringBuilder::ReplaceSubString(const char* szStartPos, const char* szEnd
     const char* szStringEnd = GetData() + uiDataByteCountBefore;
 
     // first move the characters to the proper position from back to front
-    ezMemoryUtils::Move(szWritePos + uiWordBytes, szWritePos + uiSubStringBytes, szStringEnd - (szWritePos + uiSubStringBytes));
+    ezMemoryUtils::CopyOverlapped(szWritePos + uiWordBytes, szWritePos + uiSubStringBytes, szStringEnd - (szWritePos + uiSubStringBytes));
 
     // now copy the replacement to the correct position
     ezMemoryUtils::Copy(szWritePos, szReplaceWith.GetData(), uiWordBytes);
@@ -373,7 +418,7 @@ const char* ezStringBuilder::ReplaceFirst(const char* szSearchFor, const ezStrin
     szStartSearchAt = GetData();
   else
   {
-    EZ_ASSERT(ezMath::IsInRange(szStartSearchAt, GetData(), GetData() + m_Data.GetCount() - 1), "szStartSearchAt is not inside the string range.");
+    EZ_ASSERT_DEV(ezMath::IsInRange(szStartSearchAt, GetData(), GetData() + m_Data.GetCount() - 1), "szStartSearchAt is not inside the string range.");
   }
 
   const char* szFoundAt = ezStringUtils::FindSubString(szStartSearchAt, szSearchFor);
@@ -396,7 +441,7 @@ const char* ezStringBuilder::ReplaceLast(const char* szSearchFor, const ezString
     szStartSearchAt = GetData() + m_Data.GetCount() - 1;
   else
   {
-    EZ_ASSERT(ezMath::IsInRange(szStartSearchAt, GetData(), GetData() + m_Data.GetCount() - 1), "szStartSearchAt is not inside the string range.");
+    EZ_ASSERT_DEV(ezMath::IsInRange(szStartSearchAt, GetData(), GetData() + m_Data.GetCount() - 1), "szStartSearchAt is not inside the string range.");
   }
 
   const char* szFoundAt = ezStringUtils::FindLastSubString(GetData(), szSearchFor, szStartSearchAt);
@@ -448,7 +493,7 @@ const char* ezStringBuilder::ReplaceFirst_NoCase(const char* szSearchFor, const 
     szStartSearchAt = GetData();
   else
   {
-    EZ_ASSERT(ezMath::IsInRange(szStartSearchAt, GetData(), GetData() + m_Data.GetCount() - 1), "szStartSearchAt is not inside the string range.");
+    EZ_ASSERT_DEV(ezMath::IsInRange(szStartSearchAt, GetData(), GetData() + m_Data.GetCount() - 1), "szStartSearchAt is not inside the string range.");
   }
 
   const char* szFoundAt = ezStringUtils::FindSubString_NoCase(szStartSearchAt, szSearchFor);
@@ -471,7 +516,7 @@ const char* ezStringBuilder::ReplaceLast_NoCase(const char* szSearchFor, const e
     szStartSearchAt = GetData() + m_Data.GetCount() - 1;
   else
   {
-    EZ_ASSERT(ezMath::IsInRange(szStartSearchAt, GetData(), GetData() + m_Data.GetCount() - 1), "szStartSearchAt is not inside the string range.");
+    EZ_ASSERT_DEV(ezMath::IsInRange(szStartSearchAt, GetData(), GetData() + m_Data.GetCount() - 1), "szStartSearchAt is not inside the string range.");
   }
 
   const char* szFoundAt = ezStringUtils::FindLastSubString_NoCase(GetData(), szSearchFor, szStartSearchAt);
@@ -614,7 +659,7 @@ void ezStringBuilder::operator=(const ezStringView& rhs)
   // if it comes from our own array, the data will always be a sub-set -> smaller than this array
   // in this case we defer the SetCount till later, to ensure that the data is not corrupted (destructed) before we copy it
   // however, when the new data is larger than the old, it cannot be from our own data, so we can (and must) reallocate before copying
-  ezMemoryUtils::Move(&m_Data[0], rhs.GetData(), uiBytes);
+  ezMemoryUtils::CopyOverlapped(&m_Data[0], rhs.GetData(), uiBytes);
 
   m_Data.SetCount(uiBytes + 1);
   m_Data[uiBytes] = '\0';
@@ -710,7 +755,7 @@ void ezStringBuilder::MakeCleanPath()
   const ezUInt32 uiPrevByteCount = m_Data.GetCount();
   const ezUInt32 uiNewByteCount  = (ezUInt32) (szCurWritePos - &m_Data[0]) + 1;
 
-  EZ_ASSERT(uiPrevByteCount >= uiNewByteCount, "It should not be possible that a path grows during cleanup. Old: %i Bytes, New: %i Bytes", uiPrevByteCount, uiNewByteCount);
+  EZ_ASSERT_DEBUG(uiPrevByteCount >= uiNewByteCount, "It should not be possible that a path grows during cleanup. Old: %i Bytes, New: %i Bytes", uiPrevByteCount, uiNewByteCount);
 
   // we will only remove characters and only ASCII ones (slash, backslash, dot)
   // so the number of characters shrinks equally to the number of bytes
@@ -726,7 +771,7 @@ void ezStringBuilder::MakeCleanPath()
 
 void ezStringBuilder::PathParentDirectory(ezUInt32 uiLevelsUp)
 {
-  EZ_ASSERT(uiLevelsUp > 0, "We have to do something!");
+  EZ_ASSERT_DEV(uiLevelsUp > 0, "We have to do something!");
 
   for (ezUInt32 i = 0; i < uiLevelsUp; ++i)
     AppendPath("../");
@@ -742,7 +787,7 @@ void ezStringBuilder::AppendPath(const char* szPath1, const char* szPath2, const
   {
     if (!ezStringUtils::IsNullOrEmpty(szPaths[i]))
     {
-      EZ_ASSERT(!ezPathUtils::IsPathSeparator(szPaths[i][0]) || IsEmpty() && ezPathUtils::IsAbsolutePath(szPaths[i]),
+      EZ_ASSERT_DEV(!ezPathUtils::IsPathSeparator(szPaths[i][0]) || IsEmpty() && ezPathUtils::IsAbsolutePath(szPaths[i]),
         "The paths to append must not start with a path separator or it must be absolute and the current value must be empty.");
 
       if (IsEmpty() || ezPathUtils::IsPathSeparator(GetIteratorBack().GetCharacter()))
@@ -769,11 +814,11 @@ void ezStringBuilder::ChangeFileNameAndExtension(const char* szNewFileNameWithEx
 
 void ezStringBuilder::ChangeFileExtension(const char* szNewExtension)
 {
-  EZ_ASSERT(!ezStringUtils::StartsWith(szNewExtension, "."), "The given extension string must not start with a dot.");
+  EZ_ASSERT_DEV(!ezStringUtils::StartsWith(szNewExtension, "."), "The given extension string must not start with a dot.");
 
   ezStringView it = ezPathUtils::GetFileExtension(GetData(), GetData() + m_Data.GetCount() - 1);
 
-  if (it.IsEmpty())
+  if (it.IsEmpty() && !EndsWith("."))
     Append(".", szNewExtension);
   else
     ReplaceSubString(it.GetData(), it.GetEndPosition(), szNewExtension);
@@ -861,7 +906,7 @@ void ezStringBuilder::MakeRelativeTo(const char* szAbsolutePathToMakeThisRelativ
 /// IsFileBelowFolder ("", "") -> always false\n
 bool ezStringBuilder::IsPathBelowFolder(const char* szPathToFolder)
 {
-  EZ_ASSERT(!ezStringUtils::IsNullOrEmpty(szPathToFolder), "The given path must not be empty. Because is 'nothing' under the empty path, or 'everything' ?");
+  EZ_ASSERT_DEV(!ezStringUtils::IsNullOrEmpty(szPathToFolder), "The given path must not be empty. Because is 'nothing' under the empty path, or 'everything' ?");
 
   // a non-existing file is never in any folder
   if (IsEmpty())
@@ -925,7 +970,7 @@ void ezStringBuilder::RemoveDoubleSlashesInPath()
   const ezUInt32 uiPrevByteCount = m_Data.GetCount();
   const ezUInt32 uiNewByteCount  = (ezUInt32) (szCurWritePos - &m_Data[0]) + 1;
 
-  EZ_ASSERT(uiPrevByteCount >= uiNewByteCount, "It should not be possible that a path grows during cleanup. Old: %i Bytes, New: %i Bytes", uiPrevByteCount, uiNewByteCount);
+  EZ_ASSERT_DEBUG(uiPrevByteCount >= uiNewByteCount, "It should not be possible that a path grows during cleanup. Old: %i Bytes, New: %i Bytes", uiPrevByteCount, uiNewByteCount);
 
   // we will only remove characters and only ASCII ones (slash, backslash)
   // so the number of characters shrinks equally to the number of bytes

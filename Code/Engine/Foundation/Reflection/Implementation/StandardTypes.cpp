@@ -5,6 +5,12 @@
 #include <Foundation/Math/Mat4.h>
 #include <Foundation/Time/Time.h>
 
+EZ_BEGIN_STATIC_REFLECTED_TYPE(ezEnumBase, ezNoBase, 1, ezRTTINoAllocator);
+EZ_END_STATIC_REFLECTED_TYPE();
+
+EZ_BEGIN_STATIC_REFLECTED_TYPE(ezBitflagsBase, ezNoBase, 1, ezRTTINoAllocator);
+EZ_END_STATIC_REFLECTED_TYPE();
+
 EZ_BEGIN_DYNAMIC_REFLECTED_TYPE(ezReflectedClass, ezNoBase, 1, ezRTTINoAllocator);
 EZ_END_DYNAMIC_REFLECTED_TYPE();
 
@@ -96,6 +102,14 @@ EZ_END_STATIC_REFLECTED_TYPE();
 EZ_BEGIN_STATIC_REFLECTED_TYPE(ezMat4, ezNoBase, 1, ezRTTINoAllocator);
 EZ_END_STATIC_REFLECTED_TYPE();
 
+EZ_BEGIN_STATIC_REFLECTED_TYPE(ezUuid, ezNoBase, 1, ezRTTINoAllocator);
+EZ_END_STATIC_REFLECTED_TYPE();
+
+EZ_BEGIN_STATIC_REFLECTED_TYPE(ezVariant, ezNoBase, 1, ezRTTINoAllocator);
+EZ_END_STATIC_REFLECTED_TYPE();
+
+EZ_BEGIN_STATIC_REFLECTED_TYPE(ezString, ezNoBase, 1, ezRTTINoAllocator);
+EZ_END_STATIC_REFLECTED_TYPE();
 
 EZ_STATICLINK_FILE(Foundation, Foundation_Reflection_Implementation_StandardTypes);
 

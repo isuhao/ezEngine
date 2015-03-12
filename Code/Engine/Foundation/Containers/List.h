@@ -162,10 +162,10 @@ public:
   void Insert(const Iterator& pos, ConstIterator first, const ConstIterator& last);
 
   /// \brief Erases the element pointed to by the iterator.
-  Iterator Erase(const Iterator& pos); // [tested]
+  Iterator Remove(const Iterator& pos); // [tested]
 
   /// \brief Erases range [first; last).
-  Iterator Erase(Iterator first, const Iterator& last);
+  Iterator Remove(Iterator first, const Iterator& last);
 
   /// \brief Returns an iterator to the first list-element.
   Iterator GetIterator(); // [tested]
@@ -187,6 +187,15 @@ public:
 
   /// \brief Returns the allocator that is used by this instance.
   ezAllocatorBase* GetAllocator() const { return m_Elements.GetAllocator(); }
+
+  /// \brief Comparison operator
+  bool operator==(const ezListBase<T>& rhs) const; // [tested]
+
+  /// \brief Comparison operator
+  bool operator!=(const ezListBase<T>& rhs) const; // [tested]
+
+  /// \brief Returns the amount of bytes that are currently allocated on the heap.
+  ezUInt64 GetHeapMemoryUsage() const { return m_Elements.GetHeapMemoryUsage(); } // [tested]
 
 private:
   /// \brief Sentinel node before the first element.

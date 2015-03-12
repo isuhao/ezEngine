@@ -1,6 +1,7 @@
 #include <Foundation/PCH.h>
 #include <Foundation/IO/JSONParser.h>
 #include <Foundation/Utilities/ConversionUtils.h>
+#include <Foundation/Logging/Log.h>
 
 ezJSONParser::ezJSONParser()
 {
@@ -8,22 +9,20 @@ ezJSONParser::ezJSONParser()
   m_uiNextByte = '\0';
   m_pInput = nullptr;
   m_bSkippingMode = false;
+  m_pLogInterface = nullptr;
 }
 
-void ezJSONParser::SetInputStream(ezStreamReaderBase* pInput)
+void ezJSONParser::SetInputStream(ezStreamReaderBase& stream)
 {
   m_StateStack.Clear();
   m_uiCurByte = '\0';
   m_TempString.Clear();
   m_bSkippingMode = false;
 
-  m_pInput = pInput;
+  m_pInput = &stream;
 
   m_uiNextByte = ' ';
-  ReadCharacter();
-
-  if (m_pInput == nullptr)
-    return;
+  ReadCharacter(true);
 
   // go to the start of the document
   SkipWhitespace();
@@ -94,6 +93,11 @@ void ezJSONParser::ParsingError(const char* szMessage, bool bFatal)
     m_uiCurByte = '\0';
     m_StateStack.Clear();
   }
+
+  if (bFatal)
+    ezLog::Error(m_pLogInterface, szMessage);
+  else
+    ezLog::Warning(m_pLogInterface, szMessage);
 
   OnParsingError(szMessage, bFatal);
 }
@@ -449,7 +453,7 @@ void ezJSONParser::ContinueSeparator()
   }
 }
 
-bool ezJSONParser::ReadCharacter()
+bool ezJSONParser::ReadCharacter(bool bSkipComments)
 {
   m_uiCurByte = m_uiNextByte;
 
@@ -457,7 +461,7 @@ bool ezJSONParser::ReadCharacter()
   m_pInput->ReadBytes(&m_uiNextByte, sizeof(ezUInt8));
 
   // skip comments
-  if (m_uiCurByte == '/')
+  if (m_uiCurByte == '/' && bSkipComments)
   {
     // line comment, read till line break
     if (m_uiNextByte == '/')
@@ -468,7 +472,7 @@ bool ezJSONParser::ReadCharacter()
         m_pInput->ReadBytes(&m_uiNextByte, sizeof(ezUInt8));
       }
 
-      ReadCharacter();
+      ReadCharacter(true);
     }
     else if (m_uiNextByte == '*') // block comment, read till */
     {
@@ -486,8 +490,8 @@ bool ezJSONParser::ReadCharacter()
       m_uiCurByte = ' ';
       m_uiNextByte = ' ';
 
-      ReadCharacter();
-      ReadCharacter(); // might trigger another comment skipping
+      ReadCharacter(true);
+      ReadCharacter(true); // might trigger another comment skipping
     }
   }
 
@@ -496,13 +500,13 @@ bool ezJSONParser::ReadCharacter()
 
 void ezJSONParser::SkipWhitespace()
 {
-  EZ_ASSERT(m_pInput != nullptr, "Input Stream is not set up.");
+  EZ_ASSERT_DEBUG(m_pInput != nullptr, "Input Stream is not set up.");
 
   do
   {
     m_uiCurByte = '\0';
 
-    if (!ReadCharacter())
+    if (!ReadCharacter(true))
       return; // stop when end of stream is encountered
   }
   while (ezStringUtils::IsWhiteSpace(m_uiCurByte));
@@ -510,7 +514,7 @@ void ezJSONParser::SkipWhitespace()
 
 void ezJSONParser::SkipString()
 {
-  EZ_ASSERT(m_pInput != nullptr, "Input Stream is not set up.");
+  EZ_ASSERT_DEBUG(m_pInput != nullptr, "Input Stream is not set up.");
 
   m_TempString.Clear();
   m_TempString.PushBack('\0');
@@ -523,7 +527,7 @@ void ezJSONParser::SkipString()
 
     m_uiCurByte = '\0';
 
-    if (!ReadCharacter())
+    if (!ReadCharacter(false))
     {
       ParsingError("While skipping string: Reached end of document before end of string was found.", true);
 
@@ -536,7 +540,7 @@ void ezJSONParser::SkipString()
 
 void ezJSONParser::ReadString()
 {
-  EZ_ASSERT(m_pInput != nullptr, "Input Stream is not set up.");
+  EZ_ASSERT_DEBUG(m_pInput != nullptr, "Input Stream is not set up.");
 
   m_TempString.Clear();
 
@@ -548,7 +552,7 @@ void ezJSONParser::ReadString()
 
     m_uiCurByte = '\0';
 
-    if (!ReadCharacter())
+    if (!ReadCharacter(false))
     {
       ParsingError("While reading string: Reached end of document before end of string was found.", true);
 
@@ -558,7 +562,49 @@ void ezJSONParser::ReadString()
     if (!bEscapeSequence && m_uiCurByte == '\"')
       break;
 
-    if (bEscapeSequence || m_uiCurByte != '\\')
+    if (bEscapeSequence)
+    {
+      switch (m_uiCurByte)
+      {
+      case '\"':
+        m_TempString.PushBack('\"');
+        break;
+      case '\\':
+        m_TempString.PushBack('\\');
+        m_uiCurByte = '\0'; // make sure the next character isn't interpreted as an escape sequence
+        break;
+      case '/':
+        m_TempString.PushBack('/');
+        break;
+      case 'b':
+        m_TempString.PushBack('\b');
+        break;
+      case 'f':
+        m_TempString.PushBack('\f');
+        break;
+      case 'n':
+        m_TempString.PushBack('\n');
+        break;
+      case 'r':
+        m_TempString.PushBack('\r');
+        break;
+      case 't':
+        m_TempString.PushBack('\t');
+        break;
+      case 'u':
+        ParsingError("Unicode literals are not supported.", false);
+        /// \todo Support escaped Unicode literals? (\u1234)
+        break;
+      default:
+        {
+          ezStringBuilder s;
+          s.Format("Unknown escape-sequence '\\%c'", m_uiCurByte);
+          ParsingError(s, false);
+        }
+        break;
+      }
+    }
+    else if (m_uiCurByte != '\\')
     {
       m_TempString.PushBack(m_uiCurByte);
     }
@@ -569,7 +615,7 @@ void ezJSONParser::ReadString()
 
 void ezJSONParser::ReadWord()
 {
-  EZ_ASSERT(m_pInput != nullptr, "Input Stream is not set up.");
+  EZ_ASSERT_DEBUG(m_pInput != nullptr, "Input Stream is not set up.");
 
   m_TempString.Clear();
 
@@ -579,7 +625,7 @@ void ezJSONParser::ReadWord()
 
     m_uiCurByte = '\0';
 
-    if (!ReadCharacter())
+    if (!ReadCharacter(true))
       break; // stop when end of stream is encountered
   }
   while (!ezStringUtils::IsWhiteSpace(m_uiCurByte) && m_uiCurByte != ',' && m_uiCurByte != ']' && m_uiCurByte != '}');
@@ -589,7 +635,7 @@ void ezJSONParser::ReadWord()
 
 double ezJSONParser::ReadNumber()
 {
-  EZ_ASSERT(m_pInput != nullptr, "Input Stream is not set up.");
+  EZ_ASSERT_DEBUG(m_pInput != nullptr, "Input Stream is not set up.");
 
   m_TempString.Clear();
 
@@ -599,7 +645,7 @@ double ezJSONParser::ReadNumber()
 
     m_uiCurByte = '\0';
 
-    if (!ReadCharacter())
+    if (!ReadCharacter(true))
       break; // stop when end of stream is encountered
   }
   while ((m_uiCurByte >= '0' && m_uiCurByte <= '9') || m_uiCurByte == '.' || m_uiCurByte == 'e' || m_uiCurByte == 'E' || m_uiCurByte == '-' || m_uiCurByte == '+');
@@ -616,4 +662,8 @@ double ezJSONParser::ReadNumber()
 
   return fResult;
 }
+
+
+
+EZ_STATICLINK_FILE(Foundation, Foundation_IO_Implementation_JSONParser);
 

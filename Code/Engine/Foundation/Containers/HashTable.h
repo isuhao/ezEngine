@@ -127,7 +127,7 @@ public:
   ValueType& operator[](const KeyType& key); // [tested]
 
   /// \brief Returns if an entry with given key exists in the table.
-  bool KeyExists(const KeyType& key) const; // [tested]
+  bool Contains(const KeyType& key) const; // [tested]
 
   /// \brief Returns an Iterator to the very first element.
   Iterator GetIterator(); // [tested]
@@ -137,6 +137,9 @@ public:
 
   /// \brief Returns the allocator that is used by this instance.
   ezAllocatorBase* GetAllocator() const;
+
+  /// \brief Returns the amount of bytes that are currently allocated on the heap.
+  ezUInt64 GetHeapMemoryUsage() const; // [tested]
 
 private:
 

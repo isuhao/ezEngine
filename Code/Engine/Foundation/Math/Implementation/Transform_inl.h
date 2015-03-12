@@ -22,7 +22,7 @@ inline ezTransformTemplate<Type>::ezTransformTemplate(const ezVec3Template<Type>
   m_vPosition = vPosition;
   m_Rotation = qRotation.GetAsMat3();
 
-  if (!vScale.IsIdentical(ezVec3Template<Type>(1.0f)))
+  if (!vScale.IsIdentical(ezVec3Template<Type>(1)))
     m_Rotation.SetScalingFactors(vScale);
 }
 
@@ -126,6 +126,19 @@ inline const ezTransformTemplate<Type> operator*(const ezMat4& t1, const ezTrans
 
   return r;
 }
+
+template<typename Type>
+inline bool operator==(const ezTransformTemplate<Type>& t1, const ezTransformTemplate<Type>& t2)
+{
+  return t1.IsIdentical(t2);
+}
+
+template<typename Type>
+inline bool operator!=(const ezTransformTemplate<Type>& t1, const ezTransformTemplate<Type>& t2)
+{
+  return !t1.IsIdentical(t2);
+}
+
 
 template<typename Type>
 inline ezResult ezTransformTemplate<Type>::Invert(Type fEpsilon)

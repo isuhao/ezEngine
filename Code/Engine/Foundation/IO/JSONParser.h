@@ -4,6 +4,8 @@
 #include <Foundation/IO/Stream.h>
 #include <Foundation/Containers/HybridArray.h>
 
+class ezLogInterface;
+
 /// \brief A low level JSON parser that can incrementally parse the structure of a JSON document.
 ///
 /// The document structure is returned through virtual functions that need to be overridden. 
@@ -13,8 +15,15 @@ public:
   /// \brief Constructor.
   ezJSONParser();
 
+  virtual ~ezJSONParser() { }
+
+  /// \brief Allows to specify an ezLogInterface through which errors and warnings are reported.
+  void SetLogInterface(ezLogInterface* pLog) { m_pLogInterface = pLog; }
+
+protected:
+
   /// \brief Resets the parser to the start state and configures it to read from the given stream.
-  void SetInputStream(ezStreamReaderBase* pInput);
+  void SetInputStream(ezStreamReaderBase& stream);
 
   /// \brief Does one parsing step.
   ///
@@ -27,8 +36,6 @@ public:
   /// \brief Calls ContinueParsing() in a loop until that returns false.
   void ParseAll();
 
-protected:
-
   /// \brief Skips the rest of the currently open object. No OnEndArray() and OnEndObject() calls will be done for this object,
   /// cleanup must be done manually.
   void SkipObject();
@@ -39,6 +46,8 @@ protected:
 
   /// \brief Outputs that a parsing error was detected (via OnParsingError) and stops further parsing, if bFatal is set to true.
   void ParsingError(const char* szMessage, bool bFatal);
+
+  ezLogInterface* m_pLogInterface;
 
 private:
 
@@ -124,7 +133,7 @@ private:
   void ContinueValue();
   void ContinueSeparator();
 
-  bool ReadCharacter();
+  bool ReadCharacter(bool bSkipComments);
 
   void SkipStack(State s);
 

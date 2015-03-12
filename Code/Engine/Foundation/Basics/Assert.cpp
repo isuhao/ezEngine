@@ -1,5 +1,6 @@
 #include <Foundation/PCH.h>
 #include <Foundation/Basics/Assert.h>
+#include <Foundation/Strings/StringUtils.h>
 
 bool ezDefaultAssertHandler(const char* szSourceFile, ezUInt32 uiLine, const char* szFunction, const char* szExpression, const char* szAssertMsg)
 {
@@ -28,7 +29,7 @@ bool ezDefaultAssertHandler(const char* szSourceFile, ezUInt32 uiLine, const cha
 
   #else
     char szTemp[1024 * 4] = "";
-    sprintf(szTemp, " *** Assertion ***\n\nExpression: \"%s\"\nFunction: \"%s\"\nFile: \"%s\"\nLine: %u\nMessage: \"%s\"", szExpression, szFunction, szSourceFile, uiLine, szAssertMsg);
+    ezStringUtils::snprintf(szTemp, EZ_ARRAY_SIZE(szTemp), " *** Assertion ***\n\nExpression: \"%s\"\nFunction: \"%s\"\nFile: \"%s\"\nLine: %u\nMessage: \"%s\"", szExpression, szFunction, szSourceFile, uiLine, szAssertMsg);
     szTemp[1024 * 4 - 1] = '\0';
     MessageBox(nullptr, szTemp, "Assertion", MB_ICONERROR);
   #endif
@@ -62,8 +63,7 @@ bool ezFailedCheck(const char* szSourceFile, ezUInt32 uiLine, const char* szFunc
   va_start (ap, szErrorMsg);
 
   char szMsg[1024 * 2] = "";
-  vsprintf(szMsg, szErrorMsg, ap);
-  szMsg[1024 * 2 - 1] = '\0';
+  ezStringUtils::vsnprintf(szMsg, EZ_ARRAY_SIZE(szMsg), szErrorMsg, ap);
 
   va_end (ap);
 

@@ -133,6 +133,9 @@ EZ_CREATE_SIMPLE_TEST(World, Components)
     ezComponentHandle handle;
     EZ_TEST_BOOL(!world.TryGetComponent(handle, pComponent));
 
+    // Update with no components created
+    world.Update();
+
     handle = TestComponent::CreateComponent(&world, pComponent);
     TestComponent* pTest = nullptr;
     EZ_TEST_BOOL(world.TryGetComponent(handle, pTest));
@@ -210,5 +213,65 @@ EZ_CREATE_SIMPLE_TEST(World, Components)
 
     world.DeleteComponentManager<TestComponentManager>();
     EZ_TEST_INT(TestComponent::s_iInitCounter, 0);
+  }
+
+  EZ_TEST_BLOCK(ezTestBlock::Enabled, "Delete Objects with Component")
+  {
+    world.CreateComponentManager<TestComponentManager>();
+
+    ezGameObject* pObjectA = nullptr;
+    ezGameObject* pObjectB = nullptr;
+    ezGameObject* pObjectC = nullptr;
+    ezGameObjectHandle hObjectA = world.CreateObject(ezGameObjectDesc(), pObjectA);
+    ezGameObjectHandle hObjectB = world.CreateObject(ezGameObjectDesc(), pObjectB);
+    ezGameObjectHandle hObjectC = world.CreateObject(ezGameObjectDesc(), pObjectC);
+
+    TestComponent* pComponentA = nullptr;
+    TestComponent* pComponentB = nullptr;
+    TestComponent* pComponentC = nullptr;
+
+    ezComponentHandle hComponentA = TestComponent::CreateComponent(&world, pComponentA);
+    ezComponentHandle hComponentB = TestComponent::CreateComponent(&world, pComponentB);
+    ezComponentHandle hComponentC = TestComponent::CreateComponent(&world, pComponentC);
+
+    pObjectA->AddComponent(pComponentA);
+    pObjectB->AddComponent(pComponentB);
+    pObjectC->AddComponent(pComponentC);
+
+    world.DeleteObject(pObjectB->GetHandle());
+
+    EZ_TEST_BOOL(pObjectA->IsActive());
+    EZ_TEST_BOOL(pComponentA->IsActive());
+    EZ_TEST_BOOL(pComponentA->GetOwner() == pObjectA);
+
+    EZ_TEST_BOOL(!pObjectB->IsActive());
+    EZ_TEST_BOOL(!pComponentB->IsActive());
+    EZ_TEST_BOOL(pComponentB->GetOwner() == nullptr);
+
+    EZ_TEST_BOOL(pObjectC->IsActive());
+    EZ_TEST_BOOL(pComponentC->IsActive());
+    EZ_TEST_BOOL(pComponentC->GetOwner() == pObjectC);
+
+    world.Update();
+
+    EZ_TEST_BOOL(world.TryGetObject(hObjectA, pObjectA));
+    EZ_TEST_BOOL(world.TryGetObject(hObjectC, pObjectC));
+
+    // Since we're not recompacting storage for components, pointer should still be valid.
+    //EZ_TEST_BOOL(world.TryGetComponent(hComponentA, pComponentA));
+    //EZ_TEST_BOOL(world.TryGetComponent(hComponentC, pComponentC));
+
+    EZ_TEST_BOOL(pObjectA->IsActive());
+    EZ_TEST_BOOL(pComponentA->IsActive());
+    EZ_TEST_BOOL(pComponentA->GetOwner() == pObjectA);
+
+    EZ_TEST_BOOL(pObjectC->IsActive());
+    EZ_TEST_BOOL(pComponentC->IsActive());
+    EZ_TEST_BOOL(pComponentC->GetOwner() == pObjectC);
+
+    // creating a new component should reuse memory from component B
+    TestComponent* pComponentB2 = nullptr;
+    ezComponentHandle hComponentB2 = TestComponent::CreateComponent(&world, pComponentB2);
+    EZ_TEST_BOOL(pComponentB2 == pComponentB);
   }
 }

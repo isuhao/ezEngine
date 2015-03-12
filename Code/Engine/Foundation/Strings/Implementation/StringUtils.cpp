@@ -410,9 +410,50 @@ ezInt32 ezStringUtils::CompareN_NoCase(const char* pString1, const char* pString
   }
 }
 
+ezUInt32 ezStringUtils::Copy(char* szDest, ezUInt32 uiDstSize, const char* szSource, const char* pSourceEnd)
+{
+  EZ_ASSERT_DEBUG(szDest != nullptr && uiDstSize > 0, "Invalid output buffer.");
+
+  if (IsNullOrEmpty(szSource))
+  {
+    ezStringUtils::AddUsedStringLength(0);
+    szDest[0] = '\0';
+    return 0;
+  }
+
+  ezUInt32 uiSourceLen = static_cast<ezUInt32>((pSourceEnd == ezMaxStringEnd) ? strlen(szSource) : pSourceEnd - szSource);
+  ezUInt32 uiBytesToCopy = ezMath::Min(uiDstSize - 1, uiSourceLen);
+
+  // simply copy all bytes
+  memcpy(szDest, szSource, uiBytesToCopy);
+
+  // We might have copied half of a UTF8 character so fix this now
+  char* szLastCharacterPos = szDest + uiBytesToCopy;
+  const char* szLastByteNotCopied = szSource + uiBytesToCopy;
+
+  // did we cut of a UTF8 character?
+  if (ezUnicodeUtils::IsUtf8ContinuationByte(*szLastByteNotCopied))
+  {
+    // if so fix it
+    szLastByteNotCopied--; szLastCharacterPos--;
+    while (ezUnicodeUtils::IsUtf8ContinuationByte(*szLastByteNotCopied))
+    {
+      szLastByteNotCopied--; szLastCharacterPos--;
+    }
+  }
+
+  // this will actually overwrite the last byte that we wrote into the output buffer 
+  *szLastCharacterPos = '\0';
+
+  const ezUInt32 uiLength = (ezUInt32)(szLastCharacterPos - szDest);
+
+  ezStringUtils::AddUsedStringLength(uiLength);
+  return uiLength;
+}
+
 ezUInt32 ezStringUtils::CopyN(char* szDest, ezUInt32 uiDstSize, const char* szSource, ezUInt32 uiCharsToCopy, const char* pSourceEnd)
 {
-  EZ_ASSERT(szDest != nullptr && uiDstSize > 0, "Invalid output buffer.");
+  EZ_ASSERT_DEBUG(szDest != nullptr && uiDstSize > 0, "Invalid output buffer.");
 
   if (IsNullOrEmpty(szSource))
   {
@@ -703,7 +744,7 @@ const char* ezStringUtils::FindWholeWord_NoCase(const char* szString, const char
 
 const char* ezStringUtils::SkipCharacters(const char* szString, EZ_CHARACTER_FILTER SkipCharacterCB, bool bAlwaysSkipFirst)
 {
-  EZ_ASSERT(szString != nullptr, "Invalid string");
+  EZ_ASSERT_DEBUG(szString != nullptr, "Invalid string");
 
   while (*szString != '\0')
   {
@@ -719,7 +760,7 @@ const char* ezStringUtils::SkipCharacters(const char* szString, EZ_CHARACTER_FIL
 
 const char* ezStringUtils::FindWordEnd(const char* szString, EZ_CHARACTER_FILTER IsDelimiterCB, bool bAlwaysSkipFirst)
 {
-  EZ_ASSERT(szString != nullptr, "Invalid string");
+  EZ_ASSERT_DEBUG(szString != nullptr, "Invalid string");
 
   while (*szString != '\0')
   {

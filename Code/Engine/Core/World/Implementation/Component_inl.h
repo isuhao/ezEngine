@@ -1,8 +1,8 @@
 
 EZ_FORCE_INLINE ezComponent::ezComponent() : 
   m_pManager(nullptr),
-  m_pOwner(nullptr),
-  m_Flags(ezObjectFlags::Default) 
+  m_Flags(ezObjectFlags::Default),
+  m_pOwner(nullptr)
 { 
 }
 
@@ -62,6 +62,11 @@ EZ_FORCE_INLINE bool ezComponent::IsInitialized() const
 }
 
 EZ_FORCE_INLINE void ezComponent::OnMessage(ezMessage& msg) 
+{
+  GetDynamicRTTI()->DispatchMessage(this, msg);
+}
+
+EZ_FORCE_INLINE void ezComponent::OnMessage(ezMessage& msg) const
 {
   GetDynamicRTTI()->DispatchMessage(this, msg);
 }

@@ -1,7 +1,39 @@
 #include <Core/PCH.h>
 #include <Core/World/World.h>
 
-EZ_BEGIN_STATIC_REFLECTED_TYPE(ezGameObject, ezNoBase, 1, ezRTTINoAllocator);
+
+// TODO: This is a temporary hack
+ezWorld* g_DummyWorld = nullptr;
+
+class ezGameObjectDummyAllocator : public ezRTTIAllocator
+{
+public:
+  
+  virtual void* Allocate() override
+  {
+    if (g_DummyWorld == nullptr)
+      g_DummyWorld = EZ_DEFAULT_NEW(ezWorld)("Dummy");
+
+    ezGameObject* pObject = nullptr;
+
+    ezGameObjectDesc d;
+    ezGameObjectHandle hObject = g_DummyWorld->CreateObject(d, pObject);
+
+    return pObject;
+  }
+
+  virtual void Deallocate(void* pObject) override
+  {
+    ezGameObject* pGameObject = (ezGameObject*) pObject;
+
+    g_DummyWorld->DeleteObject(pGameObject->GetHandle());
+
+    EZ_DEFAULT_DELETE(g_DummyWorld);
+  }
+};
+
+
+EZ_BEGIN_STATIC_REFLECTED_TYPE(ezGameObject, ezNoBase, 1, ezGameObjectDummyAllocator);
   EZ_BEGIN_PROPERTIES
     EZ_ACCESSOR_PROPERTY("Name", GetName, SetName),
     EZ_ACCESSOR_PROPERTY("Position", GetLocalPosition, SetLocalPosition),
@@ -10,14 +42,14 @@ EZ_BEGIN_STATIC_REFLECTED_TYPE(ezGameObject, ezNoBase, 1, ezRTTINoAllocator);
   EZ_END_PROPERTIES
 EZ_END_STATIC_REFLECTED_TYPE();
 
-void ezGameObject::ChildIterator::Next()
+void ezGameObject::ConstChildIterator::Next()
 {
   m_pObject = m_pObject->m_pWorld->GetObjectUnchecked(m_pObject->m_NextSiblingIndex);
 }
 
 void ezGameObject::operator=(const ezGameObject& other)
 {
-  EZ_ASSERT(m_pWorld == other.m_pWorld, "Cannot copy between worlds.");
+  EZ_ASSERT_DEV(m_pWorld == other.m_pWorld, "Cannot copy between worlds.");
 
   m_InternalId = other.m_InternalId;
   m_Flags = other.m_Flags;
@@ -43,7 +75,7 @@ void ezGameObject::operator=(const ezGameObject& other)
   for (ezUInt32 i = 0; i < m_Components.GetCount(); ++i)
   {
     ezComponent* pComponent = m_Components[i];
-    EZ_ASSERT(pComponent->m_pOwner == &other, "");
+    EZ_ASSERT_DEV(pComponent->m_pOwner == &other, "");
     pComponent->m_pOwner = this;
   }
 }
@@ -75,7 +107,12 @@ void ezGameObject::SetParent(const ezGameObjectHandle& parent)
   m_pWorld->SetParent(this, pParent);
 }
 
-ezGameObject* ezGameObject::GetParent() const
+ezGameObject* ezGameObject::GetParent()
+{
+  return m_pWorld->GetObjectUnchecked(m_ParentIndex);
+}
+
+const ezGameObject* ezGameObject::GetParent() const
 {
   return m_pWorld->GetObjectUnchecked(m_ParentIndex);
 }
@@ -101,9 +138,14 @@ void ezGameObject::DetachChild(const ezGameObjectHandle& child)
   }
 }
 
-ezGameObject::ChildIterator ezGameObject::GetChildren() const
+ezGameObject::ChildIterator ezGameObject::GetChildren()
 {
   return ChildIterator(m_pWorld->GetObjectUnchecked(m_FirstChildIndex));
+}
+
+ezGameObject::ConstChildIterator ezGameObject::GetChildren() const
+{
+  return ConstChildIterator(m_pWorld->GetObjectUnchecked(m_FirstChildIndex));
 }
 
 ezResult ezGameObject::AddComponent(const ezComponentHandle& component)
@@ -119,9 +161,9 @@ ezResult ezGameObject::AddComponent(const ezComponentHandle& component)
 
 ezResult ezGameObject::AddComponent(ezComponent* pComponent)
 {
-  EZ_ASSERT(pComponent->IsInitialized(), "Component must be initialized.");
-  EZ_ASSERT(pComponent->m_pOwner == nullptr, "Component must not be added twice.");
-  EZ_ASSERT(IsDynamic() || !pComponent->IsDynamic(),
+  EZ_ASSERT_DEV(pComponent->IsInitialized(), "Component must be initialized.");
+  EZ_ASSERT_DEV(pComponent->m_pOwner == nullptr, "Component must not be added twice.");
+  EZ_ASSERT_DEV(IsDynamic() || !pComponent->IsDynamic(),
     "Cannot attach a dynamic component to a static object. Call MakeDynamic() first.");
 
   pComponent->m_pOwner = this;
@@ -148,7 +190,7 @@ ezResult ezGameObject::RemoveComponent(const ezComponentHandle& component)
 
 ezResult ezGameObject::RemoveComponent(ezComponent* pComponent)
 {
-  EZ_ASSERT(pComponent->IsInitialized(), "Component must be initialized.");
+  EZ_ASSERT_DEV(pComponent->IsInitialized(), "Component must be initialized.");
 
   ezUInt32 uiIndex = m_Components.IndexOf(pComponent);
   if (uiIndex == ezInvalidIndex)
@@ -168,7 +210,7 @@ ezResult ezGameObject::RemoveComponent(ezComponent* pComponent)
 void ezGameObject::FixComponentPointer(ezComponent* pOldPtr, ezComponent* pNewPtr)
 {
   ezUInt32 uiIndex = m_Components.IndexOf(pOldPtr);
-  EZ_ASSERT(uiIndex != ezInvalidIndex, "Memory corruption?");
+  EZ_ASSERT_DEV(uiIndex != ezInvalidIndex, "Memory corruption?");
   m_Components[uiIndex] = pNewPtr;
 }
 
@@ -184,7 +226,7 @@ void ezGameObject::PostMessage(ezMessage& msg, ezObjectMsgQueueType::Enum queueT
   m_pWorld->PostMessage(GetHandle(), msg, queueType, delay, routing);
 }
 
-void ezGameObject::OnMessage(ezMessage& msg, ezObjectMsgRouting::Enum routing)
+void ezGameObject::SendMessage(ezMessage& msg, ezObjectMsgRouting::Enum routing)
 {
   if (routing == ezObjectMsgRouting::ToSubTree)
   {
@@ -197,7 +239,7 @@ void ezGameObject::OnMessage(ezMessage& msg, ezObjectMsgRouting::Enum routing)
       pParent = pCurrent->GetParent();
     }
 
-    pCurrent->OnMessage(msg, ezObjectMsgRouting::ToChildren);
+    pCurrent->SendMessage(msg, ezObjectMsgRouting::ToChildren);
     return;
   }
 
@@ -212,14 +254,55 @@ void ezGameObject::OnMessage(ezMessage& msg, ezObjectMsgRouting::Enum routing)
   {
     if (ezGameObject* pParent = GetParent())
     {
-      pParent->OnMessage(msg, routing);
+      pParent->SendMessage(msg, routing);
     }
   }
   else if (routing == ezObjectMsgRouting::ToChildren)
   {
-    for (ChildIterator it = GetChildren(); it.IsValid(); ++it)
+    for (auto it = GetChildren(); it.IsValid(); ++it)
     {
-      it->OnMessage(msg, routing);
+      it->SendMessage(msg, routing);
+    }
+  }
+}
+
+void ezGameObject::SendMessage(ezMessage& msg, ezObjectMsgRouting::Enum routing) const
+{
+  if (routing == ezObjectMsgRouting::ToSubTree)
+  {
+    // walk up the sub tree and send to children form there to prevent double handling
+    const ezGameObject* pCurrent = this;
+    const ezGameObject* pParent = GetParent();
+    while (pParent != nullptr)
+    {
+      pCurrent = pParent;
+      pParent = pCurrent->GetParent();
+    }
+
+    pCurrent->SendMessage(msg, ezObjectMsgRouting::ToChildren);
+    return;
+  }
+
+  // always send message to all components
+  for (ezUInt32 i = 0; i < m_Components.GetCount(); ++i)
+  {
+    const ezComponent* pComponent = m_Components[i];
+    pComponent->OnMessage(msg);
+  }
+
+  // route message to parent or children
+  if (routing == ezObjectMsgRouting::ToParent)
+  {
+    if (const ezGameObject* pParent = GetParent())
+    {
+      pParent->SendMessage(msg, routing);
+    }
+  }
+  else if (routing == ezObjectMsgRouting::ToChildren)
+  {
+    for (auto it = GetChildren(); it.IsValid(); ++it)
+    {
+      it->SendMessage(msg, routing);
     }
   }
 }

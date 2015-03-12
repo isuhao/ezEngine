@@ -107,7 +107,15 @@ inline void ezStringBuilder::Append(ezUInt32 uiChar)
   char* pChar = &szChar[0];
 
   ezUnicodeUtils::EncodeUtf32ToUtf8(uiChar, pChar);
-  Append(szChar);
+  ezUInt32 uiCharLen = (ezUInt32)(pChar - szChar);
+  ezUInt32 uiOldCount = m_Data.GetCount();
+  m_Data.SetCount(uiOldCount + uiCharLen);
+  uiOldCount--;
+  for (ezUInt32 i = 0; i < uiCharLen; i++)
+  {
+    m_Data[uiOldCount + i] = szChar[i];
+  }
+  m_Data[uiOldCount + uiCharLen] = '\0';
 }
 
 inline void ezStringBuilder::Prepend(ezUInt32 uiChar)
@@ -149,6 +157,8 @@ inline void ezStringBuilder::Prepend(const wchar_t* pData1, const wchar_t* pData
 
 inline const char* ezStringBuilder::GetData() const
 {
+  EZ_ASSERT_DEBUG(!m_Data.IsEmpty(), "ezStringBuilder has been corrupted, the array can never be empty.");
+
   return &m_Data[0];
 }
 
@@ -218,8 +228,8 @@ inline void ezStringBuilder::FormatArgs(const char* szUtf8Format, va_list args0)
 
 inline void ezStringBuilder::ChangeCharacter(ezStringView& It, ezUInt32 uiCharacter)
 {
-  EZ_ASSERT(It.IsValid(), "The given character iterator does not point to a valid character.");
-  EZ_ASSERT(It.GetData() >= GetData() && It.GetData() < GetData() + GetElementCount(), "The given character iterator does not point into this string. It was either created from another string, or this string has been reallocated in the mean time.");
+  EZ_ASSERT_DEV(It.IsValid(), "The given character iterator does not point to a valid character.");
+  EZ_ASSERT_DEV(It.GetData() >= GetData() && It.GetData() < GetData() + GetElementCount(), "The given character iterator does not point into this string. It was either created from another string, or this string has been reallocated in the mean time.");
 
   // this is only an optimization for pure ASCII strings
   // without it, the code below would still work

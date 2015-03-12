@@ -18,6 +18,11 @@ if (POLICY CMP0022)
   cmake_policy(SET CMP0022 NEW)
 endif()
 
+if (POLICY CMP0043)
+  cmake_policy(SET CMP0043 NEW)
+endif()
+
+
 #########################################################################################
 ## Other configurations
 
@@ -221,12 +226,16 @@ if (BUILDSYSTEM_PLATFORM_WINDOWS)
   set (EZ_COMPILE_ENGINE_AS_DLL ON CACHE BOOL "Whether to compile the code as a shared libraries (DLL).")
 endif()
 
-set (EZ_STRICT_WARNINGS OFF CACHE BOOL "Whether to compile the code with highest warning level. Good luck with that.")
+#set (EZ_STRICT_WARNINGS OFF CACHE BOOL "Whether to compile the code with highest warning level. Good luck with that.")
 set (EZ_ENABLE_QT_SUPPORT OFF CACHE BOOL "Whether to add Qt support.")
 set (EZ_QT_DIR $ENV{QTDIR} CACHE PATH "Directory of qt installation")
 set (EZ_QT_DIR_FOUND "NOT_FOUND" CACHE PATH "Last found directory of qt installation")
 mark_as_advanced(FORCE EZ_QT_DIR_FOUND)
 set (EZ_USE_PCH ON CACHE BOOL "Whether to use Precompiled Headers.")
+set (EZ_IGNORE_USERCONFIG_HEADER OFF CACHE BOOL "When disabled certain compile settings need to be configured through the UserConfig.h file in ezFoundation. When enabled those settings can be done from CMake. Do not enable this when you want to build ezEngine with CMake but then use that library in another project, as the settings in UserConfig.h and the pre-built library will differ.")
+
+# Disabled for this release, coming later
+set (EZ_USE_VISUALD OFF BOOL "If VisualD is installed on the system and should be used for D projects")
 
 set (EZ_OUTPUT_DIRECTORY_LIB "${CMAKE_SOURCE_DIR}/Output/Lib" CACHE PATH "Where to store the compiled .lib files.")
 set (EZ_OUTPUT_DIRECTORY_DLL "${CMAKE_SOURCE_DIR}/Output/Bin" CACHE PATH "Where to store the compiled .dll files.")
@@ -288,9 +297,9 @@ if (BUILDSYSTEM_COMPILER_MSVC)
   #set (COMPILER_SETTINGS_ALL "${COMPILER_SETTINGS_ALL} /fp:except")
 
 	# enable strict warnings
-  if (EZ_STRICT_WARNINGS)
-    set (COMPILER_SETTINGS_ALL "${COMPILER_SETTINGS_ALL} /W4")
-  endif()
+  #if (EZ_STRICT_WARNINGS)
+  #  set (COMPILER_SETTINGS_ALL "${COMPILER_SETTINGS_ALL} /W4")
+  #endif()
 	# treat warnings as errors
 	set (COMPILER_SETTINGS_ALL "${COMPILER_SETTINGS_ALL} /WX")
 
@@ -359,6 +368,42 @@ add_definitions (-DBUILDSYSTEM_CONFIGURATION="${BUILDSYSTEM_CONFIGURATION}")
 
 #########################################################################################
 ## additional preprocessor definitions
+
+
+#########################################################################################
+## UserConfig.h and CMake Configuration
+
+if (EZ_IGNORE_USERCONFIG_HEADER)
+
+  add_definitions (-DBUILDSYSTEM_IGNORE_USERCONFIG_HEADER)
+  
+  set (EZ_USE_PROFILING ON CACHE BOOL "Whether the code for profiling should be compiled in -> #define EZ_USE_PROFILING EZ_ON")
+  set (EZ_COMPILE_FOR_DEVELOPMENT ON CACHE BOOL "Enables various debug checks even in release builds -> #define EZ_COMPILE_FOR_DEVELOPMENT EZ_ON")
+  set (EZ_USE_ALLOCATION_STACK_TRACING ON CACHE BOOL "Enables stack tracing for all allocations for easier memory leak detection -> #define EZ_USE_ALLOCATION_STACK_TRACING EZ_ON")
+  
+  if (EZ_USE_PROFILING)
+    add_definitions(-DBUILDSYSTEM_USE_PROFILING)
+  endif()
+  
+  if (EZ_COMPILE_FOR_DEVELOPMENT)
+    add_definitions(-DBUILDSYSTEM_COMPILE_FOR_DEVELOPMENT)
+  endif()
+
+  if (EZ_USE_ALLOCATION_STACK_TRACING)
+    add_definitions(-DBUILDSYSTEM_USE_ALLOCATION_STACK_TRACING)
+  endif()
+  
+  # EZ_COMPILE_ENGINE_AS_DLL is always set through CMake as it determines how the solution is created
+  # However, when EZ_IGNORE_USERCONFIG_HEADER is enabled, the C++ #define 'EZ_COMPILE_ENGINE_AS_DLL' will be set always identical to what is configured in CMake.
+  # If it the UserConfig.h is used, however, one needs to ensure that what 5
+  
+else()
+
+  unset(EZ_USE_PROFILING CACHE)
+  unset(EZ_COMPILE_FOR_DEVELOPMENT CACHE)
+  unset(EZ_USE_ALLOCATION_STACK_TRACING CACHE)
+
+endif()
 
 
 
@@ -483,20 +528,6 @@ MACRO(ADD_MSVC_PRECOMPILED_HEADER_APP)
 ENDMACRO(ADD_MSVC_PRECOMPILED_HEADER_APP)
 
 #########################################################################################
-## Macro to enable/disable experimental projects
-
-MACRO(BUILD_EXPERIMENTAL_PROJECT)
-  get_filename_component (PROJECT_NAME ${CMAKE_CURRENT_SOURCE_DIR} NAME_WE)
-  string(TOUPPER ${PROJECT_NAME} PROJECT_NAME_UPPER)
-  SET(EZ_BUILD_EXPERIMENTAL_PROJECT_${PROJECT_NAME_UPPER} OFF CACHE BOOL "Whether to build the experimental project '${PROJECT_NAME_UPPER}'")
-   
-  if (NOT EZ_BUILD_EXPERIMENTAL_PROJECT_${PROJECT_NAME_UPPER})
-    return ()
-  endif ()
-ENDMACRO()
-
-
-#########################################################################################
 ## Macro to enable/disable application projects
 
 MACRO(BUILD_APPLICATION_PROJECT)
@@ -595,11 +626,7 @@ ENDMACRO()
 
 MACRO(ADD_TO_TARGET_LIST)
   file(RELATIVE_PATH ADD_TO_TARGET_LIST_MACRO_FOLDERNAME ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
-  if(${CMAKE_CURRENT_SOURCE_DIR} MATCHES "Experimental") 
-    file(APPEND ${CMAKE_BINARY_DIR}/Targets.txt "${PROJECT_NAME}|${ADD_TO_TARGET_LIST_MACRO_FOLDERNAME}|1|${LINK_LIBRARIES}\n")
-  else ()
-    file(APPEND ${CMAKE_BINARY_DIR}/Targets.txt "${PROJECT_NAME}|${ADD_TO_TARGET_LIST_MACRO_FOLDERNAME}|0|${LINK_LIBRARIES}\n")
-  endif ()
+  file(APPEND ${CMAKE_BINARY_DIR}/Targets.txt "${PROJECT_NAME}|${ADD_TO_TARGET_LIST_MACRO_FOLDERNAME}|0|${LINK_LIBRARIES}\n")
 ENDMACRO()
 
 
@@ -616,11 +643,7 @@ MACRO(ADD_TEST needs_hardware_access)
   
   get_filename_component (ADD_TEST_MACRO_FOLDERNAME ${CMAKE_CURRENT_SOURCE_DIR} NAME_WE)
   
-  if(${CMAKE_CURRENT_SOURCE_DIR} MATCHES "Experimental") 
-    file(APPEND ${CMAKE_BINARY_DIR}/Tests.txt "${ADD_TEST_MACRO_FOLDERNAME}|${ADD_TEST_MACRO_HWA}|1\n")
-  else ()
-    file(APPEND ${CMAKE_BINARY_DIR}/Tests.txt "${ADD_TEST_MACRO_FOLDERNAME}|${ADD_TEST_MACRO_HWA}|0\n")
-  endif ()
+  file(APPEND ${CMAKE_BINARY_DIR}/Tests.txt "${ADD_TEST_MACRO_FOLDERNAME}|${ADD_TEST_MACRO_HWA}|0\n")
 ENDMACRO()
 
 
@@ -634,12 +657,4 @@ include_directories ("${CMAKE_CURRENT_LIST_DIR}/../../../Tools")
 include_directories ("${CMAKE_CURRENT_LIST_DIR}/../../../Samples")
 include_directories ("${CMAKE_CURRENT_LIST_DIR}/../../../UnitTests")
 include_directories ("${CMAKE_CURRENT_LIST_DIR}/../../ThirdParty")
-
-if (EZ_BUILD_EXPERIMENTAL)
-  include_directories ("${CMAKE_CURRENT_LIST_DIR}/../../Experimental")   # this way it will also work for applications
-  include_directories ("${CMAKE_CURRENT_LIST_DIR}/../../../Projects/Experimental")      # different projects may need to include from each other
-endif()
-
-
-
 

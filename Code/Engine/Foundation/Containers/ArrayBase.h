@@ -14,7 +14,7 @@ class ezArrayBase
 public:
   /// \brief Constructor.
   ezArrayBase(); // [tested]
-  
+
   /// \brief Destructor.
   ~ezArrayBase(); // [tested]
 
@@ -32,7 +32,7 @@ public:
 
   /// \brief Compares this array to another contiguous array type.
   bool operator!= (const ezArrayPtr<T>& rhs) const; // [tested]
-  
+
   /// \brief Returns the element at the given index. Does bounds checks in debug builds.
   const T& operator[](ezUInt32 uiIndex) const; // [tested]
 
@@ -115,6 +115,18 @@ public:
   /// \brief Returns a pointer to the array data, or nullptr if the array is empty.
   const T* GetData() const;
 
+  /// \brief Returns a array pointer to the array data, or an empty array pointer if the array is empty.
+  ezArrayPtr<T> GetArrayPtr(); // [tested]
+
+  /// \brief Returns a array pointer to the array data, or an empty array pointer if the array is empty.
+  const ezArrayPtr<const T> GetArrayPtr() const; // [tested]
+
+  typedef const_iterator_base<ezArrayBase<T, Derived>, T, false> const_iterator;
+  typedef const_iterator_base<ezArrayBase<T, Derived>, T, true> const_reverse_iterator;
+  typedef iterator_base<ezArrayBase<T, Derived>, T, false> iterator;
+  typedef iterator_base<ezArrayBase<T, Derived>, T, true> reverse_iterator;
+
+
 protected:
 
   /// \brief Element-type access to m_Data.
@@ -126,6 +138,43 @@ protected:
   /// \brief The number of elements which can be stored in the array without re-allocating.
   ezUInt32 m_uiCapacity;
 };
+
+template <typename T, typename Derived>
+typename ezArrayBase<T, Derived>::iterator begin(ezArrayBase<T, Derived>& container) { return typename ezArrayBase<T, Derived>::iterator(container, (size_t) 0); }
+
+template <typename T, typename Derived>
+typename ezArrayBase<T, Derived>::const_iterator  begin(const ezArrayBase<T, Derived>& container) { return typename ezArrayBase<T, Derived>::const_iterator(container, (size_t) 0); }
+
+template <typename T, typename Derived>
+typename ezArrayBase<T, Derived>::const_iterator cbegin(const ezArrayBase<T, Derived>& container) { return typename ezArrayBase<T, Derived>::const_iterator(container, (size_t) 0); }
+
+template <typename T, typename Derived>
+typename ezArrayBase<T, Derived>::reverse_iterator rbegin(ezArrayBase<T, Derived>& container) { return typename ezArrayBase<T, Derived>::reverse_iterator(container, (size_t) 0); }
+
+template <typename T, typename Derived>
+typename ezArrayBase<T, Derived>::const_reverse_iterator rbegin(const ezArrayBase<T, Derived>& container) { return typename ezArrayBase<T, Derived>::const_reverse_iterator(container, (size_t) 0); }
+
+template <typename T, typename Derived>
+typename ezArrayBase<T, Derived>::const_reverse_iterator crbegin(const ezArrayBase<T, Derived>& container) { return typename ezArrayBase<T, Derived>::const_reverse_iterator(container, (size_t) 0); }
+
+template <typename T, typename Derived>
+typename ezArrayBase<T, Derived>::iterator end(ezArrayBase<T, Derived>& container) { return typename ezArrayBase<T, Derived>::iterator(container, (size_t) container.GetCount()); }
+
+template <typename T, typename Derived>
+typename ezArrayBase<T, Derived>::const_iterator end(const ezArrayBase<T, Derived>& container) { return typename ezArrayBase<T, Derived>::const_iterator(container, (size_t) container.GetCount()); }
+
+template <typename T, typename Derived>
+typename ezArrayBase<T, Derived>::const_iterator cend(const ezArrayBase<T, Derived>& container) { return typename ezArrayBase<T, Derived>::const_iterator(container, (size_t) container.GetCount()); }
+
+template <typename T, typename Derived>
+typename ezArrayBase<T, Derived>::reverse_iterator rend(ezArrayBase<T, Derived>& container) { return typename ezArrayBase<T, Derived>::reverse_iterator(container, (size_t) container.GetCount()); }
+
+template <typename T, typename Derived>
+typename ezArrayBase<T, Derived>::const_reverse_iterator  rend(const ezArrayBase<T, Derived>& container) { return typename ezArrayBase<T, Derived>::const_reverse_iterator(container, (size_t) container.GetCount()); }
+
+template <typename T, typename Derived>
+typename ezArrayBase<T, Derived>::const_reverse_iterator crend(const ezArrayBase<T, Derived>& container) { return typename ezArrayBase<T, Derived>::const_reverse_iterator(container, (size_t) container.GetCount()); }
+
 
 #include <Foundation/Containers/Implementation/ArrayBase_inl.h>
 

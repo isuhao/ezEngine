@@ -16,6 +16,7 @@
 #include <Foundation/Types/Id.h>
 #include <Foundation/Types/RefCounted.h>
 #include <Foundation/Types/Variant.h>
+#include <Foundation/Types/Uuid.h>
 
 #include <Foundation/Communication/Event.h>
 #include <Foundation/Communication/GlobalEvent.h>
@@ -39,6 +40,7 @@
 #include <Foundation/Containers/Set.h>
 #include <Foundation/Containers/StaticArray.h>
 #include <Foundation/Containers/StaticRingBuffer.h>
+#include <Foundation/Containers/ArrayMap.h>
 
 #include <Foundation/IO/Stream.h>
 #include <Foundation/IO/MemoryStream.h>

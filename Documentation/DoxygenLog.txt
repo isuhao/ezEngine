@@ -1,0 +1,287 @@
+Notice: Output directory `../Output/Doxygen' does not exist. I have created it for you.
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Core/World/Implementation/ComponentManager.cpp:50: warning: documented symbol `void ezComponentManagerBase::DeinitializeComponent' was not declared or defined.
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Core/World/Implementation/ComponentManager.cpp:77: warning: no uniquely matching class member found for 
+  void ezComponentManagerBase::DeleteDeadComponent(ComponentStorageEntry storageEntry, ezComponent *&out_pMovedComponent)
+
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Core/World/Implementation/ComponentManager_inl.h:27: warning: documented symbol `EZ_FORCE_INLINE ezComponentId ezComponentManagerBase::GetIdFromHandle' was not declared or defined.
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Core/World/Implementation/ComponentManager_inl.h:33: warning: no uniquely matching class member found for 
+  EZ_FORCE_INLINE ezComponentHandle ezComponentManagerBase::GetHandle(ezGenericComponentId internalId, ezUInt16 uiTypeId)
+
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Containers/Implementation/ArrayMap_inl.h:276: warning: no matching class member found for 
+  template < KEY, VALUE, A >
+  ezArrayMap< KEY, VALUE, A >::ezArrayMap(const ezArrayMap< KEY, VALUE, A > &rhs)
+Possible candidates:
+  ezArrayMap< KEY, VALUE, AllocatorWrapper >::ezArrayMap()
+  ezArrayMap< KEY, VALUE, AllocatorWrapper >::ezArrayMap(ezAllocatorBase *pAllocator)
+  ezArrayMap< KEY, VALUE, AllocatorWrapper >::ezArrayMap(const ezArrayMap< KEY, VALUE, AllocatorWrapper > &rhs)
+  ezArrayMap< KEY, VALUE, AllocatorWrapper >::ezArrayMap(const ezArrayMapBase< KEY, VALUE > &rhs)
+
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Containers/Implementation/ArrayMap_inl.h:286: warning: no uniquely matching class member found for 
+  template < KEY, VALUE, A >
+  void ezArrayMap< KEY, VALUE, A >::operator=(const ezArrayMap< KEY, VALUE, A > &rhs)
+Possible candidates:
+  void ezArrayMap< KEY, VALUE, AllocatorWrapper >::operator=(const ezArrayMap< KEY, VALUE, AllocatorWrapper > &rhs)' at line 141 of file D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Containers/ArrayMap.h
+  void ezArrayMap< KEY, VALUE, AllocatorWrapper >::operator=(const ezArrayMapBase< KEY, VALUE > &rhs)' at line 142 of file D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Containers/ArrayMap.h
+
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/IO/Implementation/Win/OSFile_win.h:182: warning: documented symbol `ezResult ezOSFile::InternalGetFileStats' was not declared or defined.
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Memory/Implementation/Allocator_inl.h:141: warning: no uniquely matching class member found for 
+  template < A, TrackingFlags >
+  void * ezInternal::ezAllocatorMixinReallocate< A, TrackingFlags >::Reallocate(void *ptr, size_t uiCurrentSize, size_t uiNewSize, size_t uiAlign)
+
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/System/Window/Implementation/SFML/Window_SFML.inl:103: warning: documented symbol `void ezWindow::PresentFrame' was not declared or defined.
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/System/Window/Implementation/SFML/Window_SFML.inl:108: warning: documented symbol `ezResult ezWindow::CreateGraphicsContext' was not declared or defined.
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/System/Window/Implementation/SFML/Window_SFML.inl:122: warning: documented symbol `ezResult ezWindow::DestroyGraphicsContext' was not declared or defined.
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/CoreUtils/CodeUtils/Preprocessor.h:44: warning: explicit link request to 'ifdef' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/CoreUtils/CodeUtils/Preprocessor.h:63: warning: explicit link request to 'include' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/CoreUtils/CodeUtils/Preprocessor.h:67: warning: explicit link request to 'include' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/CoreUtils/CodeUtils/Preprocessor.h:74: warning: explicit link request to 'included' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/CoreUtils/CodeUtils/Preprocessor.h:81: warning: explicit link request to 'version' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/CoreUtils/CodeUtils/Preprocessor.h:103: warning: explicit link request to 'ifdef' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/CoreUtils/CodeUtils/Preprocessor.h:104: warning: explicit link request to 'if' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/CoreUtils/CodeUtils/Preprocessor.h:140: warning: explicit link request to 'pragma' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/CoreUtils/CodeUtils/Preprocessor.h:143: warning: explicit link request to 'line' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/CoreUtils/CodeUtils/Tokenizer.h:18: warning: Found unknown command `\r'
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:190: warning: explicit link request to 'FFFFFF' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Logging/Log.h:210: warning: explicit link request to 'define' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:53: warning: explicit link request to 'F0F8FF' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:54: warning: explicit link request to 'FAEBD7' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:57: warning: explicit link request to 'F0FFFF' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:58: warning: explicit link request to 'F5F5DC' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:59: warning: explicit link request to 'FFE4C4' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:61: warning: explicit link request to 'FFEBCD' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:64: warning: explicit link request to 'A52A2A' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:65: warning: explicit link request to 'DEB887' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:68: warning: explicit link request to 'D2691E' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:69: warning: explicit link request to 'FF7F50' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:71: warning: explicit link request to 'FFF8DC' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:72: warning: explicit link request to 'DC143C' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:76: warning: explicit link request to 'B8860B' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:77: warning: explicit link request to 'A9A9A9' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:79: warning: explicit link request to 'BDB76B' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:82: warning: explicit link request to 'FF8C00' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:85: warning: explicit link request to 'E9967A' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:91: warning: explicit link request to 'FF1493' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:95: warning: explicit link request to 'B22222' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:96: warning: explicit link request to 'FFFAF0' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:98: warning: explicit link request to 'FF00FF' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:99: warning: explicit link request to 'DCDCDC' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:100: warning: explicit link request to 'F8F8FF' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:101: warning: explicit link request to 'FFD700' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:102: warning: explicit link request to 'DAA520' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:105: warning: explicit link request to 'ADFF2F' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:106: warning: explicit link request to 'F0FFF0' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:107: warning: explicit link request to 'FF69B4' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:108: warning: explicit link request to 'CD5C5C' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:110: warning: explicit link request to 'FFFFF0' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:111: warning: explicit link request to 'F0E68C' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:112: warning: explicit link request to 'E6E6FA' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:113: warning: explicit link request to 'FFF0F5' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:115: warning: explicit link request to 'FFFACD' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:116: warning: explicit link request to 'ADD8E6' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:117: warning: explicit link request to 'F08080' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:118: warning: explicit link request to 'E0FFFF' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:119: warning: explicit link request to 'FAFAD2' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:120: warning: explicit link request to 'D3D3D3' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:122: warning: explicit link request to 'FFB6C1' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:123: warning: explicit link request to 'FFA07A' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:127: warning: explicit link request to 'B0C4DE' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:128: warning: explicit link request to 'FFFFE0' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:131: warning: explicit link request to 'FAF0E6' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:132: warning: explicit link request to 'FF00FF' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:136: warning: explicit link request to 'BA55D3' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:142: warning: explicit link request to 'C71585' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:144: warning: explicit link request to 'F5FFFA' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:145: warning: explicit link request to 'FFE4E1' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:146: warning: explicit link request to 'FFE4B5' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:147: warning: explicit link request to 'FFDEAD' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:149: warning: explicit link request to 'FDF5E6' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:152: warning: explicit link request to 'FFA500' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:153: warning: explicit link request to 'FF4500' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:154: warning: explicit link request to 'DA70D6' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:155: warning: explicit link request to 'EEE8AA' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:157: warning: explicit link request to 'AFEEEE' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:158: warning: explicit link request to 'DB7093' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:159: warning: explicit link request to 'FFEFD5' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:160: warning: explicit link request to 'FFDAB9' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:161: warning: explicit link request to 'CD853F' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:162: warning: explicit link request to 'FFC0CB' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:163: warning: explicit link request to 'DDA0DD' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:164: warning: explicit link request to 'B0E0E6' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:167: warning: explicit link request to 'FF0000' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:168: warning: explicit link request to 'BC8F8F' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:171: warning: explicit link request to 'FA8072' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:172: warning: explicit link request to 'F4A460' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:174: warning: explicit link request to 'FFF5EE' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:175: warning: explicit link request to 'A0522D' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:176: warning: explicit link request to 'C0C0C0' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:180: warning: explicit link request to 'FFFAFA' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:183: warning: explicit link request to 'D2B48C' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:185: warning: explicit link request to 'D8BFD8' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:186: warning: explicit link request to 'FF6347' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:188: warning: explicit link request to 'EE82EE' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:189: warning: explicit link request to 'F5DEB3' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:191: warning: explicit link request to 'F5F5F5' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:192: warning: explicit link request to 'FFFF00' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Basics/AllDefinesOff.h:11: warning: explicit link request to 'if' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Basics/AllDefinesOff.h:11: warning: explicit link request to 'if' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Basics/AllDefinesOff.h:11: warning: explicit link request to 'if' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Basics/AllDefinesOff.h:11: warning: explicit link request to 'if' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Basics/AllDefinesOff.h:14: warning: explicit link request to 'if' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Basics/AllDefinesOff.h:14: warning: explicit link request to 'if' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Basics/AllDefinesOff.h:14: warning: explicit link request to 'if' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Basics/AllDefinesOff.h:14: warning: explicit link request to 'if' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Reflection/Implementation/DynamicRTTI.h:29: warning: The following parameters of EZ_BEGIN_DYNAMIC_REFLECTED_TYPE(Type, BaseType, Version, AllocatorType) are not documented:
+  parameter 'Version'
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Documentation/General/BuildSystem/HowToSetupQt.md:13: warning: Found unknown command `\bin'
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Documentation/General/BuildSystem/HowToUseCMake.md:26: warning: found subsection command outside of section context!
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Documentation/General/CodingGuidelines.md:6: warning: explicit link request to 'define' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Documentation/General/CodingGuidelines.md:7: warning: explicit link request to 'include' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Documentation/General/CodingGuidelines.md:7: warning: explicit link request to 'pragma' could not be resolved
+todo:13: warning: Found unknown command `\u1234'
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/CoreUtils/Graphics/Camera.h:62: warning: The following parameters of ezCamera::SetCameraMode(CameraMode Mode, float fFovOrDim, float fNearPlane, float fFarPlane) are not documented:
+  parameter 'Mode'
+  parameter 'fNearPlane'
+  parameter 'fFarPlane'
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:53: warning: explicit link request to 'F0F8FF' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:54: warning: explicit link request to 'FAEBD7' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:57: warning: explicit link request to 'F0FFFF' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:58: warning: explicit link request to 'F5F5DC' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:59: warning: explicit link request to 'FFE4C4' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:61: warning: explicit link request to 'FFEBCD' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:64: warning: explicit link request to 'A52A2A' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:65: warning: explicit link request to 'DEB887' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:68: warning: explicit link request to 'D2691E' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:69: warning: explicit link request to 'FF7F50' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:71: warning: explicit link request to 'FFF8DC' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:72: warning: explicit link request to 'DC143C' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:76: warning: explicit link request to 'B8860B' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:77: warning: explicit link request to 'A9A9A9' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:79: warning: explicit link request to 'BDB76B' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:82: warning: explicit link request to 'FF8C00' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:85: warning: explicit link request to 'E9967A' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:91: warning: explicit link request to 'FF1493' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:95: warning: explicit link request to 'B22222' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:96: warning: explicit link request to 'FFFAF0' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:98: warning: explicit link request to 'FF00FF' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:99: warning: explicit link request to 'DCDCDC' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:100: warning: explicit link request to 'F8F8FF' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:101: warning: explicit link request to 'FFD700' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:102: warning: explicit link request to 'DAA520' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:105: warning: explicit link request to 'ADFF2F' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:106: warning: explicit link request to 'F0FFF0' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:107: warning: explicit link request to 'FF69B4' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:108: warning: explicit link request to 'CD5C5C' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:110: warning: explicit link request to 'FFFFF0' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:111: warning: explicit link request to 'F0E68C' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:112: warning: explicit link request to 'E6E6FA' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:113: warning: explicit link request to 'FFF0F5' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:115: warning: explicit link request to 'FFFACD' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:116: warning: explicit link request to 'ADD8E6' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:117: warning: explicit link request to 'F08080' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:118: warning: explicit link request to 'E0FFFF' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:119: warning: explicit link request to 'FAFAD2' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:120: warning: explicit link request to 'D3D3D3' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:122: warning: explicit link request to 'FFB6C1' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:123: warning: explicit link request to 'FFA07A' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:127: warning: explicit link request to 'B0C4DE' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:128: warning: explicit link request to 'FFFFE0' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:131: warning: explicit link request to 'FAF0E6' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:132: warning: explicit link request to 'FF00FF' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:136: warning: explicit link request to 'BA55D3' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:142: warning: explicit link request to 'C71585' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:144: warning: explicit link request to 'F5FFFA' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:145: warning: explicit link request to 'FFE4E1' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:146: warning: explicit link request to 'FFE4B5' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:147: warning: explicit link request to 'FFDEAD' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:149: warning: explicit link request to 'FDF5E6' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:152: warning: explicit link request to 'FFA500' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:153: warning: explicit link request to 'FF4500' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:154: warning: explicit link request to 'DA70D6' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:155: warning: explicit link request to 'EEE8AA' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:157: warning: explicit link request to 'AFEEEE' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:158: warning: explicit link request to 'DB7093' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:159: warning: explicit link request to 'FFEFD5' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:160: warning: explicit link request to 'FFDAB9' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:161: warning: explicit link request to 'CD853F' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:162: warning: explicit link request to 'FFC0CB' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:163: warning: explicit link request to 'DDA0DD' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:164: warning: explicit link request to 'B0E0E6' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:167: warning: explicit link request to 'FF0000' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:168: warning: explicit link request to 'BC8F8F' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:171: warning: explicit link request to 'FA8072' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:172: warning: explicit link request to 'F4A460' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:174: warning: explicit link request to 'FFF5EE' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:175: warning: explicit link request to 'A0522D' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:176: warning: explicit link request to 'C0C0C0' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:180: warning: explicit link request to 'FFFAFA' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:183: warning: explicit link request to 'D2B48C' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:185: warning: explicit link request to 'D8BFD8' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:186: warning: explicit link request to 'FF6347' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:188: warning: explicit link request to 'EE82EE' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:189: warning: explicit link request to 'F5DEB3' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:190: warning: explicit link request to 'FFFFFF' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:191: warning: explicit link request to 'F5F5F5' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Color.h:192: warning: explicit link request to 'FFFF00' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/IO/Implementation/JSONParser.cpp:596: warning: Found unknown command `\u1234'
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Logging/Log.h:180: warning: explicit link request to 'define' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Logging/Log.h:210: warning: explicit link request to 'define' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Logging/Log.h:210: warning: explicit link request to 'define' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Mat4.h:113: warning: argument 'fFieldOfViewX' of command @param is not found in the argument list of ezMat4Template< Type >::SetPerspectiveProjectionMatrixFromFovX(ezAngle fieldOfViewX, Type fAspectRatioWidthDivHeight, Type fNearZ, Type fFarZ, ezProjectionDepthRange::Enum DepthRange=ezProjectionDepthRange::Default)
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Mat4.h:113: warning: The following parameters of ezMat4Template::SetPerspectiveProjectionMatrixFromFovX(ezAngle fieldOfViewX, Type fAspectRatioWidthDivHeight, Type fNearZ, Type fFarZ, ezProjectionDepthRange::Enum DepthRange=ezProjectionDepthRange::Default) are not documented:
+  parameter 'fieldOfViewX'
+  parameter 'fAspectRatioWidthDivHeight'
+  parameter 'fNearZ'
+  parameter 'fFarZ'
+  parameter 'DepthRange'
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Mat4.h:117: warning: argument 'fFieldOfViewY' of command @param is not found in the argument list of ezMat4Template< Type >::SetPerspectiveProjectionMatrixFromFovY(ezAngle fieldOfViewY, Type fAspectRatioWidthDivHeight, Type fNearZ, Type fFarZ, ezProjectionDepthRange::Enum DepthRange=ezProjectionDepthRange::Default)
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Math/Mat4.h:117: warning: The following parameters of ezMat4Template::SetPerspectiveProjectionMatrixFromFovY(ezAngle fieldOfViewY, Type fAspectRatioWidthDivHeight, Type fNearZ, Type fFarZ, ezProjectionDepthRange::Enum DepthRange=ezProjectionDepthRange::Default) are not documented:
+  parameter 'fieldOfViewY'
+  parameter 'fAspectRatioWidthDivHeight'
+  parameter 'fNearZ'
+  parameter 'fFarZ'
+  parameter 'DepthRange'
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Configuration/Plugin.h:33: warning: The following parameters of ezPlugin::ezPlugin(bool bIsReloadable, OnPluginLoadedFunction OnLoadPlugin=nullptr, OnPluginUnloadedFunction OnUnloadPlugin=nullptr, const char *szPluginDependency1=nullptr, const char *szPluginDependency2=nullptr, const char *szPluginDependency3=nullptr, const char *szPluginDependency4=nullptr, const char *szPluginDependency5=nullptr) are not documented:
+  parameter 'szPluginDependency2'
+  parameter 'szPluginDependency3'
+  parameter 'szPluginDependency4'
+  parameter 'szPluginDependency5'
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/CoreUtils/CodeUtils/Preprocessor.h:44: warning: explicit link request to 'ifdef' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/CoreUtils/CodeUtils/Preprocessor.h:63: warning: explicit link request to 'include' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/CoreUtils/CodeUtils/Preprocessor.h:71: warning: explicit link request to 'include' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/CoreUtils/CodeUtils/Preprocessor.h:74: warning: explicit link request to 'included' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/CoreUtils/CodeUtils/Preprocessor.h:81: warning: explicit link request to 'version' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/CoreUtils/CodeUtils/Preprocessor.h:140: warning: explicit link request to 'pragma' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/CoreUtils/CodeUtils/Preprocessor.h:143: warning: explicit link request to 'line' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/CoreUtils/CodeUtils/Preprocessor.h:160: warning: explicit link request to 'define' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/CoreUtils/CodeUtils/Preprocessor.h:44: warning: explicit link request to 'ifdef' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/CoreUtils/CodeUtils/Preprocessor.h:48: warning: explicit link request to 'if' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/CoreUtils/CodeUtils/Preprocessor.h:48: warning: explicit link request to 'ifdef' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/CoreUtils/CodeUtils/Preprocessor.h:48: warning: explicit link request to 'if' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/CoreUtils/CodeUtils/Preprocessor.h:52: warning: explicit link request to 'line' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/CoreUtils/CodeUtils/Preprocessor.h:54: warning: explicit link request to 'include' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/CoreUtils/CodeUtils/Preprocessor.h:55: warning: explicit link request to 'pragma' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/CoreUtils/CodeUtils/Preprocessor.h:56: warning: explicit link request to 'warning' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/CoreUtils/CodeUtils/Preprocessor.h:56: warning: explicit link request to 'error' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/CoreUtils/CodeUtils/Preprocessor.h:74: warning: explicit link request to 'included' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/CoreUtils/CodeUtils/Preprocessor.h:81: warning: explicit link request to 'version' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/CoreUtils/CodeUtils/Preprocessor.h:63: warning: explicit link request to 'include' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/CoreUtils/CodeUtils/Preprocessor.h:67: warning: explicit link request to 'include' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/CoreUtils/CodeUtils/Preprocessor.h:68: warning: explicit link request to 'include' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/CoreUtils/CodeUtils/Preprocessor.h:68: warning: Unsupported xml/html tag <file> found
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/CoreUtils/CodeUtils/Preprocessor.h:160: warning: explicit link request to 'define' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/CoreUtils/CodeUtils/Preprocessor.h:161: warning: explicit link request to 'define' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/CoreUtils/CodeUtils/Preprocessor.h:154: warning: explicit link request to 'included' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/CoreUtils/CodeUtils/Preprocessor.h:155: warning: explicit link request to 'included' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/CoreUtils/CodeUtils/Preprocessor.h:103: warning: explicit link request to 'ifdef' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/CoreUtils/CodeUtils/Preprocessor.h:104: warning: explicit link request to 'if' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Strings/StringUtils.h:211: warning: Found unknown command `\r'
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Strings/StringUtils.h:211: warning: Found unknown command `\t'
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Strings/StringUtils.h:211: warning: Found unknown command `\v'
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/CoreUtils/CodeUtils/Preprocessor.h:33: warning: explicit link request to 'line' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/CoreUtils/CodeUtils/Tokenizer.h:18: warning: Found unknown command `\r'
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Core/Input/VirtualThumbStick.h:63: warning: The following parameters of ezVirtualThumbStick::SetInputArea(const ezVec2 &vLowerLeft, const ezVec2 &vUpperRight, float fThumbstickRadius, float fPriority, CenterMode::Enum center=CenterMode::ActivationPoint) are not documented:
+  parameter 'fThumbstickRadius'
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Logging/Log.h:210: warning: explicit link request to 'define' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/CoreUtils/CodeUtils/Preprocessor.h:44: warning: explicit link request to 'ifdef' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/Foundation/Logging/Log.h:210: warning: explicit link request to 'define' could not be resolved
+D:/Daten/Code/ezEngine/Branches/Milestone6_Release/Code/Engine/CoreUtils/CodeUtils/Preprocessor.h:44: warning: explicit link request to 'ifdef' could not be resolved

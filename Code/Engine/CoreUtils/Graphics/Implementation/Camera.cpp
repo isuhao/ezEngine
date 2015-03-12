@@ -4,6 +4,8 @@
 ezCamera::ezCamera()
 {
   m_Mode = None;
+  m_uiSettingsModificationCounter = 0;
+  m_uiOrientationModificationCounter = 0;
 }
 
 ezAngle ezCamera::GetFovX(float fAspectRatioWidthDivHeight) const
@@ -32,6 +34,13 @@ ezAngle ezCamera::GetFovY(float fAspectRatioWidthDivHeight) const
 
 void ezCamera::SetCameraMode(CameraMode Mode, float fFovOrDim, float fNearPlane, float fFarPlane)
 {
+  // early out if no change
+  if (m_Mode == Mode &&
+      m_fFovOrDim == fFovOrDim &&
+      m_fNearPlane == fNearPlane &&
+      m_fFarPlane == fFarPlane)
+      return;
+
   m_Mode = Mode;
   m_fFovOrDim = fFovOrDim;
   m_fNearPlane = fNearPlane;
@@ -52,10 +61,10 @@ void ezCamera::LookAt(const ezVec3& vCameraPos, const ezVec3& vTargetPos, const 
 
 void ezCamera::SetFromMatrix(const ezMat4& mLookAtMatrix)
 {
-  m_vPosition    =  mLookAtMatrix.GetTranslationVector();
-  m_vDirRight    =  mLookAtMatrix.GetColumn(0).GetAsVec3();
-  m_vDirUp       =  mLookAtMatrix.GetColumn(1).GetAsVec3();
-  m_vDirForwards = -mLookAtMatrix.GetColumn(2).GetAsVec3();
+  m_vPosition    = -mLookAtMatrix.GetTranslationVector();
+  m_vDirRight    =  mLookAtMatrix.GetRow(0).GetAsVec3();
+  m_vDirUp       =  mLookAtMatrix.GetRow(1).GetAsVec3();
+  m_vDirForwards = -mLookAtMatrix.GetRow(2).GetAsVec3();
 
   CameraOrientationChanged(true, true);
 }
@@ -65,7 +74,7 @@ void ezCamera::GetViewMatrix(ezMat4& out_viewMatrix) const
   out_viewMatrix.SetLookAtMatrix(m_vPosition, m_vPosition + m_vDirForwards, m_vDirUp);
 }
 
-void ezCamera::GetProjectionMatrix(float fAspectRatioWidthDivHeight, ezProjectionDepthRange::Enum depthRange, ezMat4& out_projectionMatrix) const
+void ezCamera::GetProjectionMatrix(float fAspectRatioWidthDivHeight, ezMat4& out_projectionMatrix, ezProjectionDepthRange::Enum depthRange) const
 {
   if (m_Mode == PerspectiveFixedFovX)
   {
@@ -91,9 +100,11 @@ void ezCamera::GetProjectionMatrix(float fAspectRatioWidthDivHeight, ezProjectio
 
 void ezCamera::CameraSettingsChanged()
 {
-  EZ_ASSERT(m_Mode != None, "Invalid Camera Mode.");
-  EZ_ASSERT(m_fNearPlane < m_fFarPlane, "Near and Far Plane are invalid.");
-  EZ_ASSERT(m_fFovOrDim > 0.0f, "FOV or Camera Dimension is invalid.");
+  EZ_ASSERT_DEV(m_Mode != None, "Invalid Camera Mode.");
+  EZ_ASSERT_DEV(m_fNearPlane < m_fFarPlane, "Near and Far Plane are invalid.");
+  EZ_ASSERT_DEV(m_fFovOrDim > 0.0f, "FOV or Camera Dimension is invalid.");
+
+  ++m_uiSettingsModificationCounter;
 }
 
 void ezCamera::MoveLocally (const ezVec3& vMove)
@@ -161,6 +172,8 @@ void ezCamera::RotateLocally (ezAngle X, ezAngle Y, ezAngle Z)
     m_vDirUp = m * m_vDirUp;
     m_vDirRight = m * m_vDirRight;
   }
+
+  CameraOrientationChanged(false, true);
 }
 
 void ezCamera::RotateGlobally(ezAngle X, ezAngle Y, ezAngle Z)
@@ -196,6 +209,8 @@ void ezCamera::RotateGlobally(ezAngle X, ezAngle Y, ezAngle Z)
     m_vDirUp       = m * m_vDirUp;
     m_vDirForwards = m * m_vDirForwards;
   }
+
+  CameraOrientationChanged(false, true);
 }
 
 

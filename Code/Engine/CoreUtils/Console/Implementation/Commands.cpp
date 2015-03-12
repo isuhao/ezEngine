@@ -50,7 +50,7 @@ void ezConsole::ProcessCommand(const char* szCmd)
   if (m_CommandProcessor.IsValid())
     res = m_CommandProcessor(szCmd, this);
   else
-    AddConsoleString(szCmd, ezColor::GetWhite(), true);
+    AddConsoleString(szCmd, ezColor::White, true);
 
   // Broadcast that we have processed a command
   {
@@ -77,7 +77,7 @@ void ezConsole::UnbindKey(const char* szKey)
   s.Format("Unbinding key '%s'", szKey);
   AddConsoleString(s.GetData(), ezColor(50 / 255.0f, 1, 50 / 255.0f));
 
-  m_BoundKeys.Erase(szKey);
+  m_BoundKeys.Remove(szKey);
 }
 
 void ezConsole::ExecuteBoundKey(const char* szKey)
@@ -87,4 +87,8 @@ void ezConsole::ExecuteBoundKey(const char* szKey)
   if (it.IsValid())
     ProcessCommand(it.Value().GetData());
 }
+
+
+
+EZ_STATICLINK_FILE(CoreUtils, CoreUtils_Console_Implementation_Commands);
 

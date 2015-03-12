@@ -34,7 +34,7 @@ public:
 public:
 
   /// \brief Default constructor: Does not do any initialization.
-  ezTransformTemplate() { } // [tested]
+  ezTransformTemplate() { }; // [tested]
 
   /// \brief Sets position and rotation matrix, which might include scale as well.
   explicit ezTransformTemplate(const ezVec3Template<Type>& vPosition, const ezMat3Template<Type>& Rotation); // [tested]
@@ -117,6 +117,12 @@ const ezTransformTemplate<Type> operator*(const ezTransformTemplate<Type>& t1, c
 /// \brief Concatenates the two transforms. This is the same as a matrix multiplication, thus not commutative.
 template<typename Type>
 const ezTransformTemplate<Type> operator*(const ezMat4& t1, const ezTransformTemplate<Type>& t2); // [tested]
+
+template<typename Type>
+bool operator==(const ezTransformTemplate<Type>& t1, const ezTransformTemplate<Type>& t2); // [tested]
+
+template<typename Type>
+bool operator!=(const ezTransformTemplate<Type>& t1, const ezTransformTemplate<Type>& t2); // [tested]
 
 #include <Foundation/Math/Implementation/Transform_inl.h>
 

@@ -71,6 +71,13 @@ void ezJSONWriter::AddVariableTime(const char* szName, ezTime value)
   EndVariable();
 }
 
+void ezJSONWriter::AddVariableUuid(const char* szName, ezUuid value)
+{
+  BeginVariable(szName);
+  WriteUuid(value);
+  EndVariable();
+}
+
 void ezJSONWriter::AddVariableColor(const char* szName, const ezColor& value)
 {
   BeginVariable(szName);
@@ -167,7 +174,8 @@ void ezJSONWriter::WriteVariant(const ezVariant& value)
   switch (value.GetType())
   {
   case ezVariant::Type::Invalid:
-    EZ_REPORT_FAILURE("Variant of Type 'Invalid' cannot be written as JSON.");
+    //EZ_REPORT_FAILURE("Variant of Type 'Invalid' cannot be written as JSON.");
+    WriteNULL();
     return;
   case ezVariant::Type::Bool:
     WriteBool(value.Get<bool>());
@@ -228,6 +236,9 @@ void ezJSONWriter::WriteVariant(const ezVariant& value)
     return;
   case ezVariant::Type::Time:
     WriteTime(value.Get<ezTime>());
+    return;
+  case ezVariant::Type::Uuid:
+    WriteUuid(value.Get<ezUuid>());
     return;
 
   default:

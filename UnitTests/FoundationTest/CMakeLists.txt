@@ -20,6 +20,11 @@ SET (LINK_LIBRARIES
   TestFramework
 )
 
+SET (ADDITIONAL_DEPENDENCIES
+     FoundationTest_Plugin1
+	 FoundationTest_Plugin2
+)
+
 include (${CMAKE_SOURCE_DIR}/Code/BuildSystem/CMake/CMAKE_Application.txt)
 
 # Adds this project to 'Tests.txt', notifying the build server to run this as a test.

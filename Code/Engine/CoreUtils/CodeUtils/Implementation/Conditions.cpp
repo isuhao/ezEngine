@@ -94,7 +94,10 @@ ezResult ezPreprocessor::EvaluateCondition(const TokenStream& Tokens, ezUInt32& 
   }
 
   ezUInt32 uiCurToken2 = 0;
-  return ParseExpressionOr(Expanded, uiCurToken2, iResult);
+  if (ParseExpressionOr(Expanded, uiCurToken2, iResult).Failed())
+    return EZ_FAILURE;
+
+  return ExpectEndOfLine(Expanded, uiCurToken2);
 }
 
 ezResult ezPreprocessor::ParseFactor(const TokenStream& Tokens, ezUInt32& uiCurToken, ezInt64& iResult)
@@ -410,9 +413,14 @@ ezResult ezPreprocessor::ParseCondition(const TokenStream& Tokens, ezUInt32& uiC
     iResult = (iResult1 != iResult2) ? 1 : 0;
     return EZ_SUCCESS;
   case Comparison::None:
+    ezLog::Error(m_pLog, "Unknown operator");
     return EZ_FAILURE;
   }
 
   return EZ_FAILURE;
 }
+
+
+
+EZ_STATICLINK_FILE(CoreUtils, CoreUtils_CodeUtils_Implementation_Conditions);
 

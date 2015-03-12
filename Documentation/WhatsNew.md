@@ -7,7 +7,19 @@ Milestone 6
   * Added ezOBJLoader to load OBJ/MTL files.
   * Renamed ezStringIterator to ezStringView.
   * Added ezGeometry, a class with functions to generate basic geometric shapes.
-  * Added ezChunkFormatReader / ezChunkFormatWriter to work with 'chunked' file formats.
+  * Added ezChunkStreamReader / ezChunkStreamWriter to work with 'chunked' file formats.
+  * Added ezArchiveReader / ezArchiveWriter which implement a chunked format that also allows to store and restore reflected types and references between objects.
+  * Added ezArrayMap container, which is an associative container that is typically more efficient than ezMap.
+  * Added ezResourceManager, which allows to manage resources and stream data. This is still work in progress though.
+  * Refactored ezColor a bit. The interface is more streamlined. sRGB features have been moved into separate classes ezColorLinearUB and ezColorGammaUB.
+  * ezColorRgba8UNorm has been renamed to ezColorLinearUB (UB == unsigned byte).
+  * Removed ezColorBgra8Unorm
+  * Added the 140 predefined colors of the CSS specification to ezColor.
+  * Added ezDirectoryWatcher. This class allows to watch a directory for file changes. It is currently only implemented on Windows.
+  * Added a few utilty functions to ezStringBuilder: Set, SetSubString_FromTo, SetSubString_ElementCount, SetSubString_CharacterCount, RemoveFileExtension
+  * Added ezUuid, a class that allows to generate uuid/guid values. Implemented on Windows and Posix systems.
+  * Added a CMake file "FindezEngine.cmake" (in "Code\BuildSystem\CMake") which you can use for easier integration of ezEngine into your own CMake based project. For more details see this: \ref HowToUseCMake
+  * The CMake builds now allow to configure some settings, that previously needed to be done through the UserConfig.h in Foundation. Use 'EZ_IGNORE_USERCONFIG_HEADER' for this. However, this will only work, when you mirror the same defines in your project setup.
 
 Milestone 5
 -----------

@@ -35,6 +35,12 @@ public:
   /// \brief Base class for all iterators.
   struct Iterator
   {
+    typedef std::forward_iterator_tag iterator_category;
+    typedef Iterator value_type;
+    typedef ptrdiff_t difference_type;
+    typedef Iterator* pointer;
+    typedef Iterator& reference;
+
     EZ_DECLARE_POD_TYPE();
 
     /// \brief Constructs an invalid iterator.
@@ -50,7 +56,10 @@ public:
     EZ_FORCE_INLINE bool operator!=(const typename ezSetBase<KeyType, Comparer>::Iterator& it2) const { return (m_pElement != it2.m_pElement); }
 
     /// \brief Returns the 'key' of the element that this iterator points to.
-    EZ_FORCE_INLINE const KeyType&   Key ()  const { EZ_ASSERT(IsValid(), "Cannot access the 'key' of an invalid iterator."); return m_pElement->m_Key;   } // [tested]
+    EZ_FORCE_INLINE const KeyType&   Key ()  const { EZ_ASSERT_DEV(IsValid(), "Cannot access the 'key' of an invalid iterator."); return m_pElement->m_Key;   } // [tested]
+
+    /// \brief Returns the 'key' of the element that this iterator points to.
+    EZ_FORCE_INLINE const KeyType& operator*() { return Key(); }
 
     /// \brief Advances the iterator to the next element in the set. The iterator will not be valid anymore, if the end is reached.
     void Next(); // [tested]
@@ -106,13 +115,19 @@ public:
   Iterator Insert(const KeyType& key); // [tested]
 
   /// \brief Erases the element with the given key, if it exists. O(log n) operation.
-  void Erase(const KeyType& key); // [tested]
+  bool Remove(const KeyType& key); // [tested]
 
-  /// \brief Erases the element at the given Iterator. O(1) operation(nearly).
-  Iterator Erase(const Iterator& pos); // [tested]
+  /// \brief Erases the element at the given Iterator. O(log n) operation.
+  Iterator Remove(const Iterator& pos); // [tested]
 
   /// \brief Searches for key, returns an Iterator to it or an invalid iterator, if no such key is found. O(log n) operation.
   Iterator Find(const KeyType& key) const; // [tested]
+
+  /// \brief Checks whether the given key is in the container.
+  bool Contains(const KeyType& key) const; // [tested]
+
+  /// \brief Checks whether the given key is in the container.
+  bool Contains(const ezSetBase<KeyType, Comparer>& operand) const; // [tested]
 
   /// \brief Returns an Iterator to the element with a key equal or larger than the given key. Returns an invalid iterator, if there is no such element.
   Iterator LowerBound(const KeyType& key) const; // [tested]
@@ -120,8 +135,26 @@ public:
   /// \brief Returns an Iterator to the element with a key that is LARGER than the given key. Returns an invalid iterator, if there is no such element.
   Iterator UpperBound(const KeyType& key) const; // [tested]
 
+  /// \brief Makes this set the union of itself and the operand.
+  void Union(const ezSetBase<KeyType, Comparer>& operand);
+
+  /// \brief Makes this set the difference of itself and the operand, i.e. subtracts operand.
+  void Difference(const ezSetBase<KeyType, Comparer>& operand);
+
+  /// \brief Makes this set the intersection of itself and the operand.
+  void Intersection(const ezSetBase<KeyType, Comparer>& operand);
+
   /// \brief Returns the allocator that is used by this instance.
   ezAllocatorBase* GetAllocator() const { return m_Elements.GetAllocator(); }
+
+  /// \brief Comparison operator
+  bool operator==(const ezSetBase<KeyType, Comparer>& rhs) const; // [tested]
+
+  /// \brief Comparison operator
+  bool operator!=(const ezSetBase<KeyType, Comparer>& rhs) const; // [tested]
+
+  /// \brief Returns the amount of bytes that are currently allocated on the heap.
+  ezUInt64 GetHeapMemoryUsage() const { return m_Elements.GetHeapMemoryUsage(); } // [tested]
 
 private:
   Node* Internal_Find(const KeyType& key) const;
@@ -143,7 +176,7 @@ private:
   Node* SkewNode(Node* root);
   Node* SplitNode(Node* root);
   Node* Insert(Node* root, const KeyType& key, Node*& pInsertedNode);
-  Node* Erase(Node* root, const KeyType& key);
+  Node* Remove(Node* root, const KeyType& key, bool& bRemoved);
 
   /// \brief Returns the left-most node of the tree(smallest key).
   Node* GetLeftMost() const;
@@ -184,6 +217,26 @@ public:
   void operator=(const ezSet<KeyType, Comparer, AllocatorWrapper>& rhs);
   void operator=(const ezSetBase<KeyType, Comparer>& rhs);
 };
+
+
+template <typename KeyType, typename Comparer>
+typename ezSetBase<KeyType, Comparer>::Iterator begin(ezSetBase<KeyType, Comparer>& container) { return container.GetIterator(); }
+
+template <typename KeyType, typename Comparer>
+typename ezSetBase<KeyType, Comparer>::Iterator begin(const ezSetBase<KeyType, Comparer>& container) { return container.GetIterator(); }
+
+template <typename KeyType, typename Comparer>
+typename ezSetBase<KeyType, Comparer>::Iterator cbegin(const ezSetBase<KeyType, Comparer>& container) { return container.GetIterator(); }
+
+template <typename KeyType, typename Comparer>
+typename ezSetBase<KeyType, Comparer>::Iterator end(ezSetBase<KeyType, Comparer>& container) { return typename ezSetBase<KeyType, Comparer>::Iterator(); }
+
+template <typename KeyType, typename Comparer>
+typename ezSetBase<KeyType, Comparer>::Iterator end(const ezSetBase<KeyType, Comparer>& container) { return typename ezSetBase<KeyType, Comparer>::Iterator(); }
+
+template <typename KeyType, typename Comparer>
+typename ezSetBase<KeyType, Comparer>::Iterator cend(const ezSetBase<KeyType, Comparer>& container) { return typename ezSetBase<KeyType, Comparer>::Iterator(); }
+
 
 #include <Foundation/Containers/Implementation/Set_inl.h>
 

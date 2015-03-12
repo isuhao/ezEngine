@@ -72,8 +72,12 @@ EZ_CREATE_SIMPLE_TEST(Containers, DynamicArray)
   {
     ezDynamicArray<ezInt32, ezTestAllocatorWrapper> a1;
 
+    EZ_TEST_BOOL(a1.GetHeapMemoryUsage() == 0);
+
     for (ezInt32 i = 0; i < 32; ++i)
       a1.PushBack(rand() % 100000);
+
+    EZ_TEST_BOOL(a1.GetHeapMemoryUsage() >= 32 * sizeof(ezInt32));
 
     ezDynamicArray<ezInt32> a2 = a1;
     ezDynamicArray<ezInt32> a3 (a1);
@@ -179,7 +183,7 @@ EZ_CREATE_SIMPLE_TEST(Containers, DynamicArray)
     a1.SetCount(100);
 
     for (ezInt32 i = 0; i < 100; ++i)
-      a1[i] = i;;
+      a1[i] = i;
 
     for (ezInt32 i = 0; i < 100; ++i)
       EZ_TEST_INT(a1[i], i);
@@ -655,7 +659,9 @@ EZ_CREATE_SIMPLE_TEST(Containers, DynamicArray)
     EZ_TEST_BOOL(st::HasDone(0, 200));
 
     // this will deallocate ALL memory
+    EZ_TEST_BOOL(a.GetHeapMemoryUsage() > 0);
     a.Compact();
+    EZ_TEST_BOOL(a.GetHeapMemoryUsage() == 0);
 
     a.SetCount(100);
     EZ_TEST_BOOL(st::HasDone(100, 0));
@@ -663,6 +669,82 @@ EZ_CREATE_SIMPLE_TEST(Containers, DynamicArray)
     // this time objects need to be relocated
     a.SetCount(200);
     EZ_TEST_BOOL(st::HasDone(200, 100));
+  }
+
+  EZ_TEST_BLOCK(ezTestBlock::Enabled, "STL Iterator")
+  {
+    ezDynamicArray<ezInt32> a1;
+
+    for (ezInt32 i = 0; i < 1000; ++i)
+      a1.PushBack(1000 - i - 1);
+
+    // STL sort
+    std::sort(begin(a1), end(a1));
+
+    for (ezInt32 i = 1; i < 1000; ++i)
+    {
+      EZ_TEST_BOOL(a1[i - 1] <= a1[i]);
+    }
+
+    // foreach
+    ezUInt32 prev = 0;
+    for(ezUInt32 val : a1)
+    {
+      EZ_TEST_BOOL(prev <= val);
+      prev = val;
+    }
+
+    // const array
+    const ezDynamicArray<ezInt32>& a2 = a1;
+
+    // STL lower bound
+    auto lb = std::lower_bound(begin(a2), end(a2), 400);
+    EZ_TEST_BOOL(*lb == a2[400]);
+  }
+
+  EZ_TEST_BLOCK(ezTestBlock::Enabled, "STL Reverse Iterator")
+  {
+    ezDynamicArray<ezInt32> a1;
+
+    for (ezInt32 i = 0; i < 1000; ++i)
+      a1.PushBack(1000 - i - 1);
+
+    // STL sort
+    std::sort(rbegin(a1), rend(a1));
+
+    for (ezInt32 i = 1; i < 1000; ++i)
+    {
+      EZ_TEST_BOOL(a1[i - 1] >= a1[i]);
+    }
+
+    // foreach
+    ezUInt32 prev = 1000;
+    for(ezUInt32 val : a1)
+    {
+      EZ_TEST_BOOL(prev >= val);
+      prev = val;
+    }
+
+    // const array
+    const ezDynamicArray<ezInt32>& a2 = a1;
+
+    // STL lower bound
+    auto lb = std::lower_bound(rbegin(a2), rend(a2), 400);
+    EZ_TEST_BOOL(*lb == a2[1000 - 400 - 1]);
+  }
+
+  EZ_TEST_BLOCK(ezTestBlock::Enabled, "GetArrayPtr")
+  {
+      ezDynamicArray<ezInt32> a1;
+      a1.SetCount(10);
+
+      EZ_TEST_BOOL(a1.GetArrayPtr().GetCount() == 10);
+      EZ_TEST_BOOL(a1.GetArrayPtr().GetPtr() == a1.GetData());
+
+      const ezDynamicArray<ezInt32>& a1ref = a1;
+
+      EZ_TEST_BOOL(a1ref.GetArrayPtr().GetCount() == 10);
+      EZ_TEST_BOOL(a1ref.GetArrayPtr().GetPtr() == a1ref.GetData());
   }
 }
 

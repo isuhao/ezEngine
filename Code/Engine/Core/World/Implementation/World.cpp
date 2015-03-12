@@ -25,6 +25,7 @@ ezWorld::ezWorld(const char* szWorldName) :
     {
       s_Worlds[i] = this;
       m_uiIndex = i;
+      break;
     }
   }
 
@@ -68,7 +69,7 @@ ezGameObjectHandle ezWorld::CreateObject(const ezGameObjectDesc& desc, ezGameObj
     pParentData = pParentObject->m_pTransformationData;
     uiParentIndex = desc.m_Parent.m_InternalId.m_InstanceIndex;
     uiHierarchyLevel = pParentObject->m_uiHierarchyLevel;
-    EZ_ASSERT(uiHierarchyLevel < (1 << 12), "Max hierarchy level reached");
+    EZ_ASSERT_DEV(uiHierarchyLevel < (1 << 12), "Max hierarchy level reached");
     ++uiHierarchyLevel; // if there is a parent hierarchy level is parent level + 1
   }
 
@@ -128,6 +129,9 @@ void ezWorld::DeleteObject(const ezGameObjectHandle& object)
 
   ezGameObject* pObject = storageEntry.m_Ptr;
 
+  // set object to inactive so components and children know that they shouldn't access the object anymore.
+  pObject->m_Flags.Remove(ezObjectFlags::Active);
+
   // delete children
   for (auto it = pObject->GetChildren(); it.IsValid(); ++it)
   {
@@ -141,16 +145,15 @@ void ezWorld::DeleteObject(const ezGameObjectHandle& object)
     ezComponent* pComponent = components[c];
     pComponent->GetManager()->DeleteComponent(pComponent->GetHandle());
   }
-  EZ_ASSERT(pObject->m_Components.GetCount() == 0, "Components should already be removed");
+  EZ_ASSERT_DEV(pObject->m_Components.GetCount() == 0, "Components should already be removed");
 
   // fix parent and siblings
   UnlinkFromParent(pObject);
 
   // invalidate and remove from id table
   pObject->m_InternalId.Invalidate();
-  pObject->m_Flags.Remove(ezObjectFlags::Active);
   m_Data.m_DeadObjects.PushBack(storageEntry);
-  m_Data.m_Objects.Remove(object);  
+  EZ_VERIFY(m_Data.m_Objects.Remove(object), "Implementation error.");
 }
 
 void ezWorld::PostMessage(const ezGameObjectHandle& receiverObject, ezMessage& msg, 
@@ -182,7 +185,7 @@ void ezWorld::Update()
 {
   CheckForMultithreadedAccess();
 
-  EZ_ASSERT(m_Data.m_UnresolvedUpdateFunctions.IsEmpty(), "There are update functions with unresolved dependencies.");
+  EZ_ASSERT_DEV(m_Data.m_UnresolvedUpdateFunctions.IsEmpty(), "There are update functions with unresolved dependencies.");
 
   EZ_PROFILE(m_Data.m_UpdateProfilingID);
 
@@ -323,7 +326,7 @@ void ezWorld::ProcessQueuedMessages(ezObjectMsgQueueType::Enum queueType)
     ezGameObject* pReceiverObject = nullptr;
     if (TryGetObject(entry.m_MetaData.m_ReceiverObject, pReceiverObject))
     {
-      pReceiverObject->OnMessage(*entry.m_pMessage, entry.m_MetaData.m_Routing);
+      pReceiverObject->SendMessage(*entry.m_pMessage, entry.m_MetaData.m_Routing);
     }
 
     EZ_DELETE(&m_Data.m_Allocator, entry.m_pMessage);
@@ -338,7 +341,7 @@ ezResult ezWorld::RegisterUpdateFunction(const ezComponentManagerBase::UpdateFun
 {
   CheckForMultithreadedAccess();
 
-  EZ_ASSERT(desc.m_Phase == ezComponentManagerBase::UpdateFunctionDesc::Async || desc.m_uiGranularity == 0, "Granularity must be 0 for synchronous update functions");
+  EZ_ASSERT_DEV(desc.m_Phase == ezComponentManagerBase::UpdateFunctionDesc::Async || desc.m_uiGranularity == 0, "Granularity must be 0 for synchronous update functions");
 
   ezDynamicArrayBase<ezInternal::WorldData::RegisteredUpdateFunction>& updateFunctions = m_Data.m_UpdateFunctions[desc.m_Phase];
 
@@ -353,7 +356,7 @@ ezResult ezWorld::RegisterUpdateFunction(const ezComponentManagerBase::UpdateFun
   }
   else
   {
-    EZ_ASSERT(desc.m_Phase != ezComponentManagerBase::UpdateFunctionDesc::Async, "Asynchronous update functions must not have dependencies");
+    EZ_ASSERT_DEV(desc.m_Phase != ezComponentManagerBase::UpdateFunctionDesc::Async, "Asynchronous update functions must not have dependencies");
 
     if (RegisterUpdateFunctionWithDependency(desc, true) == EZ_FAILURE)
       return EZ_FAILURE;
@@ -418,17 +421,34 @@ ezResult ezWorld::DeregisterUpdateFunction(const ezComponentManagerBase::UpdateF
 
   ezDynamicArrayBase<ezInternal::WorldData::RegisteredUpdateFunction>& updateFunctions = m_Data.m_UpdateFunctions[desc.m_Phase];
 
-  for (ezUInt32 i = 0; i < updateFunctions.GetCount(); ++i)
+  for (ezUInt32 i = updateFunctions.GetCount(); i-- > 0;)
   {
     if (updateFunctions[i].m_Function == desc.m_Function)
     {
       updateFunctions.RemoveAt(i);
-      --i;
       result = EZ_SUCCESS;
     }
   }
 
   return result;
+}
+
+void ezWorld::DeregisterUpdateFunctions(ezComponentManagerBase* pManager)
+{
+  CheckForMultithreadedAccess();
+
+  for (ezUInt32 phase = ezComponentManagerBase::UpdateFunctionDesc::PreAsync; phase < ezComponentManagerBase::UpdateFunctionDesc::PHASE_COUNT; ++phase)
+  {
+    ezDynamicArrayBase<ezInternal::WorldData::RegisteredUpdateFunction>& updateFunctions = m_Data.m_UpdateFunctions[phase];
+
+    for (ezUInt32 i = updateFunctions.GetCount(); i-- > 0;)
+    {
+      if (updateFunctions[i].m_Function.GetInstance() == pManager)
+      {
+        updateFunctions.RemoveAt(i);
+      }
+    }
+  }
 }
 
 void ezWorld::UpdateSynchronous(const ezArrayPtr<ezInternal::WorldData::RegisteredUpdateFunction>& updateFunctions)
@@ -617,6 +637,16 @@ void ezWorld::UpdateHierarchy()
   m_Data.m_SetParentRequests.Clear();
 }
 
+ezComponentManagerBase* ezWorld::GetComponentManager(const ezRTTI* pRtti) const
+{
+  for (auto pMan : m_Data.m_ComponentManagers)
+  {
+    if (pMan != nullptr && pMan->GetComponentType() == pRtti)
+      return pMan;
+  }
+
+  return nullptr;
+}
 
 EZ_STATICLINK_FILE(Core, Core_World_Implementation_World);
 

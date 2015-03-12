@@ -78,8 +78,8 @@ namespace
 //static
 void ezProfilingSystem::Initialize()
 {
-  EZ_ASSERT(s_pProfilingData != nullptr, "Profiling Data should already be initialized");
-  EZ_ASSERT(s_pProfilingData->m_InfoTable.GetAllocator() != ezFoundation::GetDefaultAllocator(), "Profiling Data must use the static allocator");
+  EZ_ASSERT_DEV(s_pProfilingData != nullptr, "Profiling Data should already be initialized");
+  EZ_ASSERT_DEV(s_pProfilingData->m_InfoTable.GetAllocator() != ezFoundation::GetDefaultAllocator(), "Profiling Data must use the static allocator");
 
   SetThreadName("Main Thread");
 }
@@ -91,7 +91,7 @@ ezProfilingId ezProfilingSystem::CreateId(const char* szName)
 
   EZ_LOCK(*s_pProfilingData);
 
-  EZ_ASSERT(s_pProfilingData->m_InfoTable.GetCount() < EZ_PROFILING_ID_COUNT,
+  EZ_ASSERT_DEV(s_pProfilingData->m_InfoTable.GetCount() < EZ_PROFILING_ID_COUNT,
     "Max profiling id count (%d) reached. Increase EZ_PROFILING_ID_COUNT.", EZ_PROFILING_ID_COUNT);
   return ezProfilingId(s_pProfilingData->m_InfoTable.Insert(RefCountedProfilingInfo(szName)));
 }
@@ -147,6 +147,22 @@ void ezProfilingSystem::DeleteId(const ezProfilingId& id)
 
 //static
 void ezProfilingSystem::SetThreadName(const char* szThreadName)
+{
+}
+
+void ezProfilingSystem::Initialize()
+{
+}
+
+void ezProfilingSystem::AddReference(const ezProfilingId& id)
+{
+}
+
+void ezProfilingSystem::ReleaseReference(const ezProfilingId& id)
+{
+}
+
+void ezProfilingSystem::Capture(ezStreamWriterBase& outputStream)
 {
 }
 

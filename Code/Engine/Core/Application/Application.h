@@ -63,8 +63,11 @@ public:
   };
 
   /// \brief Constructor.
-  ezApplication()
-    : m_iReturnCode(0), m_uiArgumentCount(0), m_ppArguments(nullptr)
+  ezApplication() : 
+    m_iReturnCode(0), 
+    m_uiArgumentCount(0), 
+    m_ppArguments(nullptr),
+    m_bReportMemoryLeaks(true)
   {
   }
 
@@ -151,7 +154,7 @@ public:
   {
     m_uiArgumentCount = uiArgumentCount;
     m_ppArguments = ppArguments;
-    m_CommandLine.SetCommandLine(uiArgumentCount, ppArguments);
+    ezCommandLineUtils::GetInstance()->SetCommandLine(uiArgumentCount, ppArguments);
   }
 
   /// \brief Returns the one instance of ezApplication that is available.
@@ -171,7 +174,7 @@ public:
   /// \brief Returns one of the command line arguments that was passed to the application.
   const char* GetArgument(ezUInt32 uiArgument) const
   {
-    EZ_ASSERT(uiArgument < m_uiArgumentCount, "There are only %i arguments, cannot access argument %i.", m_uiArgumentCount, uiArgument);
+    EZ_ASSERT_DEV(uiArgument < m_uiArgumentCount, "There are only %i arguments, cannot access argument %i.", m_uiArgumentCount, uiArgument);
 
     return m_ppArguments[uiArgument];
   }
@@ -182,10 +185,9 @@ public:
     return m_ppArguments;
   }
 
-  /// \brief Returns the ezCommandLineUtils object. Only useful if the command line parameters were passed to the application object at the start.
-  const ezCommandLineUtils& GetCommandLine() const
+  void EnableMemoryLeakReporting(bool bEnable)
   {
-    return m_CommandLine;
+    m_bReportMemoryLeaks = bEnable;
   }
 
 private:
@@ -196,11 +198,10 @@ private:
 
   const char** m_ppArguments;
 
+  bool m_bReportMemoryLeaks;
+
   static ezApplication* s_pApplicationInstance;
 
   friend EZ_CORE_DLL void ezRun(ezApplication* pApplicationInstance);
-
-  ezCommandLineUtils m_CommandLine;
-
-};
+  };
 

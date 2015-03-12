@@ -13,7 +13,7 @@ ezMap<ezString, ezTokenizedFileCache::FileData>::ConstIterator ezTokenizedFileCa
 void ezTokenizedFileCache::Remove(const ezString& sFileName)
 {
   EZ_LOCK(m_Mutex);
-  m_Cache.Erase(sFileName);
+  m_Cache.Remove(sFileName);
 }
 
 void ezTokenizedFileCache::Clear()
@@ -163,8 +163,8 @@ ezResult ezPreprocessor::DefaultFileOpen(const char* szAbsoluteFile, ezDynamicAr
 
 ezResult ezPreprocessor::OpenFile(const char* szFile, const ezTokenizer** pTokenizer)
 {
-  EZ_ASSERT(m_FileOpenCallback.IsValid(), "OpenFile callback has not been set");
-  EZ_ASSERT(m_FileLocatorCallback.IsValid(), "File locator callback has not been set");
+  EZ_ASSERT_DEV(m_FileOpenCallback.IsValid(), "OpenFile callback has not been set");
+  EZ_ASSERT_DEV(m_FileLocatorCallback.IsValid(), "File locator callback has not been set");
 
   *pTokenizer = nullptr;
 
@@ -194,7 +194,7 @@ ezResult ezPreprocessor::OpenFile(const char* szFile, const ezTokenizer** pToken
 
 ezResult ezPreprocessor::HandleInclude(const TokenStream& Tokens, ezUInt32 uiCurToken, ezUInt32 uiDirectiveToken, TokenStream& TokenOutput)
 {
-  EZ_ASSERT(m_FileLocatorCallback.IsValid(), "File locator callback has not been set");
+  EZ_ASSERT_DEV(m_FileLocatorCallback.IsValid(), "File locator callback has not been set");
 
   SkipWhitespace(Tokens, uiCurToken);
 
@@ -255,7 +255,7 @@ ezResult ezPreprocessor::HandleInclude(const TokenStream& Tokens, ezUInt32 uiCur
     return EZ_FAILURE;
   }
 
-  EZ_ASSERT(!m_sCurrentFileStack.IsEmpty(), "Implementation error.");
+  EZ_ASSERT_DEV(!m_sCurrentFileStack.IsEmpty(), "Implementation error.");
 
   ezString sOtherFile;
 
@@ -277,4 +277,8 @@ ezResult ezPreprocessor::HandleInclude(const TokenStream& Tokens, ezUInt32 uiCur
 
   return EZ_SUCCESS;
 }
+
+
+
+EZ_STATICLINK_FILE(CoreUtils, CoreUtils_CodeUtils_Implementation_FileHandling);
 

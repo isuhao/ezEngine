@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Foundation/Memory/MemoryUtils.h>
+#include <Foundation/Containers/Implementation/ArrayIterator.h>
 
 /// \brief This class encapsulates an array and it's size. It is recommended to use this class instead of plain C arrays.
 ///
@@ -66,21 +67,21 @@ public:
   /// \brief Creates a sub-array from this array.
   EZ_FORCE_INLINE ezArrayPtr<T> GetSubArray(ezUInt32 uiStart, ezUInt32 uiCount) // [tested]
   {
-    EZ_ASSERT(uiStart + uiCount <= m_uiCount, "uiStart+uiCount (%i) has to be smaller or equal than the count (%i).", uiStart+uiCount, m_uiCount);
+    EZ_ASSERT_DEV(uiStart + uiCount <= m_uiCount, "uiStart+uiCount (%i) has to be smaller or equal than the count (%i).", uiStart+uiCount, m_uiCount);
     return ezArrayPtr<T>(m_ptr + uiStart, uiCount);
   }
 
   /// \brief Creates a sub-array from this array.
   EZ_FORCE_INLINE const ezArrayPtr<T> GetSubArray(ezUInt32 uiStart, ezUInt32 uiCount) const // [tested]
   {
-    EZ_ASSERT(uiStart + uiCount <= m_uiCount, "uiStart+uiCount (%i) has to be smaller or equal than the count (%i).", uiStart+uiCount, m_uiCount);
+    EZ_ASSERT_DEV(uiStart + uiCount <= m_uiCount, "uiStart+uiCount (%i) has to be smaller or equal than the count (%i).", uiStart+uiCount, m_uiCount);
     return ezArrayPtr<T>(m_ptr + uiStart, uiCount);
   }
 
   /// \brief Index access.
   EZ_FORCE_INLINE T& operator[](ezUInt32 uiIndex) const // [tested]
   {
-    EZ_ASSERT(uiIndex < m_uiCount, "Cannot access element %i, the array only holds %i elements.", uiIndex, m_uiCount);
+    EZ_ASSERT_DEV(uiIndex < m_uiCount, "Cannot access element %i, the array only holds %i elements.", uiIndex, m_uiCount);
     return m_ptr[uiIndex];
   }
 
@@ -117,7 +118,7 @@ public:
   /// \brief Copies the data from \a other into this array. The arrays must have the exact same size.
   inline void CopyFrom(const ezArrayPtr<T>& other) // [tested]
   {
-    EZ_ASSERT(m_uiCount == other.m_uiCount, "Count for copy does not match. Target has %d elements, source %d elements", m_uiCount, other.m_uiCount);
+    EZ_ASSERT_DEV(m_uiCount == other.m_uiCount, "Count for copy does not match. Target has %d elements, source %d elements", m_uiCount, other.m_uiCount);
 
     ezMemoryUtils::Copy(m_ptr, other.m_ptr, m_uiCount);
   }
@@ -129,10 +130,50 @@ public:
     m_uiCount = 0;
   }
 
+  typedef const_iterator_base<ezArrayPtr<T>, T, false> const_iterator;
+  typedef const_iterator_base<ezArrayPtr<T>, T, true> const_reverse_iterator;
+  typedef iterator_base<ezArrayPtr<T>, T, false> iterator;
+  typedef iterator_base<ezArrayPtr<T>, T, true> reverse_iterator;
+
 private:
   T* m_ptr;
   ezUInt32 m_uiCount;
 };
 
+template <typename T>
+typename ezArrayPtr<T>::iterator begin(ezArrayPtr<T>& container) { return typename ezArrayPtr<T>::iterator(container, (size_t) 0); }
+
+template <typename T>
+typename ezArrayPtr<T>::const_iterator  begin(const ezArrayPtr<T>& container) { return typename ezArrayPtr<T>::const_iterator(container, (size_t) 0); }
+
+template <typename T>
+typename ezArrayPtr<T>::const_iterator cbegin(const ezArrayPtr<T>& container) { return typename ezArrayPtr<T>::const_iterator(container, (size_t) 0); }
+
+template <typename T>
+typename ezArrayPtr<T>::reverse_iterator rbegin(ezArrayPtr<T>& container) { return typename ezArrayPtr<T>::reverse_iterator(container, (size_t) 0); }
+
+template <typename T>
+typename ezArrayPtr<T>::const_reverse_iterator rbegin(const ezArrayPtr<T>& container) { return typename ezArrayPtr<T>::const_reverse_iterator(container, (size_t) 0); }
+
+template <typename T>
+typename ezArrayPtr<T>::const_reverse_iterator crbegin(const ezArrayPtr<T>& container) { return typename ezArrayPtr<T>::const_reverse_iterator(container, (size_t) 0); }
+
+template <typename T>
+typename ezArrayPtr<T>::iterator end(ezArrayPtr<T>& container) { return typename ezArrayPtr<T>::iterator(container, (size_t) container.GetCount()); }
+
+template <typename T>
+typename ezArrayPtr<T>::const_iterator end(const ezArrayPtr<T>& container) { return typename ezArrayPtr<T>::const_iterator(container, (size_t) container.GetCount()); }
+
+template <typename T>
+typename ezArrayPtr<T>::const_iterator cend(const ezArrayPtr<T>& container) { return typename ezArrayPtr<T>::const_iterator(container, (size_t) container.GetCount()); }
+
+template <typename T>
+typename ezArrayPtr<T>::reverse_iterator rend(ezArrayPtr<T>& container) { return typename ezArrayPtr<T>::reverse_iterator(container, (size_t) container.GetCount()); }
+
+template <typename T>
+typename ezArrayPtr<T>::const_reverse_iterator  rend(const ezArrayPtr<T>& container) { return typename ezArrayPtr<T>::const_reverse_iterator(container, (size_t) container.GetCount()); }
+
+template <typename T>
+typename ezArrayPtr<T>::const_reverse_iterator crend(const ezArrayPtr<T>& container) { return typename ezArrayPtr<T>::const_reverse_iterator(container, (size_t) container.GetCount()); }
 
 

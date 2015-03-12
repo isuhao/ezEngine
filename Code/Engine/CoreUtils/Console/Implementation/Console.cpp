@@ -92,7 +92,7 @@ void ezConsole::SearchInputHistory(ezInt32 iHistoryUp)
 void ezConsole::LogHandler(const ezLoggingEventData& data)
 {
   bool bShow = false;
-  ezColor color = ezColor::GetWhite();
+  ezColor color = ezColor::White;
 
   switch (data.m_EventType)
   {
@@ -104,26 +104,26 @@ void ezConsole::LogHandler(const ezLoggingEventData& data)
     return;
 
   case ezLogMsgType::ErrorMsg:
-    color.SetRGB(ezVec3(1.0f, 0.1f, 0.1f));
+    color = ezColor(1.0f, 0.1f, 0.1f);
     bShow = true;
     break;
   case ezLogMsgType::SeriousWarningMsg:
-    color.SetRGB(ezVec3(1.0f, 0.4f, 0.1f));
+    color = ezColor(1.0f, 0.4f, 0.1f);
     bShow = true;
     break;
   case ezLogMsgType::WarningMsg:
-    color.SetRGB(ezVec3(1.0f, 0.6f, 0.1f));
+    color = ezColor(1.0f, 0.6f, 0.1f);
     break;
   case ezLogMsgType::SuccessMsg:
-    color.SetRGB(ezVec3(0.1f, 1.0f, 0.1f));
+    color = ezColor(0.1f, 1.0f, 0.1f);
     break;
   case ezLogMsgType::InfoMsg:
     break;
   case ezLogMsgType::DevMsg:
-    color.SetRGB(ezVec3(200.0f / 255.0f, 200.0f / 255.0f, 200.0f / 255.0f));
+    color = ezColor(200.0f / 255.0f, 200.0f / 255.0f, 200.0f / 255.0f);
     break;
   case ezLogMsgType::DebugMsg:
-    color.SetRGB(ezVec3(180.0f / 255.0f, 0.1f, 1.0f));
+    color = ezColor(180.0f / 255.0f, 0.1f, 1.0f);
     break;
   }
 
@@ -142,11 +142,11 @@ void ezConsole::EnableLogOutput(bool bEnable)
 
   if (bEnable)
   {
-    ezGlobalLog::AddLogWriter(ezDelegate<void (const ezLoggingEventData& data)>(&ezConsole::LogHandler, this));
+    ezGlobalLog::AddLogWriter(ezMakeDelegate(&ezConsole::LogHandler, this));
   }
   else
   {
-    ezGlobalLog::RemoveLogWriter(ezDelegate<void (const ezLoggingEventData& data)>(&ezConsole::LogHandler, this));
+    ezGlobalLog::RemoveLogWriter(ezMakeDelegate(&ezConsole::LogHandler, this));
   }
 }
 
@@ -200,4 +200,8 @@ void ezConsole::LoadState(ezStreamReaderBase& Stream)
   }
 }
 
+
+
+
+EZ_STATICLINK_FILE(CoreUtils, CoreUtils_Console_Implementation_Console);
 

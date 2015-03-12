@@ -7,7 +7,7 @@ bool ezPreprocessor::RemoveDefine(const char* szName)
 
   if (it.IsValid())
   {
-    m_Macros.Erase(it);
+    m_Macros.Remove(it);
     return true;
   }
 
@@ -33,7 +33,7 @@ ezResult ezPreprocessor::StoreDefine(const ezToken* pMacroNameToken, const Token
 
   // removes whitespace at start and end, skips comments, newlines, etc.
   if (pReplacementTokens)
-    CopyRelevantTokens(*pReplacementTokens, uiFirstReplacementToken, md.m_Replacement);
+    CopyRelevantTokens(*pReplacementTokens, uiFirstReplacementToken, md.m_Replacement, false);
 
   if (!md.m_Replacement.IsEmpty() && md.m_Replacement.PeekBack()->m_DataView == "#")
   {
@@ -173,4 +173,8 @@ ezResult ezPreprocessor::AddCustomDefine(const char* szDefinition)
   ezUInt32 uiCurToken = 0;
   return HandleDefine(Tokens, uiCurToken);
 }
+
+
+
+EZ_STATICLINK_FILE(CoreUtils, CoreUtils_CodeUtils_Implementation_Defines);
 

@@ -66,8 +66,21 @@ EZ_CREATE_SIMPLE_TEST(Containers, HybridArray)
   {
     ezHybridArray<ezInt32, 16> a1;
 
+    EZ_TEST_BOOL(a1.GetHeapMemoryUsage() == 0);
+
     for (ezInt32 i = 0; i < 32; ++i)
+    {
       a1.PushBack(rand() % 100000);
+
+      if (i < 16)
+      {
+        EZ_TEST_BOOL(a1.GetHeapMemoryUsage() == 0);
+      }
+      else
+      {
+        EZ_TEST_BOOL(a1.GetHeapMemoryUsage() >= i * sizeof(ezInt32));
+      }
+    }
 
     ezHybridArray<ezInt32, 16> a2 = a1;
     ezHybridArray<ezInt32, 16> a3 (a1);
@@ -453,7 +466,9 @@ EZ_CREATE_SIMPLE_TEST(Containers, HybridArray)
       EZ_TEST_INT(a.GetCount(), i + 1);
     }
 
+    EZ_TEST_BOOL(a.GetHeapMemoryUsage() > 0);
     a.Compact();
+    EZ_TEST_BOOL(a.GetHeapMemoryUsage() > 0);
 
     for (ezInt32 i = 0; i < 1000; ++i)
       EZ_TEST_INT(a[i], i);
@@ -461,9 +476,14 @@ EZ_CREATE_SIMPLE_TEST(Containers, HybridArray)
     // this tests whether the static array is reused properly (well, I stepped through it in the debugger to check it)
     a.SetCount(15);
     a.Compact();
+    EZ_TEST_BOOL(a.GetHeapMemoryUsage() == 0);
 
     for (ezInt32 i = 0; i < 15; ++i)
       EZ_TEST_INT(a[i], i);
+
+    a.Clear();
+    a.Compact();
+    EZ_TEST_BOOL(a.GetHeapMemoryUsage() == 0);
   }
 
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "SortingPrimitives")
@@ -676,4 +696,67 @@ EZ_CREATE_SIMPLE_TEST(Containers, HybridArray)
     a.SetCount(200);
     EZ_TEST_BOOL(st::HasDone(200, 100));
   }
+
+  EZ_TEST_BLOCK(ezTestBlock::Enabled, "STL Iterator")
+  {
+    ezHybridArray<ezInt32, 16> a1;
+
+    for (ezInt32 i = 0; i < 1000; ++i)
+      a1.PushBack(1000 - i - 1);
+
+    // STL sort
+    std::sort(begin(a1), end(a1));
+
+    for (ezInt32 i = 1; i < 1000; ++i)
+    {
+      EZ_TEST_BOOL(a1[i - 1] <= a1[i]);
+    }
+
+    // foreach
+    ezUInt32 prev = 0;
+    for(ezUInt32 val : a1)
+    {
+      EZ_TEST_BOOL(prev <= val);
+      prev = val;
+    }
+
+    // const array
+    const ezHybridArray<ezInt32, 16>& a2 = a1;
+
+    // STL lower bound
+    auto lb = std::lower_bound(begin(a2), end(a2), 400);
+    EZ_TEST_BOOL(*lb == a2[400]);
+  }
+
+  EZ_TEST_BLOCK(ezTestBlock::Enabled, "STL Reverse Iterator")
+  {
+    ezHybridArray<ezInt32, 16> a1;
+
+    for (ezInt32 i = 0; i < 1000; ++i)
+      a1.PushBack(1000 - i - 1);
+
+    // STL sort
+    std::sort(rbegin(a1), rend(a1));
+
+    for (ezInt32 i = 1; i < 1000; ++i)
+    {
+      EZ_TEST_BOOL(a1[i - 1] >= a1[i]);
+    }
+
+    // foreach
+    ezUInt32 prev = 1000;
+    for(ezUInt32 val : a1)
+    {
+      EZ_TEST_BOOL(prev >= val);
+      prev = val;
+    }
+
+    // const array
+    const ezHybridArray<ezInt32, 16>& a2 = a1;
+
+    // STL lower bound
+    auto lb = std::lower_bound(rbegin(a2), rend(a2), 400);
+    EZ_TEST_BOOL(*lb == a2[1000 - 400 - 1]);
+  }
 }
+

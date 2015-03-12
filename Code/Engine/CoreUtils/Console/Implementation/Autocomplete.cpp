@@ -74,7 +74,7 @@ void ezConsole::FindPossibleCVars(const char* szVariable, ezDeque<ezString>& Aut
 
       ConsoleString cs;
       cs.m_sText = sText;
-      cs.m_TextColor.SetRGB(ezVec3(255, 210, 0));
+      cs.m_TextColor = ezColorGammaUB(255, 210, 0);
       cs.m_bShowOnScreen = false;
       cs.m_TimeStamp = ezTime::Now();
       AutoCompleteDescriptions.PushBack(cs);
@@ -99,7 +99,7 @@ void ezConsole::FindPossibleFunctions(const char* szVariable, ezDeque<ezString>&
 
       ConsoleString cs;
       cs.m_sText = sText;
-      cs.m_TextColor.SetRGB(ezVec3(100, 255, 100));
+      cs.m_TextColor = ezColorGammaUB(100, 255, 100);
       cs.m_bShowOnScreen = false;
       cs.m_TimeStamp = ezTime::Now();
       AutoCompleteDescriptions.PushBack(cs);
@@ -203,3 +203,8 @@ const ezString ezConsole::FindCommonString(const ezDeque<ezString>& vStrings)
 
   return sCommon;
 }
+
+
+
+EZ_STATICLINK_FILE(CoreUtils, CoreUtils_Console_Implementation_Autocomplete);
+

@@ -16,10 +16,10 @@ class ezReflectedClass;
 class EZ_FOUNDATION_DLL ezVariant
 {
 public:
-
   /// \brief This enum describes the type of data that is currently stored inside the variant.
   struct Type
   {
+    typedef ezUInt8 StorageType;
     /// \brief This enum describes the type of data that is currently stored inside the variant.
     enum Enum
     {
@@ -44,12 +44,13 @@ public:
       Matrix4,            ///< The variant stores an ezMat4. A heap allocation is required to store this data type.
       String,             ///< The variant stores a string. A heap allocation is required to store this data type.
       Time,               ///< The variant stores an ezTime value.
+      Uuid,               ///< The variant stores an ezUuid value.
       VariantArray,       ///< The variant stores an array of ezVariant's. A heap allocation is required to store this data type.
       VariantDictionary,  ///< The variant stores a dictionary (hashmap) of ezVariant's. A heap allocation is required to store this data type.
       ReflectedPointer,   ///< The variant stores a pointer to a dynamically reflected object.
       VoidPointer,        ///< The variant stores a void pointer.
       ENUM_COUNT,         ///< Number of values for ezVariant::Type.
-      DefaultInit = Invalid ///< Default value used by ezEnum.
+      Default = Invalid   ///< Default value used by ezEnum.
     };
   };
 
@@ -165,7 +166,7 @@ public:
   /// other. It will also return true for all conversion from string to number types, and from all 'simple' types (not array or dictionary) to string.
   ///
   /// \note This function only returns whether a conversion between the stored TYPE and the desired TYPE is generally possible. It does NOT return
-  /// whether the stored VALUE is indeed convertible to the desired type. For example, a string is generally convertible to float, iff it stores
+  /// whether the stored VALUE is indeed convertible to the desired type. For example, a string is generally convertible to float, if it stores
   /// a string representation of a float value. If, however, it stores anything else, the conversion can still fail.
   ///
   /// The only way to figure out whether the stored data can be converted to some type, is to actually convert it, using ConvertTo(), and then

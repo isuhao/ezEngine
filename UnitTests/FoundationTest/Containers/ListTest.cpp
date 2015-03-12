@@ -8,7 +8,6 @@ EZ_CREATE_SIMPLE_TEST(Containers, List)
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "Constructor")
   {
     ezList<ezInt32> l;
-
   }
 
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "PushBack() / PeekBack")
@@ -23,6 +22,7 @@ EZ_CREATE_SIMPLE_TEST(Containers, List)
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "PushBack(i) / GetCount")
   {
     ezList<ezInt32> l;
+    EZ_TEST_BOOL(l.GetHeapMemoryUsage() == 0);
 
     for (ezUInt32 i = 0; i < 1000; ++i)
     {
@@ -31,6 +31,8 @@ EZ_CREATE_SIMPLE_TEST(Containers, List)
       EZ_TEST_INT(l.GetCount(), i + 1);
       EZ_TEST_INT(l.PeekBack(), i);
     }
+
+    EZ_TEST_BOOL(l.GetHeapMemoryUsage() >= sizeof(ezInt32) * 1000);
 
     ezUInt32 i = 0;
     for (ezList<ezInt32>::Iterator it = l.GetIterator(); it != l.GetEndIterator(); ++it)
@@ -156,7 +158,7 @@ EZ_CREATE_SIMPLE_TEST(Containers, List)
     for (ezUInt32 i = 0; i < 1000; ++i)
       l.PushBack(i);
 
-    ezList<ezInt32> l2 (l);
+    ezList<ezInt32> l2(l);
 
     ezUInt32 i = 0;
     for (ezList<ezInt32>::Iterator it = l2.GetIterator(); it != l2.GetEndIterator(); ++it)
@@ -189,7 +191,7 @@ EZ_CREATE_SIMPLE_TEST(Containers, List)
       if (i > 1000)
         EZ_TEST_INT(*it, 0)
       else
-        EZ_TEST_INT(*it, i);
+      EZ_TEST_INT(*it, i);
 
       ++i;
     }
@@ -234,12 +236,12 @@ EZ_CREATE_SIMPLE_TEST(Containers, List)
     EZ_TEST_INT(i, 1000);
   }
 
-  EZ_TEST_BLOCK(ezTestBlock::Enabled, "Erase(item)")
+  EZ_TEST_BLOCK(ezTestBlock::Enabled, "Remove(item)")
   {
     ezList<ezInt32> l;
 
     ezUInt32 i = 1;
-    for ( ; i < 1000; ++i)
+    for (; i < 1000; ++i)
       l.PushBack(i);
 
     // create an interleaved array of values of i and i+10000
@@ -252,7 +254,7 @@ EZ_CREATE_SIMPLE_TEST(Containers, List)
     // now remove every second element and only keep the larger values
     for (ezList<ezInt32>::Iterator it = l.GetLastIterator(); it.IsValid(); --it)
     {
-      it = l.Erase(it);
+      it = l.Remove(it);
       --it;
       --i;
       EZ_TEST_INT(*it, i + 10000);
@@ -300,12 +302,29 @@ EZ_CREATE_SIMPLE_TEST(Containers, List)
     EZ_TEST_BOOL(st::HasDone(2, 1));
 
     l.SetCount(4);
-    EZ_TEST_BOOL(st::HasDone(4, 2)); 
+    EZ_TEST_BOOL(st::HasDone(4, 2));
 
     l.Clear();
-    EZ_TEST_BOOL(st::HasDone(0, 4)); 
+    EZ_TEST_BOOL(st::HasDone(0, 4));
 
     EZ_TEST_BOOL(st::HasAllDestructed());
+  }
+
+  EZ_TEST_BLOCK(ezTestBlock::Enabled, "operator == / !=")
+  {
+    ezList<ezInt32> l, l2;
+
+    EZ_TEST_BOOL(l == l2);
+
+    ezInt32 i = 0;
+    for (; i < 1000; ++i)
+      l.PushBack(i);
+
+    EZ_TEST_BOOL(l != l2);
+
+    l2 = l;
+
+    EZ_TEST_BOOL(l == l2);
   }
 }
 

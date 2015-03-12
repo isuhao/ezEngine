@@ -9,6 +9,9 @@ class ezJSONWriter;
 class EZ_FOUNDATION_DLL ezReflectionUtils
 {
 public:
+  // \brief Returns the constant value of the given property as an ezVariant. Returns invalid if the type can't be stored inside an ezVariant.
+  static ezVariant GetConstantPropertyValue(const ezAbstractConstantProperty* pProp); // [tested]
+
   static ezVariant GetMemberPropertyValue(const ezAbstractMemberProperty* pProp, const void* pObject); // [tested] via ToolsFoundation 
   static void SetMemberPropertyValue(ezAbstractMemberProperty* pProp, void* pObject, const ezVariant& value); // [tested] via ToolsFoundation 
 
@@ -47,5 +50,36 @@ public:
   /// The object itself will not be reset to the default state before the properties are set, so properties that do not appear
   /// in the JSON data, or cannot be matched, will not be affected.
   static void ReadObjectPropertiesFromJSON(ezStreamReaderBase& stream, const ezRTTI& rtti, void* pObject);
+
+  /// \brief Gathers all RTTI types that are derived from pRtti.
+  ///
+  /// This includes all classes that have pRtti as a base class, either direct or indirect.
+  /// If bIncludeDependencies is set to true, the resulting set will also contain all dependent types.
+  ///
+  /// \sa GatherDependentTypes
+  static void GatherTypesDerivedFromClass(const ezRTTI* pRtti, ezSet<const ezRTTI*>& out_types, bool bIncludeDependencies);
+
+  /// \brief Gathers all RTTI types that pRtti depends on and adds them to inout_types.
+  ///
+  /// Dependencies are either member properties or base classes. The output contains the transitive closure of the dependencies.
+  /// Note that inout_types is not cleared when this function is called.
+  static void GatherDependentTypes(const ezRTTI* pRtti, ezSet<const ezRTTI*>& inout_types);
+
+  /// \brief Sorts the input types according to their dependencies.
+  ///
+  /// Types that have no dependences come first in the output followed by types that have their dependencies met by
+  /// the previous entries in the output.
+  /// If circular dependencies are found the function returns false.
+  static bool CreateDependencySortedTypeArray(const ezSet<const ezRTTI*>& types, ezDynamicArray<const ezRTTI*>& out_sortedTypes);  
+
+  /// \brief Converts an enum or bitfield value into its string representation.
+  /// 
+  /// The type of pEnumerationRtti will be automatically detected. The syntax of out_sOutput equals MSVC debugger output.
+  static bool EnumerationToString(const ezRTTI* pEnumerationRtti, ezInt64 iValue, ezStringBuilder& out_sOutput); // [tested]
+
+  /// \brief Converts an enum or bitfield in its string representation to its value.
+  /// 
+  /// The type of pEnumerationRtti will be automatically detected. The syntax of szValue must equal the MSVC debugger output.
+  static bool StringToEnumeration(const ezRTTI* pEnumerationRtti, const char* szValue, ezInt64& out_iValue); // [tested]
 
 };
