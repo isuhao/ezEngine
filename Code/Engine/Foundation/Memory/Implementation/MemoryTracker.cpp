@@ -204,7 +204,7 @@ void ezMemoryTracker::AddAllocation(ezAllocatorId allocatorId, const void* ptr, 
     ezMemoryUtils::Copy(info.GetStackTrace().GetPtr(), pBuffer, uiNumTraces);
   }
 
-  data.m_Allocations.Insert(ptr, info);
+  EZ_VERIFY(!data.m_Allocations.Insert(ptr, info), "Allocation already known");
 }
 
 //static 
@@ -242,18 +242,6 @@ void ezMemoryTracker::RemoveAllAllocations(ezAllocatorId allocatorId)
     EZ_DELETE_ARRAY(s_pTrackerDataAllocator, info.GetStackTrace());
   }
   data.m_Allocations.Clear();
-}
-
-//static
-void ezMemoryTracker::ReplaceAllocation(ezAllocatorId allocatorId, const void* ptr, size_t uiOldSize, size_t uiNewSize)
-{
-  EZ_LOCK(*s_pTrackerData);
-
-  AllocatorData& data = s_pTrackerData->m_AllocatorData[allocatorId];
-  data.m_Stats.m_uiAllocationSize += (uiNewSize - uiOldSize);
-
-  EZ_ASSERT_DEV(uiNewSize < 0xFFFFFFFF, "new size is too big");
-  data.m_Allocations[ptr].m_uiSize = (ezUInt32)uiNewSize;
 }
 
 //static
@@ -399,7 +387,7 @@ void ezMemoryTracker::DumpMemoryLeaks()
 //static 
 ezMemoryTracker::Iterator ezMemoryTracker::GetIterator()
 {
-  auto pInnerIt = EZ_NEW(s_pTrackerDataAllocator, TrackerData::AllocatorTable::Iterator)(s_pTrackerData->m_AllocatorData.GetIterator());
+  auto pInnerIt = EZ_NEW(s_pTrackerDataAllocator, TrackerData::AllocatorTable::Iterator, s_pTrackerData->m_AllocatorData.GetIterator());
   return Iterator(pInnerIt);
 }
 

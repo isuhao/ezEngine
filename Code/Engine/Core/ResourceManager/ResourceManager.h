@@ -54,7 +54,7 @@ public:
   static ezResourceHandle<ResourceType> LoadResource(const char* szResourceID, ezResourcePriority Priority, ezResourceHandle<ResourceType> hFallbackResource);
 
   template<typename ResourceType>
-  static ezResourceHandle<ResourceType> CreateResource(const char* szResourceID, const typename ResourceType::DescriptorType& descriptor);
+  static ezResourceHandle<ResourceType> CreateResource(const char* szResourceID, const typename ResourceType::DescriptorType& descriptor, const char* szResourceDescription = nullptr);
 
   template<typename ResourceType>
   static ezResourceHandle<ResourceType> GetExistingResource(const char* szResourceID);
@@ -171,12 +171,13 @@ private:
   static bool m_bStop;
   static ezResourceManagerWorker m_WorkerTask[2];
   static ezResourceManagerWorkerGPU m_WorkerGPU[16];
-  static ezInt8 m_iCurrentWorkerGPU;
-  static ezInt8 m_iCurrentWorker;
+  static ezUInt8 m_iCurrentWorkerGPU;
+  static ezUInt8 m_iCurrentWorker;
   static ezTime m_LastDeadLineUpdate;
   static ezTime m_LastFrameUpdate;
   static bool m_bBroadcastExistsEvent;
   static ezHashTable<ezUInt32, ResourceCategory> m_ResourceCategories;
+  static ezMutex s_ResourceMutex;
 };
 
 enum class ezResourceManager::ResourceEventType

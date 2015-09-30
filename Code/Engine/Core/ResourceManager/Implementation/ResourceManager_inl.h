@@ -1,11 +1,15 @@
 #pragma once
 
+#include <Foundation/Logging/Log.h>
+
 template<typename ResourceType>
 ResourceType* ezResourceManager::GetResource(const char* szResourceID, bool bIsReloadable)
 {
   ezResourceBase* pResource = NULL;
 
   const ezTempHashedString sResourceHash(szResourceID);
+
+  EZ_LOCK(s_ResourceMutex);
 
   if (m_LoadedResources.TryGetValue(sResourceHash, pResource))
     return (ResourceType*) pResource;
@@ -52,6 +56,8 @@ ezResourceHandle<ResourceType> ezResourceManager::GetExistingResource(const char
 
   const ezTempHashedString sResourceHash(szResourceID);
 
+  EZ_LOCK(s_ResourceMutex);
+
   if (m_LoadedResources.TryGetValue(sResourceHash, pResource))
     return (ResourceType*) pResource;
 
@@ -59,11 +65,16 @@ ezResourceHandle<ResourceType> ezResourceManager::GetExistingResource(const char
 }
 
 template<typename ResourceType>
-ezResourceHandle<ResourceType> ezResourceManager::CreateResource(const char* szResourceID, const typename ResourceType::DescriptorType& descriptor)
+ezResourceHandle<ResourceType> ezResourceManager::CreateResource(const char* szResourceID, const typename ResourceType::DescriptorType& descriptor, const char* szResourceDescription)
 {
+  EZ_LOG_BLOCK("ezResourceManager::CreateResource", szResourceID);
+
+  EZ_LOCK(s_ResourceMutex);
+
   ezResourceHandle<ResourceType> hResource(GetResource<ResourceType>(szResourceID, false));
 
   ResourceType* pResource = BeginAcquireResource(hResource, ezResourceAcquireMode::PointerOnly);
+  pResource->SetResourceDescription(szResourceDescription);
 
   EZ_ASSERT_DEV(pResource->GetLoadingState() == ezResourceState::Unloaded, "CreateResource was called on a resource that is already created");
 
@@ -81,6 +92,8 @@ ezResourceHandle<ResourceType> ezResourceManager::CreateResource(const char* szR
 template<typename ResourceType>
 ResourceType* ezResourceManager::BeginAcquireResource(const ezResourceHandle<ResourceType>& hResource, ezResourceAcquireMode mode, const ezResourceHandle<ResourceType>& hFallbackResource, ezResourcePriority Priority)
 {
+  //EZ_LOCK(s_ResourceMutex);
+
   EZ_ASSERT_DEV(hResource.IsValid(), "Cannot acquire a resource through an invalid handle!");
 
   ResourceType* pResource = (ResourceType*) hResource.m_pResource;
@@ -217,11 +230,15 @@ void ezResourceManager::ReloadResourcesOfType()
 template<typename ResourceType>
 void ezResourceManager::SetResourceTypeLoader(ezResourceTypeLoader* creator)
 {
+  EZ_LOCK(s_ResourceMutex);
+
   m_ResourceTypeLoader[ezGetStaticRTTI<ResourceType>()->GetTypeName()] = creator;
 }
 
 inline void ezResourceManager::SetDefaultResourceLoader(ezResourceTypeLoader* pDefaultLoader)
 {
+  EZ_LOCK(s_ResourceMutex);
+
   m_pDefaultResourceLoader = pDefaultLoader;
 }
 

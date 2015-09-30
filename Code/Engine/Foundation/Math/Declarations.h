@@ -64,6 +64,24 @@ struct EZ_FOUNDATION_DLL ezProjectionDepthRange
 };
 
 
+struct EZ_FOUNDATION_DLL ezBasisAxis
+{
+  typedef ezInt8 StorageType;
+
+  enum Enum
+  {
+    PositiveX,
+    PositiveY,
+    PositiveZ,
+    NegativeX,
+    NegativeY,
+    NegativeZ,
+
+    Default = PositiveX
+  };
+};
+
+
 // forward declarations
 template<typename Type>
 class ezVec2Template;
@@ -119,6 +137,12 @@ class ezBoundingBoxTemplate;
 typedef ezBoundingBoxTemplate<float> ezBoundingBox;
 typedef ezBoundingBoxTemplate<double> ezBoundingBoxd;
 typedef ezBoundingBoxTemplate<ezUInt32> ezBoundingBoxu32;
+
+template<typename Type>
+class ezBoundingBoxSphereTemplate;
+
+typedef ezBoundingBoxSphereTemplate<float> ezBoundingBoxSphere;
+typedef ezBoundingBoxSphereTemplate<double> ezBoundingBoxSphered;
 
 template<typename Type>
 class ezBoundingSphereTemplate;

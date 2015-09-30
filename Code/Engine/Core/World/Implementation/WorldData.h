@@ -6,8 +6,12 @@
 
 #include <Foundation/Memory/BlockStorage.h>
 #include <Foundation/Memory/CommonAllocators.h>
-#include <Foundation/Threading/TaskSystem.h>
 
+#include <Foundation/Threading/DelegateTask.h>
+
+#include <Foundation/Types/UniquePtr.h>
+
+#include <Core/World/CoordinateSystem.h>
 #include <Core/World/GameObject.h>
 
 namespace ezInternal
@@ -37,14 +41,6 @@ namespace ezInternal
     ObjectStorage m_ObjectStorage;
 
     ezDynamicArray<ObjectStorage::Entry, ezLocalAllocatorWrapper> m_DeadObjects;
-
-    struct SetParentRequest
-    {
-      ezGameObjectHandle m_Object;
-      ezGameObjectHandle m_NewParent;
-    };
-
-    ezDynamicArray<SetParentRequest, ezLocalAllocatorWrapper> m_SetParentRequests;
 
     // hierarchy structures
     struct Hierarchy
@@ -81,10 +77,10 @@ namespace ezInternal
     void TraverseDepthFirst(VisitorFunc& func);
     static bool TraverseObjectDepthFirst(ezGameObject* pObject, VisitorFunc& func);
 
-    static void UpdateWorldTransform(ezGameObject::TransformationData* pData, float fInvDeltaSeconds);
-    static void UpdateWorldTransformWithParent(ezGameObject::TransformationData* pData, float fInvDeltaSeconds);
+    static void UpdateGlobalTransform(ezGameObject::TransformationData* pData, float fInvDeltaSeconds);
+    static void UpdateGlobalTransformWithParent(ezGameObject::TransformationData* pData, float fInvDeltaSeconds);
 
-    void UpdateWorldTransforms();
+    void UpdateGlobalTransforms();
 
     // game object lookups
     /// \todo
@@ -114,12 +110,12 @@ namespace ezInternal
       ezUInt32 m_uiCount;
     };
 
-    ezProfilingId m_UpdateProfilingID;
-
     ezDynamicArray<RegisteredUpdateFunction, ezLocalAllocatorWrapper> m_UpdateFunctions[ezComponentManagerBase::UpdateFunctionDesc::PHASE_COUNT];
     ezDynamicArray<ezComponentManagerBase::UpdateFunctionDesc, ezLocalAllocatorWrapper> m_UnresolvedUpdateFunctions;
 
     ezDynamicArray<UpdateTask*, ezLocalAllocatorWrapper> m_UpdateTasks;
+
+    ezUniquePtr<ezCoordinateSystemProvider> m_pCoordinateSystemProvider;
 
     struct QueuedMsgMetaData
     {
@@ -130,9 +126,42 @@ namespace ezInternal
 
     typedef ezMessageQueue<QueuedMsgMetaData, ezLocalAllocatorWrapper> MessageQueue;
     MessageQueue m_MessageQueues[ezObjectMsgQueueType::COUNT];
+    MessageQueue m_TimedMessageQueues[ezObjectMsgQueueType::COUNT];
 
-    ezThreadID m_ThreadID;
-    bool m_bIsInAsyncPhase;
+    ezThreadID m_WriteThreadID;
+    ezInt32 m_iWriteCounter;
+    mutable ezAtomicInteger32 m_iReadCounter;
+
+  public:
+    class ReadMarker
+    {
+    public:
+      void Acquire();
+      void Release();
+
+    private:
+      friend class ::ezInternal::WorldData;
+
+      ReadMarker(const WorldData& data);
+      const WorldData& m_Data;
+    };    
+
+    class WriteMarker
+    {
+    public:
+      void Acquire();
+      void Release();
+
+    private:
+      friend class ::ezInternal::WorldData;
+
+      WriteMarker(WorldData& data);
+      WorldData& m_Data;
+    };
+
+  private:
+    mutable ReadMarker m_ReadMarker;
+    WriteMarker m_WriteMarker;
 
     void* m_pUserData;
   };

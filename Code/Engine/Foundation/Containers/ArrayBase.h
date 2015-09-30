@@ -19,19 +19,19 @@ public:
   ~ezArrayBase(); // [tested]
 
   /// \brief Copies the data from some other contiguous array into this one.
-  void operator= (const ezArrayPtr<T>& rhs); // [tested]
+  void operator= (const ezArrayPtr<const T>& rhs); // [tested]
 
   /// \brief Conversion to const ezArrayPtr.
-  operator const ezArrayPtr<T>() const; // [tested]
+  operator ezArrayPtr<const T>() const; // [tested]
 
   /// \brief Conversion to ezArrayPtr.
   operator ezArrayPtr<T>(); // [tested]
 
   /// \brief Compares this array to another contiguous array type.
-  bool operator== (const ezArrayPtr<T>& rhs) const; // [tested]
+  bool operator== (const ezArrayPtr<const T>& rhs) const; // [tested]
 
   /// \brief Compares this array to another contiguous array type.
-  bool operator!= (const ezArrayPtr<T>& rhs) const; // [tested]
+  bool operator!= (const ezArrayPtr<const T>& rhs) const; // [tested]
 
   /// \brief Returns the element at the given index. Does bounds checks in debug builds.
   const T& operator[](ezUInt32 uiIndex) const; // [tested]
@@ -60,6 +60,9 @@ public:
   /// \brief Inserts value at index by shifting all following elements.
   void Insert(const T& value, ezUInt32 uiIndex); // [tested]
 
+  /// \brief Inserts value at index by shifting all following elements.
+  void Insert(T&& value, ezUInt32 uiIndex); // [tested]
+
   /// \brief Removes the first occurrence of value and fills the gap by shifting all following elements
   bool Remove(const T& value); // [tested]
 
@@ -84,11 +87,14 @@ public:
   /// \brief Pushes value at the end of the array.
   void PushBack(const T& value); // [tested]
 
+  /// \brief Pushes value at the end of the array.
+  void PushBack(T&& value); // [tested]
+
   /// \brief Pushes value at the end of the array. Does NOT ensure capacity.
   void PushBackUnchecked(const T& value); // [tested]
 
-  /// \brief Pushes all elements in range at the end of the array. Increases the capacity if necessary.
-  void PushBackRange(const ezArrayPtr<typename ezTypeTraits<T>::NonConstType>& range); // [tested]
+  /// \brief Pushes value at the end of the array. Does NOT ensure capacity.
+  void PushBackUnchecked(T&& value); // [tested]
 
   /// \brief Pushes all elements in range at the end of the array. Increases the capacity if necessary.
   void PushBackRange(const ezArrayPtr<const T>& range); // [tested]
@@ -119,12 +125,12 @@ public:
   ezArrayPtr<T> GetArrayPtr(); // [tested]
 
   /// \brief Returns a array pointer to the array data, or an empty array pointer if the array is empty.
-  const ezArrayPtr<const T> GetArrayPtr() const; // [tested]
+  ezArrayPtr<const T> GetArrayPtr() const; // [tested]
 
-  typedef const_iterator_base<ezArrayBase<T, Derived>, T, false> const_iterator;
-  typedef const_iterator_base<ezArrayBase<T, Derived>, T, true> const_reverse_iterator;
-  typedef iterator_base<ezArrayBase<T, Derived>, T, false> iterator;
-  typedef iterator_base<ezArrayBase<T, Derived>, T, true> reverse_iterator;
+  typedef T const * const_iterator;
+  typedef const_reverse_pointer_iterator<T> const_reverse_iterator;
+  typedef T * iterator;
+  typedef reverse_pointer_iterator<T> reverse_iterator;
 
 
 protected:
@@ -140,40 +146,40 @@ protected:
 };
 
 template <typename T, typename Derived>
-typename ezArrayBase<T, Derived>::iterator begin(ezArrayBase<T, Derived>& container) { return typename ezArrayBase<T, Derived>::iterator(container, (size_t) 0); }
+typename ezArrayBase<T, Derived>::iterator begin(ezArrayBase<T, Derived>& container) { return container.GetData(); }
 
 template <typename T, typename Derived>
-typename ezArrayBase<T, Derived>::const_iterator  begin(const ezArrayBase<T, Derived>& container) { return typename ezArrayBase<T, Derived>::const_iterator(container, (size_t) 0); }
+typename ezArrayBase<T, Derived>::const_iterator  begin(const ezArrayBase<T, Derived>& container) { return container.GetData(); }
 
 template <typename T, typename Derived>
-typename ezArrayBase<T, Derived>::const_iterator cbegin(const ezArrayBase<T, Derived>& container) { return typename ezArrayBase<T, Derived>::const_iterator(container, (size_t) 0); }
+typename ezArrayBase<T, Derived>::const_iterator cbegin(const ezArrayBase<T, Derived>& container) { return container.GetData(); }
 
 template <typename T, typename Derived>
-typename ezArrayBase<T, Derived>::reverse_iterator rbegin(ezArrayBase<T, Derived>& container) { return typename ezArrayBase<T, Derived>::reverse_iterator(container, (size_t) 0); }
+typename ezArrayBase<T, Derived>::reverse_iterator rbegin(ezArrayBase<T, Derived>& container) { return typename ezArrayBase<T, Derived>::reverse_iterator(container.GetData() + container.GetCount() - 1); }
 
 template <typename T, typename Derived>
-typename ezArrayBase<T, Derived>::const_reverse_iterator rbegin(const ezArrayBase<T, Derived>& container) { return typename ezArrayBase<T, Derived>::const_reverse_iterator(container, (size_t) 0); }
+typename ezArrayBase<T, Derived>::const_reverse_iterator rbegin(const ezArrayBase<T, Derived>& container) { return typename ezArrayBase<T, Derived>::const_reverse_iterator(container.GetData() + container.GetCount() - 1); }
 
 template <typename T, typename Derived>
-typename ezArrayBase<T, Derived>::const_reverse_iterator crbegin(const ezArrayBase<T, Derived>& container) { return typename ezArrayBase<T, Derived>::const_reverse_iterator(container, (size_t) 0); }
+typename ezArrayBase<T, Derived>::const_reverse_iterator crbegin(const ezArrayBase<T, Derived>& container) { return typename ezArrayBase<T, Derived>::const_reverse_iterator(container.GetData() + container.GetCount() - 1); }
 
 template <typename T, typename Derived>
-typename ezArrayBase<T, Derived>::iterator end(ezArrayBase<T, Derived>& container) { return typename ezArrayBase<T, Derived>::iterator(container, (size_t) container.GetCount()); }
+typename ezArrayBase<T, Derived>::iterator end(ezArrayBase<T, Derived>& container) { return container.GetData() + container.GetCount(); }
 
 template <typename T, typename Derived>
-typename ezArrayBase<T, Derived>::const_iterator end(const ezArrayBase<T, Derived>& container) { return typename ezArrayBase<T, Derived>::const_iterator(container, (size_t) container.GetCount()); }
+typename ezArrayBase<T, Derived>::const_iterator end(const ezArrayBase<T, Derived>& container) { return container.GetData() + container.GetCount(); }
 
 template <typename T, typename Derived>
-typename ezArrayBase<T, Derived>::const_iterator cend(const ezArrayBase<T, Derived>& container) { return typename ezArrayBase<T, Derived>::const_iterator(container, (size_t) container.GetCount()); }
+typename ezArrayBase<T, Derived>::const_iterator cend(const ezArrayBase<T, Derived>& container) { return container.GetData() + container.GetCount(); }
 
 template <typename T, typename Derived>
-typename ezArrayBase<T, Derived>::reverse_iterator rend(ezArrayBase<T, Derived>& container) { return typename ezArrayBase<T, Derived>::reverse_iterator(container, (size_t) container.GetCount()); }
+typename ezArrayBase<T, Derived>::reverse_iterator rend(ezArrayBase<T, Derived>& container) { return typename ezArrayBase<T, Derived>::reverse_iterator(container.GetData() - 1); }
 
 template <typename T, typename Derived>
-typename ezArrayBase<T, Derived>::const_reverse_iterator  rend(const ezArrayBase<T, Derived>& container) { return typename ezArrayBase<T, Derived>::const_reverse_iterator(container, (size_t) container.GetCount()); }
+typename ezArrayBase<T, Derived>::const_reverse_iterator  rend(const ezArrayBase<T, Derived>& container) { return typename ezArrayBase<T, Derived>::const_reverse_iterator(container.GetData() - 1); }
 
 template <typename T, typename Derived>
-typename ezArrayBase<T, Derived>::const_reverse_iterator crend(const ezArrayBase<T, Derived>& container) { return typename ezArrayBase<T, Derived>::const_reverse_iterator(container, (size_t) container.GetCount()); }
+typename ezArrayBase<T, Derived>::const_reverse_iterator crend(const ezArrayBase<T, Derived>& container) { return typename ezArrayBase<T, Derived>::const_reverse_iterator(container.GetData() - 1); }
 
 
 #include <Foundation/Containers/Implementation/ArrayBase_inl.h>

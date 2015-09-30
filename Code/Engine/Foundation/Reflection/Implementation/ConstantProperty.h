@@ -20,7 +20,7 @@ public:
   }
 
   /// \brief Returns the actual type of the property. You can then compare that with known types, eg. compare it to ezGetStaticRTTI<int>() to see whether this is an int property.
-  virtual const ezRTTI* GetPropertyType() const override // [tested]
+  virtual const ezRTTI* GetSpecificType() const override // [tested]
   {
     return ezGetStaticRTTI<typename ezTypeTraits<Type>::NonConstReferenceType>();
   }
@@ -49,6 +49,11 @@ public:
 
   /// \brief Returns the value of the property. Pass the instance pointer to the surrounding class along.
   virtual Type GetValue() const override // [tested]
+  {
+    return m_Value;
+  }
+
+  virtual ezVariant GetConstant() const override
   {
     return m_Value;
   }

@@ -36,11 +36,11 @@ namespace
     desc.m_sName.Assign("Parent2");
     world.CreateObject(desc, testWorldObjects.pParent2);
 
-    desc.m_Parent = testWorldObjects.pParent1->GetHandle();
+    desc.m_hParent = testWorldObjects.pParent1->GetHandle();
     desc.m_sName.Assign("Child11");
     world.CreateObject(desc, testWorldObjects.pChild11);
 
-    desc.m_Parent = testWorldObjects.pParent2->GetHandle();
+    desc.m_hParent = testWorldObjects.pParent2->GetHandle();
     desc.m_sName.Assign("Child21");
     world.CreateObject(desc, testWorldObjects.pChild21);
 
@@ -49,15 +49,41 @@ namespace
 
   void TestTransforms(const TestWorldObjects& o)
   {
+    const float eps = ezMath::BasicType<float>::DefaultEpsilon();
     ezQuat q; q.SetFromAxisAndAngle(ezVec3(0.0f, 0.0f, 1.0f), ezAngle::Degree(90.0f));
 
-    for (ezUInt32 i = 0; i < sizeof(TestWorldObjects) / sizeof(ezGameObject*); ++i)
+    for (ezUInt32 i = 0; i < 2; ++i)
     {
-      EZ_TEST_VEC3(o.pObjects[i]->GetLocalPosition(), ezVec3(100.0f, 0.0f, 0.0f), 0);
-      EZ_TEST_BOOL(o.pObjects[i]->GetLocalRotation() == q);
-      EZ_TEST_VEC3(o.pObjects[i]->GetLocalScaling(), ezVec3(1.5f, 1.5f, 1.5f), 0);
+      EZ_TEST_VEC3(o.pObjects[i]->GetGlobalPosition(), ezVec3(100.0f, 0.0f, 0.0f), 0);
+      EZ_TEST_BOOL(o.pObjects[i]->GetGlobalRotation().IsEqualRotation(q, eps * 10.0f));
+      EZ_TEST_VEC3(o.pObjects[i]->GetGlobalScaling(), ezVec3(1.5f, 1.5f, 1.5f), 0);
+    }
+
+    for (ezUInt32 i = 2; i < 4; ++i)
+    {
+      EZ_TEST_VEC3(o.pObjects[i]->GetGlobalPosition(), ezVec3(100.0f, 150.0f, 0.0f), eps * 2.0f);
+      EZ_TEST_BOOL(o.pObjects[i]->GetGlobalRotation().IsEqualRotation(q * q, eps * 10.0f));
+      EZ_TEST_VEC3(o.pObjects[i]->GetGlobalScaling(), ezVec3(2.25f, 2.25f, 2.25f), 0);
     }
   }
+
+  class CustomCoordinateSystemProvider : public ezCoordinateSystemProvider
+  {
+  public:
+    CustomCoordinateSystemProvider(const ezWorld* pWorld) : ezCoordinateSystemProvider(pWorld)
+    {
+
+    }
+
+    virtual void GetCoordinateSystem(const ezVec3& vGlobalPosition, ezCoordinateSystem& out_CoordinateSystem) const override
+    {
+      ezMat3 mTmp; mTmp.SetLookInDirectionMatrix(-vGlobalPosition, ezVec3(0, 0, 1));
+
+      out_CoordinateSystem.m_vRightDir = mTmp.GetRow(0);
+      out_CoordinateSystem.m_vUpDir = mTmp.GetRow(1);
+      out_CoordinateSystem.m_vForwardDir = mTmp.GetRow(2);
+    }
+  };
 }
 
 class ezGameObjectTest
@@ -80,6 +106,7 @@ EZ_CREATE_SIMPLE_TEST(World, World)
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "GameObject parenting")
   {
     ezWorld world("Test");
+    EZ_LOCK(world.GetWriteMarker());
 
     const float eps = ezMath::BasicType<float>::DefaultEpsilon();
     ezQuat q; q.SetFromAxisAndAngle(ezVec3(0.0f, 0.0f, 1.0f), ezAngle::Degree(90.0f));
@@ -97,15 +124,15 @@ EZ_CREATE_SIMPLE_TEST(World, World)
     EZ_TEST_BOOL(pParentObject->GetLocalRotation() == desc.m_LocalRotation);
     EZ_TEST_VEC3(pParentObject->GetLocalScaling(), desc.m_LocalScaling, 0);
 
-    EZ_TEST_VEC3(pParentObject->GetWorldPosition(), desc.m_LocalPosition, 0);
-    EZ_TEST_BOOL(pParentObject->GetWorldRotation().IsEqualRotation(desc.m_LocalRotation, eps * 10.0f));
-    EZ_TEST_VEC3(pParentObject->GetWorldScaling(), desc.m_LocalScaling, 0);
+    EZ_TEST_VEC3(pParentObject->GetGlobalPosition(), desc.m_LocalPosition, 0);
+    EZ_TEST_BOOL(pParentObject->GetGlobalRotation().IsEqualRotation(desc.m_LocalRotation, eps * 10.0f));
+    EZ_TEST_VEC3(pParentObject->GetGlobalScaling(), desc.m_LocalScaling, 0);
 
     EZ_TEST_STRING(pParentObject->GetName(), desc.m_sName.GetString().GetData());
 
     desc.m_LocalRotation.SetIdentity();
     desc.m_LocalScaling.Set(1.0f);
-    desc.m_Parent = parentObject;
+    desc.m_hParent = parentObject;
 
     ezGameObjectHandle childObjects[10];
     for (ezUInt32 i = 0; i < 10; ++i)
@@ -127,9 +154,9 @@ EZ_CREATE_SIMPLE_TEST(World, World)
 
       EZ_TEST_STRING(it->GetName(), sb.GetData());
 
-      EZ_TEST_VEC3(it->GetWorldPosition(), ezVec3(100.0f, uiCounter * 15.0f, 0.0f), eps * 2.0f); // 15 because parent is scaled by 1.5
-      EZ_TEST_BOOL(it->GetWorldRotation().IsEqualRotation(q, eps * 10.0f));
-      EZ_TEST_VEC3(it->GetWorldScaling(), ezVec3(1.5f, 1.5f, 1.5f), 0.0f);
+      EZ_TEST_VEC3(it->GetGlobalPosition(), ezVec3(100.0f, uiCounter * 15.0f, 0.0f), eps * 2.0f); // 15 because parent is scaled by 1.5
+      EZ_TEST_BOOL(it->GetGlobalRotation().IsEqualRotation(q, eps * 10.0f));
+      EZ_TEST_VEC3(it->GetGlobalScaling(), ezVec3(1.5f, 1.5f, 1.5f), 0.0f);
 
       ++uiCounter;
     }
@@ -161,16 +188,44 @@ EZ_CREATE_SIMPLE_TEST(World, World)
     EZ_TEST_INT(uiCounter, 7);
     EZ_TEST_INT(pParentObject->GetChildCount(), 7);
 
-    world.DeleteObject(parentObject);
-    EZ_TEST_BOOL(!world.IsValidObject(parentObject));
-    
-    for (ezUInt32 i = 0; i < 10; ++i)
+    // do one update step so dead objects get deleted
+    world.Update();
+
+    EZ_TEST_BOOL(!world.IsValidObject(childObjects[0]));
+    EZ_TEST_BOOL(!world.IsValidObject(childObjects[3]));
+    EZ_TEST_BOOL(!world.IsValidObject(childObjects[9]));
+
+    uiCounter = 0;
+    for (auto it = pParentObject->GetChildren(); it.IsValid(); ++it)
     {
-      EZ_TEST_BOOL(!world.IsValidObject(childObjects[i]));
+      ezStringBuilder sb;
+      sb.AppendFormat("Child_%d", indices[uiCounter]);
+
+      EZ_TEST_STRING(it->GetName(), sb.GetData());
+
+      ++uiCounter;
+    }
+
+    EZ_TEST_INT(uiCounter, 7);
+    EZ_TEST_INT(pParentObject->GetChildCount(), 7);
+
+    world.DeleteObjectDelayed(parentObject);
+    EZ_TEST_BOOL(world.IsValidObject(parentObject));
+    
+    for (ezUInt32 i = 0; i < EZ_ARRAY_SIZE(indices); ++i)
+    {
+      EZ_TEST_BOOL(world.IsValidObject(childObjects[indices[i]]));
     }
 
     // do one update step so dead objects get deleted
     world.Update();
+
+    EZ_TEST_BOOL(!world.IsValidObject(parentObject));
+
+    for (ezUInt32 i = 0; i < 10; ++i)
+    {
+      EZ_TEST_BOOL(!world.IsValidObject(childObjects[i]));
+    }
 
     EZ_TEST_INT(world.GetObjectCount(), 0);
   }
@@ -178,12 +233,15 @@ EZ_CREATE_SIMPLE_TEST(World, World)
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "Re-parenting 1")
   {
     ezWorld world("Test");
+    EZ_LOCK(world.GetWriteMarker());
+
     TestWorldObjects o = CreateTestWorld(world);
 
     o.pParent1->AddChild(o.pParent2->GetHandle());
     o.pParent2->SetParent(o.pParent1->GetHandle());
 
-    world.Update();
+    // No need to update the world since re-parenting is now done immediately.
+    //world.Update();
 
     TestTransforms(o);
 
@@ -209,11 +267,14 @@ EZ_CREATE_SIMPLE_TEST(World, World)
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "Re-parenting 2")
   {
     ezWorld world("Test");
+    EZ_LOCK(world.GetWriteMarker());
+
     TestWorldObjects o = CreateTestWorld(world);
 
     o.pChild21->SetParent(ezGameObjectHandle());
 
-    world.Update();
+    // No need to update the world since re-parenting is now done immediately.
+    //world.Update();
 
     TestTransforms(o);
 
@@ -235,6 +296,8 @@ EZ_CREATE_SIMPLE_TEST(World, World)
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "Traversal")
   {
     ezWorld world("Test");
+    EZ_LOCK(world.GetWriteMarker());
+
     TestWorldObjects o = CreateTestWorld(world);
 
     {
@@ -300,7 +363,10 @@ EZ_CREATE_SIMPLE_TEST(World, World)
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "Multiple Worlds")
   {
     ezWorld world1("Test1");
+    EZ_LOCK(world1.GetWriteMarker());
+
     ezWorld world2("Test2");
+    EZ_LOCK(world2.GetWriteMarker());
 
     ezGameObjectDesc desc;
     desc.m_sName.Assign("Obj1");
@@ -324,5 +390,24 @@ EZ_CREATE_SIMPLE_TEST(World, World)
     world2.DeleteObject(hObj2);
 
     EZ_TEST_BOOL(!world2.IsValidObject(hObj2));
+  }
+
+  EZ_TEST_BLOCK(ezTestBlock::Enabled, "Custom coordinate system")
+  {
+    ezWorld world("Test");
+
+    ezUniquePtr<CustomCoordinateSystemProvider> pProvider = EZ_DEFAULT_NEW(CustomCoordinateSystemProvider, &world);
+    CustomCoordinateSystemProvider* pProviderBackup = pProvider.Borrow();
+
+    world.SetCoordinateSystemProvider(std::move(pProvider));
+    EZ_TEST_BOOL(world.GetCoordinateSystemProvider() == pProviderBackup);
+
+    ezVec3 pos = ezVec3(2, 3, 0);
+
+    ezCoordinateSystem coordSys;
+    world.GetCoordinateSystem(pos, coordSys);
+
+    EZ_TEST_VEC3(coordSys.m_vForwardDir, (-pos).GetNormalized(), ezMath::BasicType<float>::SmallEpsilon());
+    EZ_TEST_VEC3(coordSys.m_vUpDir, ezVec3(0, 0, 1), ezMath::BasicType<float>::SmallEpsilon());
   }
 }

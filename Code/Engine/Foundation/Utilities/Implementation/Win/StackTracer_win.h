@@ -5,7 +5,12 @@
 
 #define EZ_STACKTRACER_WIN_INL_H_INCLUDED
 
+#define EZ_MSVC_WARNING_NUMBER 4091
+#include <Foundation/Basics/Compiler/DisableWarning.h>
+
 #include <DbgHelp.h>
+
+#include <Foundation/Basics/Compiler/RestoreWarning.h>
 
 #include <Foundation/Configuration/Plugin.h>
 #include <Foundation/IO/OSFile.h>
@@ -77,7 +82,7 @@ namespace
             err, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR)&lpMsgBuf, 0, nullptr);
 
           char errStr[1024];
-          sprintf_s(errStr, "StackTracer could not initialize symbols. Error-Code %u (\"%s\")", err, lpMsgBuf);
+          sprintf_s(errStr, "StackTracer could not initialize symbols. Error-Code %u (\"%s\")", err, static_cast<char*>(lpMsgBuf));
           OutputDebugStringA(errStr);
 
           LocalFree(lpMsgBuf);
@@ -124,7 +129,7 @@ namespace
             err, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR)&lpMsgBuf, 0, nullptr);
 
           char errStr[1024];
-          sprintf_s(errStr, "StackTracer could not load symbols for '%s'. Error-Code %u (\"%s\")", e.m_szPluginFile, err, lpMsgBuf);
+          sprintf_s(errStr, "StackTracer could not load symbols for '%s'. Error-Code %u (\"%s\")", e.m_szPluginFile, err, static_cast<char*>(lpMsgBuf));
           OutputDebugStringA(errStr);
 
           LocalFree(lpMsgBuf);
@@ -146,7 +151,7 @@ namespace
             err, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR)&lpMsgBuf, 0, nullptr);
 
         char errStr[1024];
-        sprintf_s(errStr, "StackTracer could not get module info for '%s'. Error-Code %u (\"%s\")", e.m_szPluginFile, err, lpMsgBuf);
+        sprintf_s(errStr, "StackTracer could not get module info for '%s'. Error-Code %u (\"%s\")", e.m_szPluginFile, err, static_cast<char*>(lpMsgBuf));
         OutputDebugStringA(errStr);
 
         LocalFree(lpMsgBuf);
@@ -162,7 +167,7 @@ namespace
       s_pImplementation = new (ImplementationBuffer) StackTracerImplementation();
       EZ_ASSERT_DEV(s_pImplementation != nullptr, "StackTracer initialization failed");
 
-      ezPlugin::s_PluginEvents.AddEventHandler(OnPluginEvent);
+      //ezPlugin::s_PluginEvents.AddEventHandler(OnPluginEvent);
     }
   }
 }

@@ -16,11 +16,9 @@ ezTaskGroup::ezTaskGroup()
   m_bIsActive = false;
   m_uiGroupCounter = 1;
   m_Priority = ezTaskPriority::ThisFrame;
-  m_OnFinishedCallback = nullptr;
-  m_pCallbackPassThrough = nullptr;
 }
 
-ezTaskGroupID ezTaskSystem::CreateTaskGroup(ezTaskPriority::Enum Priority, ezTaskGroup::OnTaskGroupFinished Callback, void* pPassThrough)
+ezTaskGroupID ezTaskSystem::CreateTaskGroup(ezTaskPriority::Enum Priority, ezTaskGroup::OnTaskGroupFinished Callback)
 {
   EZ_LOCK(s_TaskSystemMutex);
 
@@ -46,7 +44,6 @@ foundtaskgroup:
   s_TaskGroups[i].m_OthersDependingOnMe.Clear();
   s_TaskGroups[i].m_Priority = Priority;
   s_TaskGroups[i].m_OnFinishedCallback = Callback;
-  s_TaskGroups[i].m_pCallbackPassThrough = pPassThrough;
 
   ezTaskGroupID id;
   id.m_pTaskGroup = &s_TaskGroups[i];
@@ -109,7 +106,7 @@ void ezTaskSystem::StartTaskGroup(ezTaskGroupID Group)
       // if the counters still match, the other task group has not yet been finished, and thus is a real dependency
       if (!IsTaskGroupFinished(tg.m_DependsOn[i]))
       {
-        // add this task group to that the list of the dependency, such that when that group finishes, this task group can get woken up
+        // add this task group to the list of dependencies, such that when that group finishes, this task group can get woken up
         Dependency.m_OthersDependingOnMe.PushBack(Group);
 
         // count how many other groups need to finish before this task group can be executed

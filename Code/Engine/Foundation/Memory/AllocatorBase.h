@@ -34,7 +34,7 @@ public:
   virtual ~ezAllocatorBase();
 
   /// \brief Interface, do not use this directly, always use the new/delete macros below
-  virtual void* Allocate(size_t uiSize, size_t uiAlign) = 0;
+  virtual void* Allocate(size_t uiSize, size_t uiAlign, ezMemoryUtils::DestructorFunction destructorFunc = nullptr) = 0;
   virtual void Deallocate(void* ptr) = 0;
   virtual void* Reallocate(void* ptr, size_t uiCurrentSize, size_t uiNewSize, size_t uiAlign);
   virtual size_t AllocatedSize(const void* ptr) = 0;
@@ -48,8 +48,8 @@ private:
 #include <Foundation/Memory/Implementation/AllocatorBase_inl.h>
 
 /// \brief creates a new instance of type using the given allocator
-#define EZ_NEW(allocator, type) \
-  new ((allocator)->Allocate(sizeof(type), EZ_ALIGNMENT_OF(type))) type
+#define EZ_NEW(allocator, type, ...) \
+  ezInternal::NewInstance<type>(new ((allocator)->Allocate(sizeof(type), EZ_ALIGNMENT_OF(type), ezMemoryUtils::MakeDestructorFunction<type>())) type(__VA_ARGS__), (allocator))
 
 /// \brief deletes the instance stored in ptr using the given allocator and sets ptr to nullptr
 #define EZ_DELETE(allocator, ptr) \
@@ -78,7 +78,7 @@ private:
 
 
 /// \brief creates a new instance of type using the default allocator
-#define EZ_DEFAULT_NEW(type) EZ_NEW(ezFoundation::GetDefaultAllocator(), type)
+#define EZ_DEFAULT_NEW(type, ...) EZ_NEW(ezFoundation::GetDefaultAllocator(), type, __VA_ARGS__)
 
 /// \brief deletes the instance stored in ptr using the default allocator and sets ptr to nullptr
 #define EZ_DEFAULT_DELETE(ptr) EZ_DELETE(ezFoundation::GetDefaultAllocator(), ptr)

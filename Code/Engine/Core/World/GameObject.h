@@ -1,13 +1,15 @@
 #pragma once
 
 #include <Foundation/Containers/HybridArray.h>
-#include <Foundation/Math/Mat4.h>
 #include <Foundation/Math/Quat.h>
 #include <Foundation/Math/Transform.h>
+#include <Foundation/Math/BoundingBoxSphere.h>
 #include <Foundation/Time/Time.h>
+#include <Foundation/Types/TagSet.h>
 
 #include <Core/World/ComponentManager.h>
 #include <Core/World/GameObjectDesc.h>
+#include <Core/World/Messages.h>
 
 /// \brief This class represents an object inside the world.
 ///
@@ -20,10 +22,19 @@
 ///
 /// \todo Implement Clone
 /// \todo Implement switching dynamic and static
-/// \todo Implement unique ids
+
 class EZ_CORE_DLL ezGameObject
 {
 private:
+  enum
+  {
+#if EZ_ENABLED(EZ_PLATFORM_32BIT)
+    NUM_INPLACE_COMPONENTS = 12
+#else
+    NUM_INPLACE_COMPONENTS = 6
+#endif
+  };
+
   friend class ezWorld;
   friend class ezInternal::WorldData;
   friend class ezMemoryUtils;
@@ -100,8 +111,6 @@ public:
   bool IsActive() const;
 
 
-  //ezUInt64 GetUniqueId() const;
-
   void SetName(const char* szName);
   const char* GetName() const;
 
@@ -140,6 +149,7 @@ public:
   ezWorld* GetWorld();
   const ezWorld* GetWorld() const;
 
+
   void SetLocalPosition(const ezVec3& position);
   const ezVec3& GetLocalPosition() const;
 
@@ -149,20 +159,33 @@ public:
   void SetLocalScaling(const ezVec3& scaling);
   const ezVec3& GetLocalScaling() const;
 
-  void SetWorldPosition(const ezVec3& position);
-  const ezVec3& GetWorldPosition() const;
+  void SetGlobalPosition(const ezVec3& position);
+  const ezVec3& GetGlobalPosition() const;
 
-  void SetWorldRotation(const ezQuat& rotation);
-  const ezQuat GetWorldRotation() const;
+  void SetGlobalRotation(const ezQuat rotation);
+  const ezQuat GetGlobalRotation() const;
 
-  void SetWorldScaling(const ezVec3& scaling);
-  const ezVec3 GetWorldScaling() const;
+  void SetGlobalScaling(const ezVec3 scaling);
+  const ezVec3 GetGlobalScaling() const;
 
-  void SetWorldTransform(const ezTransform& transform);
-  const ezTransform& GetWorldTransform() const;
+  void SetGlobalTransform(const ezTransform& transform);
+  const ezTransform& GetGlobalTransform() const;
 
   void SetVelocity(const ezVec3& vVelocity);
   const ezVec3& GetVelocity() const;
+
+  /// \brief Updates the global transform immediately. Usually this done during the world update after the "Post-async" phase.
+  void UpdateGlobalTransform();
+
+
+  const ezBoundingBoxSphere& GetLocalBounds() const;
+  const ezBoundingBoxSphere& GetGlobalBounds() const;
+
+  /// \brief Invalidates the local bounds and sends a message to all components so they can add their bounds.
+  void UpdateLocalBounds();
+
+  /// \brief Updates the global transform and bounds immediately. Usually this done during the world update after the "Post-async" phase.
+  void UpdateGlobalTransformAndBounds();
 
 
   /// \brief Attaches the component to the object. Calls the OnAttachedToObject method on the component.
@@ -186,7 +209,10 @@ public:
   void TryGetComponentsOfBaseType(ezHybridArray<T*, 8>& out_components) const;
 
   /// \brief Returns a list of all components attached to this object.
-  ezArrayPtr<ezComponent*> GetComponents() const;
+  ezArrayPtr<ezComponent* const> GetComponents();
+
+  /// \brief Returns a list of all components attached to this object.
+  ezArrayPtr<const ezComponent* const> GetComponents() const;
 
 
   /// \brief Sends a message to all components of this object. Depending on the routing options the message is also send to parents or children.
@@ -203,8 +229,24 @@ public:
   void PostMessage(ezMessage& msg, ezObjectMsgQueueType::Enum queueType, ezTime delay,
     ezObjectMsgRouting::Enum routing = ezObjectMsgRouting::Default);
 
+
+  /// \brief Returns the tag set associated with this object.
+  ezTagSet& GetTags();
+  const ezTagSet& GetTags() const;
+
 private:
   friend class ezGameObjectTest;
+
+  EZ_ALLOW_PRIVATE_PROPERTIES(ezGameObject);
+
+  void Reflection_AddChild(ezGameObject* pChild) { AddChild(pChild->GetHandle()); }
+  void Reflection_DetachChild(ezGameObject* pChild) { DetachChild(pChild->GetHandle()); }
+  ezHybridArray<ezGameObject*, 8> Reflection_GetChildren() const;
+  void Reflection_AddComponent(ezComponent* pComponent) { AddComponent(pComponent); }
+  void Reflection_RemoveComponent(ezComponent* pComponent) { RemoveComponent(pComponent); }
+  const ezHybridArray<ezComponent*, NUM_INPLACE_COMPONENTS>& Reflection_GetComponents() const { return m_Components; }
+
+  void OnDeleteObject(ezDeleteObjectMessage& msg);
 
   void FixComponentPointer(ezComponent* pOldPtr, ezComponent* pNewPtr);
 
@@ -223,8 +265,18 @@ private:
     ezQuat m_localRotation;
     ezVec4 m_localScaling;
 
-    ezTransform m_worldTransform;
+    ezTransform m_globalTransform;
     ezVec4 m_velocity;
+
+    ezBoundingBoxSphere m_localBounds;
+    ezBoundingBoxSphere m_globalBounds;
+
+    void ConditionalUpdateGlobalTransform();
+    void UpdateGlobalTransform();
+    void UpdateGlobalTransformWithParent();
+
+    void ConditionalUpdateGlobalBounds();
+    void UpdateGlobalBounds();
   };
 
   ezGameObjectId m_InternalId;
@@ -264,21 +316,14 @@ private:
   ezUInt64 m_uiPadding;
 #endif
 
-  enum
-  {
-#if EZ_ENABLED(EZ_PLATFORM_32BIT)
-    NUM_INPLACE_COMPONENTS = 12
-#else
-    NUM_INPLACE_COMPONENTS = 6
-#endif
-  };
-
   /// \todo small array class to reduce memory overhead
   ezHybridArray<ezComponent*, NUM_INPLACE_COMPONENTS> m_Components;
 
 #if EZ_ENABLED(EZ_PLATFORM_32BIT)
   ezUInt64 m_uiPadding2;
 #endif
+
+  ezTagSet m_Tags;
 };
 
 EZ_DECLARE_REFLECTABLE_TYPE(EZ_CORE_DLL, ezGameObject);

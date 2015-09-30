@@ -10,6 +10,62 @@
 
 /// functors
 
+struct ComputeHashFunc
+{
+  template <typename T>
+  EZ_FORCE_INLINE void operator()()
+  {
+    EZ_CHECK_AT_COMPILETIME_MSG(sizeof(typename ezVariant::TypeDeduction<T>::StorageType) <= sizeof(float) * 4 &&
+                                !ezVariant::TypeDeduction<T>::forceSharing, "This type requires special handling! Add a specialization below.");
+    m_uiHash = ezHashing::MurmurHash64(m_pData, sizeof(T), m_uiHash);
+  }
+
+  const void* m_pData;
+  ezUInt64 m_uiHash;
+};
+
+template <>
+EZ_FORCE_INLINE void ComputeHashFunc::operator() < ezString > ()
+{
+  ezString* pData = (ezString*) m_pData;
+
+  m_uiHash = ezHashing::MurmurHash64(pData->GetData(), pData->GetElementCount(), m_uiHash);
+}
+
+template <>
+EZ_FORCE_INLINE void ComputeHashFunc::operator() < ezMat3 > ()
+{
+  ezMat3* pData = (ezMat3*) m_pData;
+
+  m_uiHash = ezHashing::MurmurHash64(pData, sizeof(ezMat3), m_uiHash);
+}
+
+template <>
+EZ_FORCE_INLINE void ComputeHashFunc::operator() < ezMat4 > ()
+{
+  ezMat4* pData = (ezMat4*) m_pData;
+
+  m_uiHash = ezHashing::MurmurHash64(pData, sizeof(ezMat4), m_uiHash);
+}
+
+template <>
+EZ_FORCE_INLINE void ComputeHashFunc::operator() < ezVariantArray > ()
+{
+  ezVariantArray* pData = (ezVariantArray*) m_pData;
+
+  EZ_ASSERT_NOT_IMPLEMENTED;
+  //m_uiHash = ezHashing::MurmurHash64(pData, sizeof(ezMat4), m_uiHash);
+}
+
+template <>
+EZ_FORCE_INLINE void ComputeHashFunc::operator() < ezVariantDictionary > ()
+{
+  ezVariantDictionary* pData = (ezVariantDictionary*) m_pData;
+
+  EZ_ASSERT_NOT_IMPLEMENTED;
+  //m_uiHash = ezHashing::MurmurHash64(pData, sizeof(ezMat4), m_uiHash);
+}
+
 struct CompareFunc
 {
   template <typename T>
@@ -116,7 +172,7 @@ bool ezVariant::operator==(const ezVariant& other) const
 
     return compareFunc.m_bResult;
   }
-    
+
   return false;
 }
 
@@ -178,16 +234,19 @@ ezVariant ezVariant::operator[](ezHashing::StringWrapper szKey) const
 
 bool ezVariant::CanConvertTo(Type::Enum type) const
 {
-  if (m_Type == type) 
+  if (m_Type == type)
     return true;
 
   if (!IsValid() || type == Type::Invalid)
     return false;
-  
+
   if (IsNumber(type) && (IsNumber(m_Type) || m_Type == Type::String))
     return true;
 
   if (type == Type::String && m_Type < Type::VariantArray)
+    return true;
+
+  if (type == Type::VoidPointer && m_Type == Type::ReflectedPointer)
     return true;
 
   return false;
@@ -221,6 +280,20 @@ ezVariant ezVariant::ConvertTo(Type::Enum type, ezResult* out_pConversionStatus 
     *out_pConversionStatus = convertFunc.m_bSuccessful ? EZ_SUCCESS : EZ_FAILURE;
 
   return convertFunc.m_Result;
+}
+
+ezUInt64 ezVariant::ComputeHash(ezUInt64 uiSeed) const
+{
+  if (!IsValid())
+    return uiSeed;
+
+  ComputeHashFunc obj;
+  obj.m_uiHash = uiSeed;
+  obj.m_pData = GetData();
+
+  DispatchTo<ComputeHashFunc>(obj, GetType());
+
+  return obj.m_uiHash;
 }
 
 EZ_STATICLINK_FILE(Foundation, Foundation_Types_Implementation_Variant);

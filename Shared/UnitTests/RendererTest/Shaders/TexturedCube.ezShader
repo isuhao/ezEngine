@@ -1,0 +1,32 @@
+[PLATFORMS] 
+ALL
+
+[PERMUTATIONS]
+
+[RENDERSTATES]
+
+[VERTEXSHADER]
+
+#include "Common.inc"
+
+VS_OUT main(VS_IN Input)
+{
+  VS_OUT RetVal;
+  RetVal.pos = mul(mvp, float4(Input.pos, 1.0));
+  RetVal.texcoord0 = Input.pos.xy + 0.5;
+  RetVal.normal = Input.pos.xyz;
+
+  return RetVal;
+}
+
+[PIXELSHADER]
+
+#include "Common.inc"
+
+TextureCube TexDiffuse : register(t1);
+SamplerState TexDiffuseSampler : register(s1);
+
+float4 main(PS_IN Input) : SV_Target
+{
+  return TexDiffuse.Sample(TexDiffuseSampler, normalize(Input.normal));
+}

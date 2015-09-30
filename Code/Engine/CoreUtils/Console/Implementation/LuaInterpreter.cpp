@@ -69,8 +69,6 @@ static int LUAFUNC_ConsoleFunc(lua_State* state)
   else
     pFunc->Call(ezArrayPtr<ezVariant>(nullptr, 0));
 
-  //ezLog::Info("Called Console Function: '%s'", pFunc->GetName());
-
   return s.ReturnToScript();
 }
 
@@ -84,9 +82,7 @@ ezResult ezConsoleInterpreter::Lua(const char* szCommand, ezConsole* pConsole)
     return EZ_SUCCESS;
   }
 
-  int iPos = 0;
-
-  ezStringView sCommandIt = sCommand.GetIteratorFront();
+  ezStringView sCommandIt = sCommand;
 
   const ezString sVarName = GetNextWord(sCommandIt);
   const ezString sFunctionParam = GetRestWords(sCommandIt);
@@ -213,6 +209,8 @@ static int LUAFUNC_ReadCVAR(lua_State* state)
       s.PushReturnValue(pVar->GetValue().GetData());
     }
     break;
+  case ezCVarType::ENUM_COUNT:
+    break;
   }
 
   return s.ReturnToScript();
@@ -259,6 +257,8 @@ static int LUAFUNC_WriteCVAR(lua_State* state)
       *pVar = s.GetStringParameter(1);
     }
     break;
+  case ezCVarType::ENUM_COUNT:
+      break;
   }
 
   return s.ReturnToScript();

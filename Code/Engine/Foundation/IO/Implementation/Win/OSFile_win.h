@@ -135,12 +135,20 @@ void ezOSFile::InternalSetFilePosition(ezInt64 iDistance, ezFilePos::Enum Pos) c
   }
 }
 
-bool ezOSFile::InternalExists(const char* szFile)
+bool ezOSFile::InternalExistsFile(const char* szFile)
 {
   ezStringWChar sPath(szFile);
   DWORD dwAttrib = GetFileAttributesW(sPath.GetData());
 
   return ((dwAttrib != INVALID_FILE_ATTRIBUTES) && ((dwAttrib & FILE_ATTRIBUTE_DIRECTORY) == 0));
+}
+
+bool ezOSFile::InternalExistsDirectory(const char* szDirectory)
+{
+  ezStringWChar sPath(szDirectory);
+  DWORD dwAttrib = GetFileAttributesW(sPath.GetData());
+
+  return ((dwAttrib != INVALID_FILE_ATTRIBUTES) && ((dwAttrib & FILE_ATTRIBUTE_DIRECTORY) != 0));
 }
 
 #endif // not EZ_USE_POSIX_FILE_API
@@ -183,8 +191,7 @@ ezResult ezOSFile::InternalGetFileStats(const char* szFileOrFolder, ezFileStats&
   ezStringBuilder s = szFileOrFolder;
 
   // FindFirstFile does not like paths that end with a separator, so remove them all
-  while (ezPathUtils::IsPathSeparator(s.GetIteratorBack().GetCharacter()))
-    s.Shrink(0, 1);
+  s.Trim(nullptr, "/\\");
 
   // handle the case that this query is done on the 'device part' of a path
   if (s.GetCharacterCount() <= 2) // 'C:', 'D:', 'E' etc.

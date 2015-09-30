@@ -124,6 +124,13 @@ namespace ezConversionUtils
   /// \brief Converts a hex string (i.e. 0xAABBCCDD) into its uint32 value.
   EZ_FOUNDATION_DLL ezUInt32 ConvertHexStringToUInt32(const char* szHEX); // [tested]
 
+  /// \brief Converts a string that was written with ezConversionUtils::ToString(ezUuid) back to an ezUuid object.
+  EZ_FOUNDATION_DLL ezUuid ConvertStringToUuid(const char* szUuidString);
+
+  /// \brief Returns true when the given string is in the exact format "{ 05af8d07-0b38-44a6-8d50-49731ae2625d }"
+  /// This includes braces, whitespaces and dashes. This is the format that ToString produces.
+  EZ_FOUNDATION_DLL bool IsStringUuid(const char* szText);
+
   /// \brief Converts a bool to a string
   EZ_FORCE_INLINE ezString ToString(bool value) // [tested]
   {
@@ -190,6 +197,14 @@ namespace ezConversionUtils
   {
     return "N/A";
   }
+
+  /// \brief Returns the color with the given name.
+  ///
+  /// Allowed are all predefined color names (case-insensitive), as well as Hex-Values in the form '#RRGGBB' and '#RRGGBBAA'
+  EZ_FOUNDATION_DLL ezColor GetColorByName(const char* szColorName);
+
+  /// \brief The inverse of GetColorByName
+  EZ_FOUNDATION_DLL ezString GetColorName(const ezColor& col);
 };
 
 

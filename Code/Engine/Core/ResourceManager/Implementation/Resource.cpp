@@ -17,9 +17,9 @@ EZ_CORE_DLL void DecreaseResourceRefCount(ezResourceBase* pResource)
   pResource->m_iReferenceCount.Decrement();
 }
 
-ezResourceBase::ezResourceBase(UpdateResource ResourceUpdateThread, ezUInt8 uiQualityLevelsLoadable)
+ezResourceBase::ezResourceBase(DoUpdate ResourceUpdateThread, ezUInt8 uiQualityLevelsLoadable)
 {
-  m_Flags.AddOrRemove(ezResourceFlags::UpdateOnMainThread, ResourceUpdateThread == UpdateResource::OnMainThread);
+  m_Flags.AddOrRemove(ezResourceFlags::UpdateOnMainThread, ResourceUpdateThread == DoUpdate::OnMainThread);
 
   m_iReferenceCount = 0;
   m_LoadingState = ezResourceState::Unloaded;
@@ -27,6 +27,11 @@ ezResourceBase::ezResourceBase(UpdateResource ResourceUpdateThread, ezUInt8 uiQu
   m_uiQualityLevelsDiscardable = 0;
   m_Priority = ezResourcePriority::Normal;
   m_DueDate = ezTime::Seconds(60.0 * 60.0 * 24.0 * 365.0 * 1000.0);
+}
+
+void ezResourceBase::SetResourceDescription(const char * szDescription)
+{
+  m_sResourceDescription = szDescription;
 }
 
 void ezResourceBase::SetDueDate(ezTime date /* = ezTime::Seconds(60.0 * 60.0 * 24.0 * 365.0 * 1000.0) */)
@@ -52,9 +57,9 @@ void ezResourceBase::SetPriority(ezResourcePriority priority)
   ezResourceManager::BroadcastResourceEvent(e);
 }
 
-void ezResourceBase::SetUniqueID(const ezString& UniqueID, bool bIsReloadable)
+void ezResourceBase::SetUniqueID(const char* szUniqueID, bool bIsReloadable)
 {
-  m_UniqueID = UniqueID;
+  m_UniqueID = szUniqueID;
   SetIsReloadable(bIsReloadable);
 
   ezResourceManager::ResourceEvent e;
@@ -65,6 +70,8 @@ void ezResourceBase::SetUniqueID(const ezString& UniqueID, bool bIsReloadable)
 
 void ezResourceBase::CallUnloadData(Unload WhatToUnload)
 {
+  EZ_LOG_BLOCK("ezResource::UnloadData", GetResourceID().GetData());
+
   ezResourceLoadDesc ld = UnloadData(WhatToUnload);
 
   EZ_ASSERT_DEV(ld.m_State != ezResourceState::Invalid, "UnloadData() did not return a valid resource load state");
@@ -83,11 +90,16 @@ void ezResourceBase::CallUnloadData(Unload WhatToUnload)
 
 void ezResourceBase::CallUpdateContent(ezStreamReaderBase* Stream)
 {
+  EZ_LOG_BLOCK("ezResource::UpdateContent", GetResourceID().GetData());
+
   ezResourceLoadDesc ld = UpdateContent(Stream);
 
   EZ_ASSERT_DEV(ld.m_State != ezResourceState::Invalid, "UpdateContent() did not return a valid resource load state");
   EZ_ASSERT_DEV(ld.m_uiQualityLevelsDiscardable != 0xFF, "UpdateContent() did not fill out m_uiQualityLevelsDiscardable correctly");
   EZ_ASSERT_DEV(ld.m_uiQualityLevelsLoadable != 0xFF, "UpdateContent() did not fill out m_uiQualityLevelsLoadable correctly");
+
+  if (ld.m_State == ezResourceState::LoadedResourceMissing)
+    ezLog::Error("Missing Resource: '%s'", GetResourceID().GetData());
 
   m_LoadingState = ld.m_State;
   m_uiQualityLevelsDiscardable = ld.m_uiQualityLevelsDiscardable;

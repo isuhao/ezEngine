@@ -54,16 +54,19 @@ namespace
       return EZ_SUCCESS;
     }
 
-    virtual ezResult OnAttachedToObject() override
+    virtual void OnAfterAttachedToObject() override
     {
       ++s_iAttachCounter;
-      return EZ_SUCCESS;
     }
 
-    virtual ezResult OnDetachedFromObject() override
+    virtual void OnBeforeDetachedFromObject() override
     {
+      if (s_bGOInactiveCheck)
+      {
+        EZ_TEST_BOOL(!GetOwner()->IsActive());
+      }
+
       --s_iAttachCounter;
-      return EZ_SUCCESS;
     }
 
     void Update()
@@ -80,10 +83,12 @@ namespace
 
     static ezInt32 s_iInitCounter;
     static ezInt32 s_iAttachCounter;
+    static bool s_bGOInactiveCheck;
   };
 
   ezInt32 TestComponent::s_iInitCounter = 0;
   ezInt32 TestComponent::s_iAttachCounter = 0;
+  bool TestComponent::s_bGOInactiveCheck = false;
 
   EZ_BEGIN_COMPONENT_TYPE(TestComponent, ezComponent, 1, TestComponentManager);
   EZ_END_COMPONENT_TYPE();
@@ -122,6 +127,8 @@ EZ_CREATE_SIMPLE_TEST(World, Components)
   ezClock::SetNumGlobalClocks();
 
   ezWorld world("TestComp");
+  EZ_LOCK(world.GetWriteMarker());
+
   world.CreateComponentManager<TestComponentManager>();
   TestComponentManager* pManager = world.GetComponentManager<TestComponentManager>();
 
@@ -130,6 +137,9 @@ EZ_CREATE_SIMPLE_TEST(World, Components)
 
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "Component Init")
   {
+    // test recursive write lock
+    EZ_LOCK(world.GetWriteMarker());
+
     ezComponentHandle handle;
     EZ_TEST_BOOL(!world.TryGetComponent(handle, pComponent));
 
@@ -157,6 +167,9 @@ EZ_CREATE_SIMPLE_TEST(World, Components)
 
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "Component Update")
   {
+    // test recursive read lock
+    EZ_LOCK(world.GetReadMarker());
+
     world.Update();
 
     ezUInt32 uiCounter = 0;
@@ -217,14 +230,19 @@ EZ_CREATE_SIMPLE_TEST(World, Components)
 
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "Delete Objects with Component")
   {
+    TestComponent::s_bGOInactiveCheck = true;
+
     world.CreateComponentManager<TestComponentManager>();
+
+    ezGameObjectDesc desc;
 
     ezGameObject* pObjectA = nullptr;
     ezGameObject* pObjectB = nullptr;
     ezGameObject* pObjectC = nullptr;
-    ezGameObjectHandle hObjectA = world.CreateObject(ezGameObjectDesc(), pObjectA);
-    ezGameObjectHandle hObjectB = world.CreateObject(ezGameObjectDesc(), pObjectB);
-    ezGameObjectHandle hObjectC = world.CreateObject(ezGameObjectDesc(), pObjectC);
+
+    desc.m_sName.Assign("A"); ezGameObjectHandle hObjectA = world.CreateObject(desc, pObjectA);
+    desc.m_sName.Assign("B"); ezGameObjectHandle hObjectB = world.CreateObject(desc, pObjectB);
+    desc.m_sName.Assign("C"); ezGameObjectHandle hObjectC = world.CreateObject(desc, pObjectC);
 
     TestComponent* pComponentA = nullptr;
     TestComponent* pComponentB = nullptr;
@@ -262,10 +280,12 @@ EZ_CREATE_SIMPLE_TEST(World, Components)
     //EZ_TEST_BOOL(world.TryGetComponent(hComponentC, pComponentC));
 
     EZ_TEST_BOOL(pObjectA->IsActive());
+    EZ_TEST_STRING(pObjectA->GetName(), "A");
     EZ_TEST_BOOL(pComponentA->IsActive());
     EZ_TEST_BOOL(pComponentA->GetOwner() == pObjectA);
 
     EZ_TEST_BOOL(pObjectC->IsActive());
+    EZ_TEST_STRING(pObjectC->GetName(), "C");
     EZ_TEST_BOOL(pComponentC->IsActive());
     EZ_TEST_BOOL(pComponentC->GetOwner() == pObjectC);
 
@@ -273,5 +293,7 @@ EZ_CREATE_SIMPLE_TEST(World, Components)
     TestComponent* pComponentB2 = nullptr;
     ezComponentHandle hComponentB2 = TestComponent::CreateComponent(&world, pComponentB2);
     EZ_TEST_BOOL(pComponentB2 == pComponentB);
+
+    TestComponent::s_bGOInactiveCheck = false;
   }
 }

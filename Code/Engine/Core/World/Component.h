@@ -28,6 +28,9 @@ public:
   /// \brief Returns whether this component is dynamic and thus can only be attached to dynamic game objects.
   bool IsDynamic() const;
 
+  /// \brief Sets the active state of the component. Note that it is up to the manager if he differentiates between active and inactive components.
+  void SetActive(bool bActive);
+
   /// \brief Activates the component. Note that it is up to the manager if he differentiates between active and inactive components.
   void Activate();
 
@@ -40,8 +43,11 @@ public:
   /// \brief Returns the corresponding manager for this component.
   ezComponentManagerBase* GetManager() const;
 
-  /// \brief Returns the owner game object if the component is attached to one or nullptr. 
-  ezGameObject* GetOwner() const;
+  /// \brief Returns the owner game object if the component is attached to one or nullptr.
+  ezGameObject* GetOwner();
+
+  /// \brief Returns the owner game object if the component is attached to one or nullptr.
+  const ezGameObject* GetOwner() const;
 
   /// \brief Returns a handle to this component.
   ezComponentHandle GetHandle() const;
@@ -51,6 +57,8 @@ public:
 
   /// \brief Gets the next component id for a new type. Internal use only.
   static ezUInt16 GetNextTypeId();
+
+  ezUInt32 m_uiEditorPickingID;
 
 protected:
   friend class ezWorld;
@@ -75,10 +83,10 @@ private:
   bool IsInitialized() const;
 
   /// \brief This method is called when the component is attached to a game object. At this point the owner pointer is already set. A derived type can override this method to do additional work.
-  virtual ezResult OnAttachedToObject();
+  virtual void OnAfterAttachedToObject();
 
   /// \brief This method is called when the component is detached from a game object. At this point the owner pointer is still set. A derived type can override this method to do additional work.
-  virtual ezResult OnDetachedFromObject();
+  virtual void OnBeforeDetachedFromObject();
 
   void OnMessage(ezMessage& msg);
   void OnMessage(ezMessage& msg) const;

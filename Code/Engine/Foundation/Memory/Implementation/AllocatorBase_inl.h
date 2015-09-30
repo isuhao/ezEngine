@@ -10,6 +10,25 @@ EZ_FORCE_INLINE ezAllocatorBase::~ezAllocatorBase()
 namespace ezInternal
 {
   template <typename T>
+  struct NewInstance
+  {
+    EZ_FORCE_INLINE NewInstance(T* pInstance, ezAllocatorBase* pAllocator)
+    {
+      m_pInstance = pInstance;
+      m_pAllocator = pAllocator;
+    }
+
+    EZ_FORCE_INLINE operator T*() const
+    {
+      return m_pInstance;
+    }
+
+    T* m_pInstance;
+    ezAllocatorBase* m_pAllocator;    
+  };
+
+
+  template <typename T>
   EZ_FORCE_INLINE void Delete(ezAllocatorBase* pAllocator, T* ptr)
   {
     if (ptr != nullptr)
@@ -43,7 +62,7 @@ namespace ezInternal
   }
 
   template <typename T>
-  inline void DeleteArray(ezAllocatorBase* pAllocator, const ezArrayPtr<T>& arrayPtr)
+  inline void DeleteArray(ezAllocatorBase* pAllocator, ezArrayPtr<T> arrayPtr)
   {
     T* buffer = arrayPtr.GetPtr();
     if (buffer != nullptr)

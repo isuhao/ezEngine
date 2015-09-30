@@ -7,6 +7,11 @@ EZ_END_DYNAMIC_REFLECTED_TYPE();
 ezUInt16 ezComponent::TYPE_ID = ezComponent::GetNextTypeId();
 ezUInt16 ezComponent::s_uiNextTypeId;
 
+void ezComponent::SetActive(bool bActive)
+{
+  m_Flags.AddOrRemove(ezObjectFlags::Active, bActive);
+}
+
 void ezComponent::Activate()
 {
   m_Flags.Add(ezObjectFlags::Active);
@@ -27,14 +32,12 @@ ezResult ezComponent::Deinitialize()
   return EZ_SUCCESS;
 }
 
-ezResult ezComponent::OnAttachedToObject()
+void ezComponent::OnAfterAttachedToObject()
 {
-  return EZ_SUCCESS;
 }
 
-ezResult ezComponent::OnDetachedFromObject()
+void ezComponent::OnBeforeDetachedFromObject()
 {
-  return EZ_SUCCESS;
 }
 
 EZ_STATICLINK_FILE(Core, Core_World_Implementation_Component);

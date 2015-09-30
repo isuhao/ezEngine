@@ -190,7 +190,7 @@ ezUInt64 ezOSFile::GetFileSize() const
   return uiCurSize;
 }
 
-bool ezOSFile::Exists(const char* szFile)
+bool ezOSFile::ExistsFile(const char* szFile)
 {
   const ezTime t0 = ezTime::Now();
 
@@ -198,7 +198,7 @@ bool ezOSFile::Exists(const char* szFile)
   s.MakeCleanPath();
   s.MakePathSeparatorsNative();
 
-  const bool bRes = InternalExists(szFile);
+  const bool bRes = InternalExistsFile(s);
 
   const ezTime t1 = ezTime::Now();
   const ezTime tdiff = t1 - t0;
@@ -208,8 +208,34 @@ bool ezOSFile::Exists(const char* szFile)
   e.m_bSuccess = bRes;
   e.m_Duration = tdiff;
   e.m_iFileID = s_FileCounter.Increment();
-  e.m_szFile = szFile;
+  e.m_szFile = s;
   e.m_EventType = EventType::FileExists;
+
+  s_FileEvents.Broadcast(e);
+
+  return bRes;
+}
+
+bool ezOSFile::ExistsDirectory(const char* szDirectory)
+{
+  const ezTime t0 = ezTime::Now();
+
+  ezStringBuilder s(szDirectory);
+  s.MakeCleanPath();
+  s.MakePathSeparatorsNative();
+
+  const bool bRes = InternalExistsDirectory(s);
+
+  const ezTime t1 = ezTime::Now();
+  const ezTime tdiff = t1 - t0;
+
+
+  EventData e;
+  e.m_bSuccess = bRes;
+  e.m_Duration = tdiff;
+  e.m_iFileID = s_FileCounter.Increment();
+  e.m_szFile = s;
+  e.m_EventType = EventType::DirectoryExists;
 
   s_FileEvents.Broadcast(e);
 
@@ -253,11 +279,11 @@ ezResult ezOSFile::CreateDirectoryStructure(const char* szDirectory)
 
   ezStringBuilder sCurPath;
 
-  ezStringView it = s.GetIteratorFront();
+  auto it = s.GetIteratorFront();
 
   ezResult Res = EZ_SUCCESS;
 
-  while (!it.IsEmpty())
+  while (it.IsValid())
   {
     while ((it.GetCharacter() != '\0') && (!ezPathUtils::IsPathSeparator(it.GetCharacter())))
     {
@@ -347,6 +373,8 @@ done:
 
   ezResult ezOSFile::GetFileStats(const char* szFileOrFolder, ezFileStats& out_Stats)
   {
+    /// \todo We should implement this also on ezFileSystem, to be able to support stats through virtual filesystems
+
     const ezTime t0 = ezTime::Now();
 
     ezStringBuilder s = szFileOrFolder;
@@ -374,6 +402,8 @@ done:
 
   ezResult ezOSFile::GetFileCasing(const char* szFileOrFolder, ezStringBuilder& out_sCorrectSpelling)
   {
+    /// \todo We should implement this also on ezFileSystem, to be able to support stats through virtual filesystems
+
     const ezTime t0 = ezTime::Now();
 
     ezStringBuilder s(szFileOrFolder);
@@ -384,13 +414,13 @@ done:
 
     ezStringBuilder sCurPath;
 
-    ezStringView it = s.GetIteratorFront();
+    auto it = s.GetIteratorFront();
 
     out_sCorrectSpelling.Clear();
 
     ezResult Res = EZ_SUCCESS;
 
-    while (!it.IsEmpty())
+    while (it.IsValid())
     {
       while ((it.GetCharacter() != '\0') && (!ezPathUtils::IsPathSeparator(it.GetCharacter())))
       {

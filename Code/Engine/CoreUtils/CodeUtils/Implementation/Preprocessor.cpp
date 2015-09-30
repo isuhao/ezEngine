@@ -48,7 +48,7 @@ ezToken* ezPreprocessor::AddCustomToken(const ezToken* pPrevious, const char* sz
 
   pToken->m_sIdentifierString = szNewText;
   pToken->m_Token = *pPrevious;
-  pToken->m_Token.m_DataView = pToken->m_sIdentifierString.GetIteratorFront();
+  pToken->m_Token.m_DataView = pToken->m_sIdentifierString;
 
   return &pToken->m_Token;
 }
@@ -179,7 +179,7 @@ ezResult ezPreprocessor::Process(const char* szMainFile, TokenStream& TokenOutpu
   return EZ_SUCCESS;
 }
 
-ezResult ezPreprocessor::Process(const char* szMainFile, ezStringBuilder& sOutput, bool bKeepComments)
+ezResult ezPreprocessor::Process(const char* szMainFile, ezStringBuilder& sOutput, bool bKeepComments, bool bRemoveRedundantWhitespace, bool bInsertLine)
 {
   sOutput.Clear();
 
@@ -188,7 +188,7 @@ ezResult ezPreprocessor::Process(const char* szMainFile, ezStringBuilder& sOutpu
     return EZ_FAILURE;
 
   // generate the final text output
-  CombineTokensToString(TokenOutput, 0, sOutput, bKeepComments);
+  CombineTokensToString(TokenOutput, 0, sOutput, bKeepComments, bRemoveRedundantWhitespace, bInsertLine);
 
   return EZ_SUCCESS;
 }

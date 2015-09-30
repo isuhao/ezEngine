@@ -1,5 +1,6 @@
 #include <PCH.h>
 #include <Foundation/Time/Clock.h>
+#include <Foundation/Memory/FrameAllocator.h>
 #include <Core/World/World.h>
 
 namespace
@@ -73,6 +74,8 @@ EZ_CREATE_SIMPLE_TEST(World, Messaging)
 {
   ezClock::SetNumGlobalClocks();
   ezWorld world("Test");
+  EZ_LOCK(world.GetWriteMarker());
+
   TestComponentMsgManager* pManager = world.CreateComponentManager<TestComponentMsgManager>();
 
   ezGameObjectDesc desc;
@@ -82,7 +85,7 @@ EZ_CREATE_SIMPLE_TEST(World, Messaging)
   pRoot->AddComponent(pManager->CreateComponent());
 
   ezGameObject* pParents[2];
-  desc.m_Parent = pRoot->GetHandle();
+  desc.m_hParent = pRoot->GetHandle();
   desc.m_sName.Assign("Parent1");
   world.CreateObject(desc, pParents[0]);
   pParents[0]->AddComponent(pManager->CreateComponent());
@@ -93,7 +96,7 @@ EZ_CREATE_SIMPLE_TEST(World, Messaging)
 
   for (ezUInt32 i = 0; i < 2; ++i)
   {
-    desc.m_Parent = pParents[i]->GetHandle();
+    desc.m_hParent = pParents[i]->GetHandle();
     for (ezUInt32 j = 0; j < 4; ++j)
     {
       ezStringBuilder sb;
@@ -263,6 +266,8 @@ EZ_CREATE_SIMPLE_TEST(World, Messaging)
     pRoot->TryGetComponentOfBaseType(pComponent);
     EZ_TEST_INT(pComponent->m_iSomeData, 46);
     EZ_TEST_INT(pComponent->m_iSomeData2, 92);
+
+    ezFrameAllocator::Reset();
   }
 
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "Queuing with delay")
@@ -298,5 +303,7 @@ EZ_CREATE_SIMPLE_TEST(World, Messaging)
       EZ_TEST_INT(pComponent->m_iSomeData, iDesiredValue);
       EZ_TEST_INT(pComponent->m_iSomeData2, iDesiredValue2);
     }
+
+    ezFrameAllocator::Reset();
   }
 }

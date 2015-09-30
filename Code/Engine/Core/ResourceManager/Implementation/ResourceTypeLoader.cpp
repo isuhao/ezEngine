@@ -23,6 +23,8 @@ ezResourceLoadData ezResourceLoaderFromFile::OpenDataStream(const ezResourceBase
   if (File.Open(pResource->GetResourceID().GetData()).Failed())
     return res;
 
+  res.m_sResourceDescription = File.GetFilePathRelative().GetData();
+
 #if EZ_ENABLED(EZ_SUPPORTS_FILE_STATS)
   ezFileStats stat;
   if (ezOSFile::GetFileStats(File.GetFilePathAbsolute(), stat).Succeeded())
@@ -36,6 +38,9 @@ ezResourceLoadData ezResourceLoaderFromFile::OpenDataStream(const ezResourceBase
   FileResourceLoadData* pData = EZ_DEFAULT_NEW(FileResourceLoadData);
 
   ezMemoryStreamWriter w(&pData->m_Storage);
+
+  // write the absolute path to the read file into the memory stream
+  w << File.GetFilePathAbsolute();
 
   ezUInt8 uiTemp[1024];
 

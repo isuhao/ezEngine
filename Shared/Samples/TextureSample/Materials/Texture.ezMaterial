@@ -1,0 +1,16 @@
+{
+  "Shader" : "Shaders/Texture.ezShader",
+  
+  "Permutations" : 
+  {
+  },
+
+  "Constants" :
+  {
+  },
+  
+  "Textures" :
+  {
+    "TexDiffuse" : "Textures/Reference_D.dds"
+  }  
+}

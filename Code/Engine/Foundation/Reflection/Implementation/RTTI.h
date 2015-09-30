@@ -8,12 +8,15 @@
 #include <Foundation/Configuration/Plugin.h>
 #include <Foundation/Reflection/Implementation/StaticRTTI.h>
 
+
 // *****************************************
 // ***** Runtime Type Information Data *****
 
 struct ezRTTIAllocator;
 class ezAbstractProperty;
 class ezAbstractMessageHandler;
+
+
 
 /// \brief This enumerable class holds information about reflected types. Each instance represents one type that is known to the reflection system.
 ///
@@ -27,8 +30,8 @@ class EZ_FOUNDATION_DLL ezRTTI : public ezEnumerable<ezRTTI>
 
 public:
   /// \brief The constructor requires all the information about the type that this object represents.
-  ezRTTI(const char* szName, const ezRTTI* pParentType, ezUInt32 uiTypeSize, ezUInt32 uiTypeVersion, ezUInt32 uiVariantType,
-    ezRTTIAllocator* pAllocator, ezArrayPtr<ezAbstractProperty*> properties, ezArrayPtr<ezAbstractMessageHandler*> messageHandlers);
+  ezRTTI(const char* szName, const ezRTTI* pParentType, ezUInt32 uiTypeSize, ezUInt32 uiTypeVersion, ezUInt32 uiVariantType, ezBitflags<ezTypeFlags> flags,
+    ezRTTIAllocator* pAllocator, ezArrayPtr<ezAbstractProperty*> properties, ezArrayPtr<ezAbstractMessageHandler*> messageHandlers, const ezRTTI*(*fnVerifyParent)());
 
   ~ezRTTI();
 
@@ -63,6 +66,9 @@ public:
   /// \brief Returns the version number of this type.
   EZ_FORCE_INLINE ezUInt32 GetTypeVersion() const { return m_uiTypeVersion; }
 
+  /// \brief Returns the type flags.
+  EZ_FORCE_INLINE const ezBitflags<ezTypeFlags>& GetTypeFlags() const { return m_TypeFlags; } // [tested]
+
   /// \brief Iterates over all ezRTTI instances and returns the one with the given name, or nullptr if no such type exists.
   static ezRTTI* FindTypeByName(const char* szName); // [tested]
 
@@ -95,19 +101,22 @@ public:
     return uiIndex < m_DynamicMessageHandlers.GetCount() && m_DynamicMessageHandlers[uiIndex] != nullptr;
   }
 
-private:
+protected:
   const char* m_szPluginName;
   const char* m_szTypeName;
+  ezArrayPtr<ezAbstractProperty*> m_Properties;
+
+  void UpdateType(const ezRTTI* pParentType, ezUInt32 uiTypeSize, ezUInt32 uiTypeVersion, ezUInt32 uiVariantType, ezBitflags<ezTypeFlags> flags);
+
+private:
   const ezRTTI* m_pParentType;
   ezUInt32 m_uiVariantType;
   ezUInt32 m_uiTypeSize;
   ezUInt32 m_uiMsgIdOffset;
   ezUInt32 m_uiTypeVersion;
+  ezBitflags<ezTypeFlags> m_TypeFlags;
   ezRTTIAllocator* m_pAllocator;
 
-  ezArrayPtr<ezAbstractProperty*> m_Properties;
-  ezDynamicArray<ezAbstractProperty*> m_DynamicProperties;
-  
   ezArrayPtr<ezAbstractMessageHandler*> m_MessageHandlers;
   ezDynamicArray<ezAbstractMessageHandler*> m_DynamicMessageHandlers;
   
@@ -116,6 +125,8 @@ private:
 
   /// \brief Assigns the given plugin name to every ezRTTI instance that has no plugin assigned yet.
   static void AssignPlugin(const char* szPluginName);
+
+  static void SanityCheckType(ezRTTI* pType);
 
   /// \brief Handles events by ezPlugin, to figure out which types were provided by which plugin
   static void PluginEventHandler(const ezPlugin::PluginEvent& EventData);

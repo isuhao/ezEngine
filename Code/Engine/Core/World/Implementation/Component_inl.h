@@ -1,9 +1,10 @@
 
-EZ_FORCE_INLINE ezComponent::ezComponent() : 
-  m_pManager(nullptr),
+EZ_FORCE_INLINE ezComponent::ezComponent() :
   m_Flags(ezObjectFlags::Default),
+  m_pManager(nullptr),
   m_pOwner(nullptr)
-{ 
+{
+  m_uiEditorPickingID = 0xFFFFFFFF;
 }
 
 EZ_FORCE_INLINE ezComponent::~ezComponent() 
@@ -28,7 +29,12 @@ EZ_FORCE_INLINE ezComponentManagerBase* ezComponent::GetManager() const
   return m_pManager;
 }
 
-EZ_FORCE_INLINE ezGameObject* ezComponent::GetOwner() const
+EZ_FORCE_INLINE ezGameObject* ezComponent::GetOwner()
+{
+  return m_pOwner;
+}
+
+EZ_FORCE_INLINE const ezGameObject* ezComponent::GetOwner() const
 {
   return m_pOwner;
 }

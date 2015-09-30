@@ -1,10 +1,15 @@
 #include <Foundation/PCH.h>
 #include <Foundation/Reflection/Implementation/RTTI.h>
-#include <Foundation/Reflection/Implementation/AbstractProperty.h>
+#include <Foundation/Containers/Set.h>
+#include <Foundation/Containers/Deque.h>
+#include <Foundation/Containers/DynamicArray.h>
 #include <Foundation/Reflection/Implementation/DynamicRTTI.h>
+#include <Foundation/Reflection/Implementation/PropertyAttributes.h>
+#include <Foundation/Reflection/Implementation/AbstractProperty.h>
+
 #include <Foundation/Reflection/Implementation/MessageHandler.h>
 #include <Foundation/Configuration/Startup.h>
-#include <Foundation/Containers/Set.h>
+
 #include <Foundation/Strings/String.h>
 
 EZ_ENUMERABLE_CLASS_IMPLEMENTATION(ezRTTI);
@@ -28,22 +33,25 @@ EZ_BEGIN_SUBSYSTEM_DECLARATION(Foundation, Reflection)
 
 EZ_END_SUBSYSTEM_DECLARATION
 
-ezRTTI::ezRTTI(const char* szName, const ezRTTI* pParentType, ezUInt32 uiTypeSize, ezUInt32 uiTypeVersion, ezUInt32 uiVariantType,
-  ezRTTIAllocator* pAllocator, ezArrayPtr<ezAbstractProperty*> properties, ezArrayPtr<ezAbstractMessageHandler*> messageHandlers)
+ezRTTI::ezRTTI(const char* szName, const ezRTTI* pParentType, ezUInt32 uiTypeSize, ezUInt32 uiTypeVersion, ezUInt32 uiVariantType, ezBitflags<ezTypeFlags> flags,
+  ezRTTIAllocator* pAllocator, ezArrayPtr<ezAbstractProperty*> properties, ezArrayPtr<ezAbstractMessageHandler*> messageHandlers, const ezRTTI*(*fnVerifyParent)())
 {
+  UpdateType(pParentType, uiTypeSize, uiTypeVersion, uiVariantType, flags);
+
   m_szPluginName = nullptr;
   m_szTypeName = szName;
-  m_pParentType = pParentType;
-  m_uiVariantType = uiVariantType;
-  m_uiTypeSize = uiTypeSize;
-  m_uiTypeVersion = uiTypeVersion;
   m_pAllocator = pAllocator;
   m_Properties = properties;
-  m_MessageHandlers = messageHandlers;  
+  m_MessageHandlers = messageHandlers;
+  m_uiMsgIdOffset = 0;
+
+  if (fnVerifyParent != nullptr)
+  {
+    EZ_ASSERT_DEV(fnVerifyParent() == pParentType, "Type '%s': The given parent type '%s' does not match the actual parent type '%s'", szName, pParentType != nullptr ? pParentType->GetTypeName() : "null", fnVerifyParent() != nullptr ? fnVerifyParent()->GetTypeName() : "null");
+  }
 
 #if EZ_ENABLED(EZ_COMPILE_FOR_DEVELOPMENT)
   {
-    // cannot use ezSet etc. this runs at startup, before allocators are initialized
     ezSet<ezString> Known;
 
     const ezRTTI* pInstance = this;
@@ -109,6 +117,15 @@ ezRTTI::ezRTTI(const char* szName, const ezRTTI* pParentType, ezUInt32 uiTypeSiz
 
 ezRTTI::~ezRTTI()
 {
+}
+
+void ezRTTI::UpdateType(const ezRTTI* pParentType, ezUInt32 uiTypeSize, ezUInt32 uiTypeVersion, ezUInt32 uiVariantType, ezBitflags<ezTypeFlags> flags)
+{
+  m_pParentType = pParentType;
+  m_uiVariantType = uiVariantType;
+  m_uiTypeSize = uiTypeSize;
+  m_uiTypeVersion = uiTypeVersion;
+  m_TypeFlags = flags;
 }
 
 bool ezRTTI::IsDerivedFrom(const ezRTTI* pBaseType) const
@@ -218,9 +235,45 @@ void ezRTTI::AssignPlugin(const char* szPluginName)
   while (pInstance)
   {
     if (pInstance->m_szPluginName == nullptr)
+    {
       pInstance->m_szPluginName = szPluginName;
-
+      SanityCheckType(pInstance);
+    }
     pInstance = pInstance->GetNextInstance();
+  }
+}
+
+void ezRTTI::SanityCheckType(ezRTTI* pType)
+{
+  for (auto pProp : pType->m_Properties)
+  {
+    const ezRTTI* pSpecificType = pProp->GetSpecificType();
+    switch (pProp->GetCategory())
+    {
+    case ezPropertyCategory::Constant:
+      {
+        EZ_ASSERT_DEV(pSpecificType->GetTypeFlags().IsSet(ezTypeFlags::StandardType), "Only standard type constants are supported!");
+      }
+      break;
+    case ezPropertyCategory::Member:
+      {
+        EZ_ASSERT_DEV(pProp->GetFlags().IsSet(ezPropertyFlags::StandardType) == pSpecificType->GetTypeFlags().IsSet(ezTypeFlags::StandardType), "Property-Type missmatch!");
+        EZ_ASSERT_DEV(pProp->GetFlags().IsSet(ezPropertyFlags::IsEnum) == pSpecificType->GetTypeFlags().IsSet(ezTypeFlags::IsEnum),
+          "Property-Type missmatch! Use EZ_BEGIN_STATIC_REFLECTED_ENUM for type and EZ_ENUM_MEMBER_PROPERTY / EZ_ENUM_ACCESSOR_PROPERTY for property.");
+        EZ_ASSERT_DEV(pProp->GetFlags().IsSet(ezPropertyFlags::Bitflags) == pSpecificType->GetTypeFlags().IsSet(ezTypeFlags::Bitflags),
+          "Property-Type missmatch! Use EZ_BEGIN_STATIC_REFLECTED_ENUM for type and EZ_BITFLAGS_MEMBER_PROPERTY / EZ_BITFLAGS_ACCESSOR_PROPERTY for property.");
+      }
+      break;
+    case ezPropertyCategory::Array:
+    case ezPropertyCategory::Set:
+    case ezPropertyCategory::Map:
+      {
+        EZ_ASSERT_DEV(pProp->GetFlags().IsSet(ezPropertyFlags::StandardType) == pSpecificType->GetTypeFlags().IsSet(ezTypeFlags::StandardType), "Property-Type missmatch!");
+      }
+      break;
+    case ezPropertyCategory::Function:
+      break;
+    }
   }
 }
 

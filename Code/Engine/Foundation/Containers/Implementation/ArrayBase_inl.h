@@ -14,8 +14,11 @@ ezArrayBase<T, Derived>::~ezArrayBase()
 }
 
 template <typename T, typename Derived>
-void ezArrayBase<T, Derived>::operator= (const ezArrayPtr<T>& rhs)
+void ezArrayBase<T, Derived>::operator= (const ezArrayPtr<const T>& rhs)
 {
+  if (this->GetData() == rhs.GetPtr())
+    return;
+
   const ezUInt32 uiOldCount = m_uiCount;
   const ezUInt32 uiNewCount = rhs.GetCount();
 
@@ -35,9 +38,9 @@ void ezArrayBase<T, Derived>::operator= (const ezArrayPtr<T>& rhs)
 }
 
 template <typename T, typename Derived>
-EZ_FORCE_INLINE ezArrayBase<T, Derived>::operator const ezArrayPtr<T>() const
+EZ_FORCE_INLINE ezArrayBase<T, Derived>::operator ezArrayPtr<const T>() const
 {
-  return ezArrayPtr<T>(m_pElements, m_uiCount);
+  return ezArrayPtr<const T>(m_pElements, m_uiCount);
 }
 
 template <typename T, typename Derived>
@@ -47,7 +50,7 @@ EZ_FORCE_INLINE ezArrayBase<T, Derived>::operator ezArrayPtr<T>()
 }
 
 template <typename T, typename Derived>
-bool ezArrayBase<T, Derived>::operator== (const ezArrayPtr<T>& rhs) const
+bool ezArrayBase<T, Derived>::operator== (const ezArrayPtr<const T>& rhs) const
 {
   if (m_uiCount != rhs.GetCount())
     return false;
@@ -56,7 +59,7 @@ bool ezArrayBase<T, Derived>::operator== (const ezArrayPtr<T>& rhs) const
 }
 
 template <typename T, typename Derived>
-EZ_FORCE_INLINE bool ezArrayBase<T, Derived>::operator!= (const ezArrayPtr<T>& rhs) const
+EZ_FORCE_INLINE bool ezArrayBase<T, Derived>::operator!= (const ezArrayPtr<const T>& rhs) const
 {
   return !(*this == rhs);
 }
@@ -145,9 +148,18 @@ void ezArrayBase<T, Derived>::Insert(const T& value, ezUInt32 uiIndex)
 
   static_cast<Derived*>(this)->Reserve(m_uiCount + 1);
 
-  ezMemoryUtils::Construct(m_pElements + m_uiCount, 1);
-  ezMemoryUtils::CopyOverlapped(m_pElements + uiIndex + 1, m_pElements + uiIndex, m_uiCount - uiIndex);
-  m_pElements[uiIndex] = value;
+  ezMemoryUtils::Prepend(m_pElements + uiIndex, value, m_uiCount - uiIndex);
+  m_uiCount++;
+}
+
+template <typename T, typename Derived>
+void ezArrayBase<T, Derived>::Insert(T&& value, ezUInt32 uiIndex)
+{
+  EZ_ASSERT_DEV(uiIndex <= m_uiCount, "Invalid index. Array has %i elements, trying to insert element at index %i.", m_uiCount, uiIndex);
+
+  static_cast<Derived*>(this)->Reserve(m_uiCount + 1);
+
+  ezMemoryUtils::Prepend(m_pElements + uiIndex, std::move(value), m_uiCount - uiIndex);
   m_uiCount++;
 }
 
@@ -181,8 +193,7 @@ void ezArrayBase<T, Derived>::RemoveAt(ezUInt32 uiIndex)
   EZ_ASSERT_DEV(uiIndex < m_uiCount, "Out of bounds access. Array has %i elements, trying to remove element at index %i.", m_uiCount, uiIndex);
 
   m_uiCount--;
-  ezMemoryUtils::CopyOverlapped(m_pElements + uiIndex, m_pElements + uiIndex + 1, m_uiCount - uiIndex); 
-  ezMemoryUtils::Destruct(m_pElements + m_uiCount, 1);
+  ezMemoryUtils::RelocateOverlapped(m_pElements + uiIndex, m_pElements + uiIndex + 1, m_uiCount - uiIndex);
 }
 
 template <typename T, typename Derived>
@@ -193,7 +204,7 @@ void ezArrayBase<T, Derived>::RemoveAtSwap(ezUInt32 uiIndex)
   m_uiCount--;
   if (m_uiCount != uiIndex)
   {
-    m_pElements[uiIndex] = m_pElements[m_uiCount];
+    m_pElements[uiIndex] = std::move(m_pElements[m_uiCount]);
   }
   ezMemoryUtils::Destruct(m_pElements + m_uiCount, 1);
 }
@@ -225,7 +236,7 @@ T& ezArrayBase<T, Derived>::ExpandAndGetRef()
 {
   static_cast<Derived*>(this)->Reserve(m_uiCount + 1);
 
-  ezMemoryUtils::DefaultConstruct(m_pElements + m_uiCount, 1);
+  ezMemoryUtils::Construct(m_pElements + m_uiCount, 1);
 
   T& ReturnRef = *(m_pElements + m_uiCount);
 
@@ -239,7 +250,16 @@ void ezArrayBase<T, Derived>::PushBack(const T& value)
 {
   static_cast<Derived*>(this)->Reserve(m_uiCount + 1);
 
-  ezMemoryUtils::Construct(m_pElements + m_uiCount, value, 1);
+  ezMemoryUtils::CopyConstruct(m_pElements + m_uiCount, value, 1);
+  m_uiCount++;
+}
+
+template <typename T, typename Derived>
+void ezArrayBase<T, Derived>::PushBack(T&& value)
+{
+  static_cast<Derived*>(this)->Reserve(m_uiCount + 1);
+
+  ezMemoryUtils::MoveConstruct<T>(m_pElements + m_uiCount, std::move(value));
   m_uiCount++;
 }
 
@@ -248,18 +268,17 @@ void ezArrayBase<T, Derived>::PushBackUnchecked(const T& value)
 {
   EZ_ASSERT_DEV(m_uiCount < m_uiCapacity, "Appending unchecked to array with insufficient capacity.");
 
-  ezMemoryUtils::Construct(m_pElements + m_uiCount, value, 1);
+  ezMemoryUtils::CopyConstruct(m_pElements + m_uiCount, value, 1);
   m_uiCount++;
 }
 
 template <typename T, typename Derived>
-void ezArrayBase<T, Derived>::PushBackRange(const ezArrayPtr<typename ezTypeTraits<T>::NonConstType>& range)
+void ezArrayBase<T, Derived>::PushBackUnchecked(T&& value)
 {
-  const ezUInt32 uiRangeCount = range.GetCount();
-  static_cast<Derived*>(this)->Reserve(m_uiCount + uiRangeCount);
+  EZ_ASSERT_DEV(m_uiCount < m_uiCapacity, "Appending unchecked to array with insufficient capacity.");
 
-  ezMemoryUtils::CopyConstruct(m_pElements + m_uiCount, range.GetPtr(), uiRangeCount);
-  m_uiCount += uiRangeCount;
+  ezMemoryUtils::MoveConstruct<T>(m_pElements + m_uiCount, std::move(value));
+  m_uiCount++;
 }
 
 template <typename T, typename Derived>
@@ -341,7 +360,7 @@ ezArrayPtr<T> ezArrayBase<T, Derived>::GetArrayPtr()
 }
 
 template <typename T, typename Derived>
-const ezArrayPtr<const T> ezArrayBase<T, Derived>::GetArrayPtr() const
+ezArrayPtr<const T> ezArrayBase<T, Derived>::GetArrayPtr() const
 {
     return ezArrayPtr<const T>(GetData(), GetCount());
 }

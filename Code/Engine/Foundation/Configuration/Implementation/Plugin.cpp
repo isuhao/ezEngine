@@ -196,6 +196,12 @@ ezResult ezPlugin::LoadPluginInternal(const char* szPluginFile, bool bLoadCopy, 
   ezStringBuilder sOldPlugin, sNewPlugin;
   GetPluginPaths(szPluginFile, sOldPlugin, sNewPlugin, uiFileNumber);
 
+  if (!ezOSFile::ExistsFile(sOldPlugin))
+  {
+    ezLog::Error("The plugin '%s' does not exist.", szPluginFile);
+    return EZ_FAILURE;
+  }
+
   if (bLoadCopy)
   {
     // create a copy of the original plugin file
@@ -393,8 +399,6 @@ void ezPlugin::SortPluginReloadOrder(ezHybridArray<ezString, 16>& PluginsToReloa
       {
         if (NotYetSorted.Find(PluginsToSort[iPlugin]->m_szPluginDependencies[iDep]).IsValid())
         {
-          //ezLog::Debug("[test] Plugin '%s' has a dependency on '%s'", PluginsToSort[iPlugin]->GetPluginName(), PluginsToSort[iPlugin]->m_szPluginDependencies[iDep]);
-
           // The plugin has a dependency on another plugin that is not yet in the list -> do not put it into the list yet
           bHasDependency = true;
           break;
@@ -409,8 +413,6 @@ void ezPlugin::SortPluginReloadOrder(ezHybridArray<ezString, 16>& PluginsToReloa
         PluginsToSort[iPlugin] = nullptr;
 
         bFoundAny = true;
-
-        //ezLog::Debug("[test] Plugin reload order (%i): '%s'", PluginsToReload.GetCount(), PluginsToReload.PeekBack().GetData());
       }
     }
 
@@ -442,7 +444,7 @@ ezResult ezPlugin::ReloadPlugins(bool bForceReload)
         ezStringBuilder sOldPlugin, sNewPlugin;
         GetPluginPaths(pPlugin->m_sLoadedFromFile, sOldPlugin, sNewPlugin, g_LoadedPlugins[pPlugin->m_sLoadedFromFile].m_uiFileNumber);
 
-        if (!ezOSFile::Exists(sOldPlugin.GetData()))
+        if (!ezOSFile::ExistsFile(sOldPlugin.GetData()))
         {
           bModified = false;
           res = EZ_FAILURE;

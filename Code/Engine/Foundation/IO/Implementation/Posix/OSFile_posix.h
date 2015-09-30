@@ -4,6 +4,10 @@
 #include <errno.h>
 #include <sys/stat.h>
 
+#if EZ_ENABLED(EZ_PLATFORM_OSX)
+#include <CoreFoundation/CoreFoundation.h>
+#endif
+
 ezResult ezOSFile::InternalOpen(const char* szFile, ezFileMode::Enum OpenMode)
 {
   switch (OpenMode)
@@ -109,7 +113,7 @@ void ezOSFile::InternalSetFilePosition(ezInt64 iDistance, ezFilePos::Enum Pos) c
   }
 }
 
-bool ezOSFile::InternalExists(const char* szFile)
+bool ezOSFile::InternalExistsFile(const char* szFile)
 {
   FILE* pFile = fopen(szFile, "r");
 
@@ -118,6 +122,12 @@ bool ezOSFile::InternalExists(const char* szFile)
 
   fclose(pFile);
   return true;
+}
+
+bool ezOSFile::InternalExistsDirectory(const char* szDirectory)
+{
+  struct stat sb;
+  return (stat(szDirectory, &sb) == 0 && S_ISDIR(sb.st_mode));
 }
 
 ezResult ezOSFile::InternalDeleteFile(const char* szFile)
@@ -147,7 +157,7 @@ ezResult ezOSFile::InternalCreateDirectory(const char* szDirectory)
 #if EZ_ENABLED(EZ_SUPPORTS_FILE_STATS)
 ezResult ezOSFile::InternalGetFileStats(const char* szFileOrFolder, ezFileStats& out_Stats)
 {
-  struct stat tempStat;
+  stat tempStat;
   int iRes = stat(szFileOrFolder, &tempStat);
   
   if (iRes != 0)
@@ -164,7 +174,42 @@ ezResult ezOSFile::InternalGetFileStats(const char* szFileOrFolder, ezFileStats&
 
 const char* ezOSFile::GetApplicationDirectory()
 {
+#if EZ_ENABLED(EZ_PLATFORM_OSX)
+  
+  static ezString256 s_Path;
+  
+  if(s_Path.IsEmpty())
+  {
+    CFBundleRef appBundle = CFBundleGetMainBundle();
+    CFURLRef bundleURL = CFBundleCopyBundleURL(appBundle);
+    CFStringRef bundlePath = CFURLCopyFileSystemPath( bundleURL, kCFURLPOSIXPathStyle );
+    
+    if(bundlePath != nullptr)
+    {
+      CFIndex length = CFStringGetLength(bundlePath);
+      CFIndex maxSize = CFStringGetMaximumSizeForEncoding(length, kCFStringEncodingUTF8) + 1;
+      
+      ezArrayPtr<char> temp = EZ_DEFAULT_NEW_ARRAY(char, maxSize);
+      
+      if(CFStringGetCString(bundlePath, temp.GetPtr(), maxSize, kCFStringEncodingUTF8))
+      {
+        s_Path = temp.GetPtr();
+      }
+      
+      EZ_DEFAULT_DELETE_ARRAY(temp);
+    }
+    
+    CFRelease(bundlePath);
+    CFRelease(bundleURL);
+    CFRelease(appBundle);
+  }
+  
+  return s_Path.GetData();
+  
+#else
   #warning Not yet implemented.
+#endif
+
   return nullptr;
 }
 

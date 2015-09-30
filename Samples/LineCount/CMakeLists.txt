@@ -2,15 +2,13 @@
 
 #
 # Copy this file into the folder of an engine library to add it to the solution.
-# This can be a regular engine library, or an experimental library.
 # Below there are configuration options to add preprocessor definitions and link dependencies to the library.
-#
-# *** Do not use this file for 'Experimental' libraries ***
 #
 # *** Modify this file as required ***
 #
 
 # Pass a boolean expression into this macro to build this project only if the expression evaluates to true.
+BUILD_CONDITIONAL(EZ_BUILD_SAMPLES)
 BUILD_CONDITIONAL(BUILDSYSTEM_PLATFORM_WINDOWS)
 
 # Add all the preprocessor definitions that are needed to configure this library
