@@ -104,8 +104,7 @@ private:
   void AddToken();
 
   void HandleUnknown();
-  void HandleString1();
-  void HandleString2();
+  void HandleString(char terminator);
   void HandleLineComment();
   void HandleBlockComment();
   void HandleWhitespace();
