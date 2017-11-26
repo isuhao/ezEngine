@@ -1,7 +1,6 @@
 ﻿#include <PCH.h>
 #include <Foundation/IO/OSFile.h>
 #include <Foundation/IO/JSONWriter.h>
-#include <Foundation/IO/ExtendedJSONWriter.h>
 #include <FoundationTest/IO/JSONTestHelpers.h>
 
 
@@ -153,7 +152,7 @@ EZ_CREATE_SIMPLE_TEST(IO, StandardJSONWriter)
     val[0] = 0x1122334455667788;
     val[1] = 0x99AABBCCDDEEFF00;
     ezMemoryUtils::Copy(reinterpret_cast<ezUInt64*>(&guid), val, 2);
-    
+
     StreamComparer sc("\"uuid_var\" : { \"$t\" : \"uuid\", \"$b\" : \"0x887766554433221100FFEEDDCCBBAA99\" }");
 
     ezStandardJSONWriter js;
@@ -161,6 +160,18 @@ EZ_CREATE_SIMPLE_TEST(IO, StandardJSONWriter)
 
     js.AddVariableUuid("uuid_var", guid);
   }
+
+  EZ_TEST_BLOCK(ezTestBlock::Enabled, "AddVariableAngle")
+  {
+    StreamComparer sc("\"var1\" : 90,\n\"var2\" : 180");
+
+    ezStandardJSONWriter js;
+    js.SetOutputStream(&sc);
+
+    js.AddVariableAngle("var1", ezAngle::Degree(90.0f));
+    js.AddVariableAngle("var2", ezAngle::Radian(1.0f * ezMath::BasicType<float>::Pi()));
+  }
+
 
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "AddVariableColor")
   {
@@ -200,6 +211,50 @@ EZ_CREATE_SIMPLE_TEST(IO, StandardJSONWriter)
     js.SetOutputStream(&sc);
 
     js.AddVariableVec4("var1", ezVec4(1, 2, 3, 4));
+  }
+
+  EZ_TEST_BLOCK(ezTestBlock::Enabled, "AddVariableVec2I32")
+  {
+    StreamComparer sc("\"var1\" : { \"$t\" : \"vec2i\", \"$v\" : \"(1, 2)\", \"$b\" : \"0x0100000002000000\" }");
+
+    ezStandardJSONWriter js;
+    js.SetOutputStream(&sc);
+
+    js.AddVariableVec2I32("var1", ezVec2I32(1, 2));
+  }
+
+  EZ_TEST_BLOCK(ezTestBlock::Enabled, "AddVariableVec3I32")
+  {
+    StreamComparer sc("\"var1\" : { \"$t\" : \"vec3i\", \"$v\" : \"(1, 2, 3)\", \"$b\" : \"0x010000000200000003000000\" }");
+
+    ezStandardJSONWriter js;
+    js.SetOutputStream(&sc);
+
+    js.AddVariableVec3I32("var1", ezVec3I32(1, 2, 3));
+  }
+
+  EZ_TEST_BLOCK(ezTestBlock::Enabled, "AddVariableVec4I32")
+  {
+    StreamComparer sc("\"var1\" : { \"$t\" : \"vec4i\", \"$v\" : \"(1, 2, 3, 4)\", \"$b\" : \"0x01000000020000000300000004000000\" }");
+
+    ezStandardJSONWriter js;
+    js.SetOutputStream(&sc);
+
+    js.AddVariableVec4I32("var1", ezVec4I32(1, 2, 3, 4));
+  }
+
+  EZ_TEST_BLOCK(ezTestBlock::Enabled, "AddVariableDataBuffer")
+  {
+    StreamComparer sc("\"var1\" : { \"$t\" : \"data\", \"$b\" : \"0xFF00DA\" }");
+
+    ezStandardJSONWriter js;
+    js.SetOutputStream(&sc);
+
+    ezDataBuffer db;
+    db.PushBack(0xFF);
+    db.PushBack(0x00);
+    db.PushBack(0xDA);
+    js.AddVariableDataBuffer("var1", db);
   }
 
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "AddVariableQuat")

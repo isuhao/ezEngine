@@ -1,4 +1,4 @@
-#cmake
+﻿#cmake
 
 #
 # Copy this file into the folder of an engine library to add it to the solution.
@@ -7,7 +7,6 @@
 # *** Modify this file as required ***
 #
 
-BUILD_CONDITIONAL(EZ_BUILD_UNITTESTS)
 BUILD_CONDITIONAL(BUILDSYSTEM_PLATFORM_WINDOWS)
 
 BUILD_REQUIRES_DX11()
@@ -22,12 +21,19 @@ SET (LINK_LIBRARIES
   Foundation
   TestFramework
   Core
-  CoreUtils
   RendererCore
   RendererFoundation
   RendererDX11
   System
 )
+
+SET (ADDITIONAL_DEPENDENCIES
+  ShaderCompilerHLSL
+)
+
+if (BUILDSYSTEM_PLATFORM_WINDOWS_UWP)
+  LIST(APPEND ADDITIONAL_DEPENDENCIES ShaderCompilerHLSL)
+endif()
 
 include (${CMAKE_SOURCE_DIR}/Code/BuildSystem/CMake/CMAKE_Application.txt)
 

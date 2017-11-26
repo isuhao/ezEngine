@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 template<typename Type>
 EZ_FORCE_INLINE ezBoundingBoxSphereTemplate<Type>::ezBoundingBoxSphereTemplate()
@@ -48,7 +48,7 @@ EZ_FORCE_INLINE void ezBoundingBoxSphereTemplate<Type>::SetInvalid()
 {
   m_vCenter.SetZero();
   m_fSphereRadius = -1.0f;
-  m_vBoxHalfExtends.SetZero();
+  m_vBoxHalfExtends.Set(-ezMath::BasicType<Type>::MaxValue());
 }
 
 template<typename Type>
@@ -93,14 +93,16 @@ EZ_FORCE_INLINE const ezBoundingSphereTemplate<Type> ezBoundingBoxSphereTemplate
 template<typename Type>
 void ezBoundingBoxSphereTemplate<Type>::ExpandToInclude(const ezBoundingBoxSphereTemplate& rhs)
 {
-  ezBoundingBoxTemplate<Type> box = GetBox();
+  ezBoundingBoxTemplate<Type> box;
+  box.m_vMin = m_vCenter - m_vBoxHalfExtends;
+  box.m_vMax = m_vCenter + m_vBoxHalfExtends;
   box.ExpandToInclude(rhs.GetBox());
 
   ezBoundingBoxSphereTemplate<Type> result(box);
 
   const float fSphereRadiusA = (m_vCenter - result.m_vCenter).GetLength() + m_fSphereRadius;
   const float fSphereRadiusB = (rhs.m_vCenter - result.m_vCenter).GetLength() + rhs.m_fSphereRadius;
-  
+
   m_vCenter = result.m_vCenter;
   m_fSphereRadius = ezMath::Min(result.m_fSphereRadius, ezMath::Max(fSphereRadiusA, fSphereRadiusB));
   m_vBoxHalfExtends = result.m_vBoxHalfExtends;
@@ -109,17 +111,17 @@ void ezBoundingBoxSphereTemplate<Type>::ExpandToInclude(const ezBoundingBoxSpher
 template<typename Type>
 void ezBoundingBoxSphereTemplate<Type>::Transform(const ezMat4Template<Type>& mTransform)
 {
+  m_vCenter = mTransform.TransformPosition(m_vCenter);
+  const ezVec3Template<Type> Scale = mTransform.GetScalingFactors();
+  m_fSphereRadius *= ezMath::Max(Scale.x, Scale.y, Scale.z);
+
   ezMat3Template<Type> mAbsRotation = mTransform.GetRotationalPart();
   for (ezUInt32 i = 0; i < 9; ++i)
   {
     mAbsRotation.m_fElementsCM[i] = ezMath::Abs(mAbsRotation.m_fElementsCM[i]);
   }
 
-  m_vCenter = mTransform.TransformPosition(m_vCenter);
-  m_vBoxHalfExtends = mAbsRotation.TransformDirection(m_vBoxHalfExtends);
-
-  const ezVec3Template<Type> Scale = mTransform.GetScalingFactors();
-  m_fSphereRadius *= ezMath::Max(Scale.x, Scale.y, Scale.z);
+  m_vBoxHalfExtends = mAbsRotation.TransformDirection(m_vBoxHalfExtends).CompMin(ezVec3(m_fSphereRadius));
 }
 
 template<typename Type>
@@ -130,7 +132,7 @@ EZ_FORCE_INLINE bool operator== (const ezBoundingBoxSphereTemplate<Type>& lhs, c
 
 /// \brief Checks whether this box and the other are not identical.
 template<typename Type>
-EZ_FORCE_INLINE bool operator!= (const ezBoundingBoxSphereTemplate<Type>& lhs, const ezBoundingBoxSphereTemplate<Type>& rhs)
+EZ_ALWAYS_INLINE bool operator!= (const ezBoundingBoxSphereTemplate<Type>& lhs, const ezBoundingBoxSphereTemplate<Type>& rhs)
 {
   return !(lhs == rhs);
 }

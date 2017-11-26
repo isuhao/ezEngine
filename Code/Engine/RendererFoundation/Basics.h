@@ -1,8 +1,9 @@
-#pragma once
+﻿#pragma once
 
 #include <Foundation/Basics.h>
 #include <Foundation/Types/Id.h>
 #include <Foundation/Types/RefCounted.h>
+#include <Foundation/Reflection/Reflection.h>
 
 // Configure the DLL Import/Export Define
 #if EZ_ENABLED(EZ_COMPILE_ENGINE_AS_DLL)
@@ -36,9 +37,11 @@ struct ezGALQueryCreationDescription;
 struct ezGALSamplerStateCreationDescription;
 struct ezGALResourceViewCreationDescription;
 struct ezGALRenderTargetViewCreationDescription;
+struct ezGALUnorderedAccessViewCreationDescription;
 
 class ezGALSwapChain;
 class ezGALShader;
+class ezGALResourceBase;
 class ezGALTexture;
 class ezGALBuffer;
 class ezGALDepthStencilState;
@@ -51,6 +54,7 @@ class ezGALQuery;
 class ezGALSamplerState;
 class ezGALResourceView;
 class ezGALRenderTargetView;
+class ezGALUnorderedAccessView;
 class ezGALDevice;
 class ezGALContext;
 
@@ -59,12 +63,18 @@ struct ezGALPrimitiveTopology
 {
   enum Enum
   {
-    Triangles,
-
-    /// \todo
+    // keep this order, it is used to allocate the desired number of indices in ezMeshBufferResourceDescriptor::AllocateStreams
+    Points,     // 1 index per primitive
+    Lines,      // 2 indices per primitive
+    Triangles,  // 3 indices per primitive
 
     ENUM_COUNT
   };
+
+  static ezUInt32 VerticesPerPrimitive(ezGALPrimitiveTopology::Enum e)
+  {
+    return (ezUInt32)e + 1;
+  }
 };
 
 struct EZ_RENDERERFOUNDATION_DLL ezGALIndexType
@@ -105,8 +115,10 @@ struct EZ_RENDERERFOUNDATION_DLL ezGALShaderStage
   static const char* Names[ENUM_COUNT];
 };
 
-struct ezGALMSAASampleCount
+struct EZ_RENDERERFOUNDATION_DLL ezGALMSAASampleCount
 {
+  typedef ezUInt8 StorageType;
+
   enum Enum
   {
     None = 1,
@@ -114,14 +126,19 @@ struct ezGALMSAASampleCount
     FourSamples = 4,
     EightSamples = 8,
 
-    ENUM_COUNT = 4
+    ENUM_COUNT = 4,
+
+    Default = None
   };
 };
+
+EZ_DECLARE_REFLECTABLE_TYPE(EZ_RENDERERFOUNDATION_DLL, ezGALMSAASampleCount);
 
 struct ezGALTextureType
 {
   enum Enum
   {
+    Invalid = -1,
     Texture2D = 0,
     TextureCube,
     Texture3D,
@@ -228,6 +245,8 @@ struct ezGALTextureFilterMode
 
 struct ezGALTextureAddressMode
 {
+  typedef ezUInt8 StorageType;
+
   enum Enum
   {
     Wrap = 0,
@@ -236,43 +255,48 @@ struct ezGALTextureAddressMode
     Border,
     MirrorOnce,
 
-    ENUM_COUNT
+    ENUM_COUNT,
+
+    Default = Wrap
+  };
+};
+
+struct ezGALUpdateMode
+{
+  enum Enum
+  {
+    Discard,
+    NoOverwrite,
+    CopyToTempStorage
   };
 };
 
 // Basic structs
 struct ezGALTextureSubresource
 {
-  ezUInt32 m_uiMipLevel;
-  ezUInt32 m_uiArraySlice;
+  ezUInt32 m_uiMipLevel = 0;
+  ezUInt32 m_uiArraySlice = 0;
 };
 
 struct ezGALSystemMemoryDescription
 {
-  EZ_FORCE_INLINE ezGALSystemMemoryDescription()
-    : m_pData(nullptr),
-      m_uiRowPitch(0),
-      m_uiSlicePitch(0)
-  {
-  }
-
-
-  void* m_pData;
-  ezUInt32 m_uiRowPitch;
-  ezUInt32 m_uiSlicePitch;
+  void* m_pData = nullptr;
+  ezUInt32 m_uiRowPitch = 0;
+  ezUInt32 m_uiSlicePitch = 0;
 };
 
 /// \brief Base class for GAL objects, stores a creation description of the object and also allows for reference counting.
-template<typename CreationDescription> class ezGALObjectBase : public ezRefCounted
+template<typename CreationDescription>
+class ezGALObject : public ezRefCounted
 {
 public:
 
-  EZ_FORCE_INLINE ezGALObjectBase(const CreationDescription& Description)
+  ezGALObject(const CreationDescription& Description)
     : m_Description(Description)
   {
   }
 
-  EZ_FORCE_INLINE const CreationDescription& GetDescription() const
+  EZ_ALWAYS_INLINE const CreationDescription& GetDescription() const
   {
     return m_Description;
   }
@@ -328,6 +352,15 @@ class ezGALBufferHandle
 class ezGALResourceViewHandle
 {
   EZ_DECLARE_HANDLE_TYPE(ezGALResourceViewHandle, ezGAL::ez18_14Id);
+
+  friend class ezGALDevice;
+  friend struct ezGALContextState;
+  friend class ezGALContext;
+};
+
+class ezGALUnorderedAccessViewHandle
+{
+  EZ_DECLARE_HANDLE_TYPE(ezGALUnorderedAccessViewHandle, ezGAL::ez18_14Id);
 
   friend class ezGALDevice;
   friend struct ezGALContextState;

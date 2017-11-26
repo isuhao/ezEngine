@@ -1,11 +1,10 @@
-#include <RendererCore/PCH.h>
+#include <PCH.h>
 #include <RendererCore/Meshes/MeshResourceDescriptor.h>
-
+#include <Core/Assets/AssetFileHeader.h>
+#include <Foundation/IO/FileSystem/FileReader.h>
 #include <Foundation/IO/FileSystem/FileWriter.h>
 #include <Foundation/IO/ChunkStream.h>
-#include <Foundation/Logging/Log.h>
 
-#include <CoreUtils/Assets/AssetFileHeader.h>
 
 ezMeshResourceDescriptor::ezMeshResourceDescriptor()
 {
@@ -73,7 +72,7 @@ ezResult ezMeshResourceDescriptor::Save(const char* szFile)
   ezFileWriter file;
   if (file.Open(szFile, 1024 * 1024).Failed())
   {
-    ezLog::Error("Failed to open file '%s'", szFile);
+    ezLog::Error("Failed to open file '{0}'", szFile);
     return EZ_FAILURE;
   }
 
@@ -81,7 +80,7 @@ ezResult ezMeshResourceDescriptor::Save(const char* szFile)
   return EZ_SUCCESS;
 }
 
-void ezMeshResourceDescriptor::Save(ezStreamWriterBase& stream)
+void ezMeshResourceDescriptor::Save(ezStreamWriter& stream)
 {
   ezChunkStreamWriter chunk(stream);
 
@@ -122,7 +121,7 @@ void ezMeshResourceDescriptor::Save(ezStreamWriterBase& stream)
   }
 
   {
-    chunk.BeginChunk("MeshInfo", 2);
+    chunk.BeginChunk("MeshInfo", 3);
 
     // Number of vertices
     chunk << m_MeshBufferDescriptor.GetVertexCount();
@@ -139,6 +138,9 @@ void ezMeshResourceDescriptor::Save(ezStreamWriterBase& stream)
     // Number of vertex streams
     chunk << m_MeshBufferDescriptor.GetVertexDeclaration().m_VertexStreams.GetCount();
 
+    // Version 3: Topology
+    chunk << (ezUInt8)m_MeshBufferDescriptor.GetTopology();
+
     for (ezUInt32 idx = 0; idx < m_MeshBufferDescriptor.GetVertexDeclaration().m_VertexStreams.GetCount(); ++idx)
     {
       const auto& vs = m_MeshBufferDescriptor.GetVertexDeclaration().m_VertexStreams[idx];
@@ -151,7 +153,7 @@ void ezMeshResourceDescriptor::Save(ezStreamWriterBase& stream)
     }
 
     // Version 2
-    CalculateBounds();
+    ComputeBounds();
     chunk << m_Bounds.m_vCenter;
     chunk << m_Bounds.m_vBoxHalfExtends;
     chunk << m_Bounds.m_fSphereRadius;
@@ -194,7 +196,7 @@ ezResult ezMeshResourceDescriptor::Load(const char* szFile)
   ezFileReader file;
   if (file.Open(szFile, 1024 * 1024).Failed())
   {
-    ezLog::Error("Failed to open file '%s'", szFile);
+    ezLog::Error("Failed to open file '{0}'", szFile);
     return EZ_FAILURE;
   }
 
@@ -205,7 +207,7 @@ ezResult ezMeshResourceDescriptor::Load(const char* szFile)
   return Load(file);
 }
 
-ezResult ezMeshResourceDescriptor::Load(ezStreamReaderBase& stream)
+ezResult ezMeshResourceDescriptor::Load(ezStreamReader& stream)
 {
   ezChunkStreamReader chunk(stream);
 
@@ -224,7 +226,7 @@ ezResult ezMeshResourceDescriptor::Load(ezStreamReaderBase& stream)
     {
       if (ci.m_uiChunkVersion != 1)
       {
-        ezLog::Error("Version of chunk '%s' is invalid (%u)", ci.m_sChunkName.GetData(), ci.m_uiChunkVersion);
+        ezLog::Error("Version of chunk '{0}' is invalid ({1})", ci.m_sChunkName, ci.m_uiChunkVersion);
         return EZ_FAILURE;
       }
 
@@ -246,7 +248,7 @@ ezResult ezMeshResourceDescriptor::Load(ezStreamReaderBase& stream)
     {
       if (ci.m_uiChunkVersion != 1)
       {
-        ezLog::Error("Version of chunk '%s' is invalid (%u)", ci.m_sChunkName.GetData(), ci.m_uiChunkVersion);
+        ezLog::Error("Version of chunk '{0}' is invalid ({1})", ci.m_sChunkName, ci.m_uiChunkVersion);
         return EZ_FAILURE;
       }
 
@@ -269,9 +271,9 @@ ezResult ezMeshResourceDescriptor::Load(ezStreamReaderBase& stream)
 
     if (ci.m_sChunkName == "MeshInfo")
     {
-      if (ci.m_uiChunkVersion > 2)
+      if (ci.m_uiChunkVersion > 3)
       {
-        ezLog::Error("Version of chunk '%s' is invalid (%u)", ci.m_sChunkName.GetData(), ci.m_uiChunkVersion);
+        ezLog::Error("Version of chunk '{0}' is invalid ({1})", ci.m_sChunkName, ci.m_uiChunkVersion);
         return EZ_FAILURE;
       }
 
@@ -279,9 +281,9 @@ ezResult ezMeshResourceDescriptor::Load(ezStreamReaderBase& stream)
       ezUInt32 uiVertexCount = 0;
       chunk >> uiVertexCount;
 
-      // Number of triangles
-      ezUInt32 uiTriangleCount = 0;
-      chunk >> uiTriangleCount;
+      // Number of primitives
+      ezUInt32 uiPrimitiveCount = 0;
+      chunk >> uiPrimitiveCount;
 
       // Whether any index buffer is used
       chunk >> bHasIndexBuffer;
@@ -293,11 +295,17 @@ ezResult ezMeshResourceDescriptor::Load(ezStreamReaderBase& stream)
       ezUInt32 uiStreamCount = 0;
       chunk >> uiStreamCount;
 
+      ezUInt8 uiTopology = ezGALPrimitiveTopology::Triangles;
+      if (ci.m_uiChunkVersion >= 3)
+      {
+        chunk >> uiTopology;
+      }
+
       for (ezUInt32 i = 0; i < uiStreamCount; ++i)
       {
         ezUInt32 idx;
         chunk >> idx;                     // Vertex stream index
-        EZ_ASSERT_DEV(idx == i, "Invalid stream index (%u) in file (should be %u)", idx, i);
+        EZ_ASSERT_DEV(idx == i, "Invalid stream index ({0}) in file (should be {1})", idx, i);
 
         ezInt32 iFormat, iSemantic;
         ezUInt16 uiElementSize, uiOffset;
@@ -310,7 +318,7 @@ ezResult ezMeshResourceDescriptor::Load(ezStreamReaderBase& stream)
         m_MeshBufferDescriptor.AddStream((ezGALVertexAttributeSemantic::Enum) iSemantic, (ezGALResourceFormat::Enum) iFormat);
       }
 
-      m_MeshBufferDescriptor.AllocateStreams(uiVertexCount, uiTriangleCount);
+      m_MeshBufferDescriptor.AllocateStreams(uiVertexCount, (ezGALPrimitiveTopology::Enum) uiTopology, uiPrimitiveCount);
 
       // Version 2
       if (ci.m_uiChunkVersion >= 2)
@@ -326,13 +334,13 @@ ezResult ezMeshResourceDescriptor::Load(ezStreamReaderBase& stream)
     {
       if (ci.m_uiChunkVersion != 1)
       {
-        ezLog::Error("Version of chunk '%s' is invalid (%u)", ci.m_sChunkName.GetData(), ci.m_uiChunkVersion);
+        ezLog::Error("Version of chunk '{0}' is invalid ({1})", ci.m_sChunkName, ci.m_uiChunkVersion);
         return EZ_FAILURE;
       }
 
       // size in bytes
       chunk >> count;
-      m_MeshBufferDescriptor.GetVertexBufferData().SetCount(count);
+      m_MeshBufferDescriptor.GetVertexBufferData().SetCountUninitialized(count);
 
       if (!m_MeshBufferDescriptor.GetVertexBufferData().IsEmpty())
         chunk.ReadBytes(m_MeshBufferDescriptor.GetVertexBufferData().GetData(), m_MeshBufferDescriptor.GetVertexBufferData().GetCount());
@@ -342,13 +350,13 @@ ezResult ezMeshResourceDescriptor::Load(ezStreamReaderBase& stream)
     {
       if (ci.m_uiChunkVersion != 1)
       {
-        ezLog::Error("Version of chunk '%s' is invalid (%u)", ci.m_sChunkName.GetData(), ci.m_uiChunkVersion);
+        ezLog::Error("Version of chunk '{0}' is invalid ({1})", ci.m_sChunkName, ci.m_uiChunkVersion);
         return EZ_FAILURE;
       }
 
       // size in bytes
       chunk >> count;
-      m_MeshBufferDescriptor.GetIndexBufferData().SetCount(count);
+      m_MeshBufferDescriptor.GetIndexBufferData().SetCountUninitialized(count);
 
       if (!m_MeshBufferDescriptor.GetIndexBufferData().IsEmpty())
         chunk.ReadBytes(m_MeshBufferDescriptor.GetIndexBufferData().GetData(), m_MeshBufferDescriptor.GetIndexBufferData().GetCount());
@@ -361,36 +369,29 @@ ezResult ezMeshResourceDescriptor::Load(ezStreamReaderBase& stream)
 
   if (bCalculateBounds)
   {
-    CalculateBounds();
+    ComputeBounds();
 
     auto b = m_Bounds;
-    ezLog::Info("Calculated Bounds: %.2f | %.2f | %.2f - %.2f | %.2f | %.2f", b.m_vCenter.x, b.m_vCenter.y, b.m_vCenter.z, b.m_vBoxHalfExtends.x, b.m_vBoxHalfExtends.y, b.m_vBoxHalfExtends.z);
+    ezLog::Info("Calculated Bounds: {0} | {1} | {2} - {3} | {4} | {5}", ezArgF(b.m_vCenter.x, 2), ezArgF(b.m_vCenter.y, 2), ezArgF(b.m_vCenter.z, 2), ezArgF(b.m_vBoxHalfExtends.x, 2), ezArgF(b.m_vBoxHalfExtends.y, 2), ezArgF(b.m_vBoxHalfExtends.z, 2));
   }
 
   return EZ_SUCCESS;
 }
 
-void ezMeshResourceDescriptor::CalculateBounds()
+void ezMeshResourceDescriptor::ComputeBounds()
 {
-  m_Bounds.SetInvalid();
-
-  const ezVertexStreamInfo* pPositionStreamInfo = nullptr;
-  for (auto& streamInfo : m_MeshBufferDescriptor.GetVertexDeclaration().m_VertexStreams)
+  if (m_hMeshBuffer.IsValid())
   {
-    if (streamInfo.m_Semantic == ezGALVertexAttributeSemantic::Position)
-    {
-      pPositionStreamInfo = &streamInfo;
-      break;
-    }
+    ezResourceLock<ezMeshBufferResource> pMeshBuffer(m_hMeshBuffer);
+    m_Bounds = pMeshBuffer->GetBounds();
   }
-
-  if (pPositionStreamInfo == nullptr)
-    return;
-
-  const ezVec3* pPositionData = reinterpret_cast<const ezVec3*>(m_MeshBufferDescriptor.GetVertexBufferData().GetData() + pPositionStreamInfo->m_uiOffset);
-  const ezUInt32 uiStride = m_MeshBufferDescriptor.GetVertexDataSize();
-
-  /// \todo submesh bounds
-  m_Bounds.SetFromPoints(pPositionData, m_MeshBufferDescriptor.GetVertexCount(), uiStride);
+  else
+  {
+    m_Bounds = m_MeshBufferDescriptor.ComputeBounds();
+  }
 }
+
+
+
+EZ_STATICLINK_FILE(RendererCore, RendererCore_Meshes_Implementation_MeshResourceDescriptor);
 

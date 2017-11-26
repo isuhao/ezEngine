@@ -1,84 +1,31 @@
-#include <PCH.h>
+﻿#include <PCH.h>
 #include <EditorFramework/PropertyGrid/AssetBrowserPropertyWidget.moc.h>
 #include <EditorFramework/Assets/AssetBrowserDlg.moc.h>
-#include <GuiFoundation/UIServices/ImageCache.moc.h>
+#include <EditorFramework/Assets/AssetCurator.h>
+#include <EditorFramework/Assets/AssetDocumentManager.h>
 #include <EditorFramework/EditorApp/EditorApp.moc.h>
-
-#include <QHBoxLayout>
-#include <QToolButton>
-#include <QLabel>
-#include <Assets/AssetDocumentManager.h>
+#include <EditorFramework/Panels/AssetBrowserPanel/AssetBrowserPanel.moc.h>
+#include <GuiFoundation/UIServices/ImageCache.moc.h>
+#include <ToolsFoundation/Assets/AssetFileExtensionWhitelist.h>
+#include <QClipboard>
+#include <QFileDialog>
 #include <QMenu>
-#include <Panels/AssetBrowserPanel/AssetBrowserPanel.moc.h>
-#include <QDropEvent>
 #include <QMimeData>
-#include <QUrl>
+#include <QToolButton>
 
-ezAssetLineEdit::ezAssetLineEdit(QWidget* parent /*= nullptr*/) : QLineEdit(parent)
-{
-
-}
-
-void ezAssetLineEdit::dragMoveEvent(QDragMoveEvent *e)
-{
-  if (e->mimeData()->hasUrls())
-  {
-    e->acceptProposedAction();
-  }
-  else
-  {
-    QLineEdit::dragMoveEvent(e);
-  }
-}
-
-void ezAssetLineEdit::dragEnterEvent(QDragEnterEvent * e)
-{
-  if (e->mimeData()->hasUrls())
-  {
-    e->acceptProposedAction();
-  }
-  else
-  {
-    QLineEdit::dragEnterEvent(e);
-  }
-}
-
-void ezAssetLineEdit::dropEvent(QDropEvent* e)
-{
-  if (e->source() == this)
-  {
-    QLineEdit::dropEvent(e);
-    return;
-  }
-
-  if (e->mimeData()->hasUrls() && !e->mimeData()->urls().isEmpty())
-  {
-    QString str = e->mimeData()->urls()[0].toLocalFile();
-    setText(str);
-    return;
-  }
-
-
-  if (e->mimeData()->hasText())
-  {
-    QString str = e->mimeData()->text();
-    setText(str);
-    return;
-  }
-}
-
-
-ezAssetBrowserPropertyWidget::ezAssetBrowserPropertyWidget() : ezStandardPropertyBaseWidget()
+ezQtAssetPropertyWidget::ezQtAssetPropertyWidget() : ezQtStandardPropertyWidget()
 {
   m_uiThumbnailID = 0;
 
   m_pLayout = new QHBoxLayout(this);
   m_pLayout->setMargin(0);
+  m_pLayout->setSpacing(0);
   setLayout(m_pLayout);
 
-  m_pWidget = new ezAssetLineEdit(this);
+  m_pWidget = new ezQtAssetLineEdit(this);
   m_pWidget->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
   m_pWidget->setFocusPolicy(Qt::FocusPolicy::StrongFocus);
+  m_pWidget->m_pOwner = this;
   setFocusProxy(m_pWidget);
 
   EZ_VERIFY(connect(m_pWidget, SIGNAL(editingFinished()), this, SLOT(on_TextFinished_triggered())) != nullptr, "signal/slot connection failed");
@@ -90,21 +37,58 @@ ezAssetBrowserPropertyWidget::ezAssetBrowserPropertyWidget() : ezStandardPropert
   m_pButton->setContextMenuPolicy(Qt::ContextMenuPolicy::CustomContextMenu);
 
   EZ_VERIFY(connect(m_pButton, SIGNAL(clicked()), this, SLOT(on_BrowseFile_clicked())) != nullptr, "signal/slot connection failed");
-  EZ_VERIFY(connect(m_pButton, &QWidget::customContextMenuRequested, this, &ezAssetBrowserPropertyWidget::on_customContextMenuRequested) != nullptr, "signal/slot connection failed");
+  EZ_VERIFY(connect(m_pButton, &QWidget::customContextMenuRequested, this, &ezQtAssetPropertyWidget::on_customContextMenuRequested) != nullptr, "signal/slot connection failed");
 
   m_pLayout->addWidget(m_pWidget);
   m_pLayout->addWidget(m_pButton);
 
-  EZ_VERIFY(connect(QtImageCache::GetInstance(), &QtImageCache::ImageLoaded, this, &ezAssetBrowserPropertyWidget::ThumbnailLoaded) != nullptr, "signal/slot connection failed");
-  EZ_VERIFY(connect(QtImageCache::GetInstance(), &QtImageCache::ImageInvalidated, this, &ezAssetBrowserPropertyWidget::ThumbnailInvalidated) != nullptr, "signal/slot connection failed");
+  EZ_VERIFY(connect(ezQtImageCache::GetSingleton(), &ezQtImageCache::ImageLoaded, this, &ezQtAssetPropertyWidget::ThumbnailLoaded) != nullptr, "signal/slot connection failed");
+  EZ_VERIFY(connect(ezQtImageCache::GetSingleton(), &ezQtImageCache::ImageInvalidated, this, &ezQtAssetPropertyWidget::ThumbnailInvalidated) != nullptr, "signal/slot connection failed");
 }
 
-void ezAssetBrowserPropertyWidget::OnInit()
+
+bool ezQtAssetPropertyWidget::IsValidAssetType(const char* szAssetReference) const
 {
-  EZ_ASSERT_DEV(m_pProp->GetAttributeByType<ezAssetBrowserAttribute>() != nullptr, "ezPropertyEditorFileBrowserWidget was created without a ezAssetBrowserAttribute!");
+  ezAssetCurator::ezLockedSubAsset pAsset;
+
+  if (!ezConversionUtils::IsStringUuid(szAssetReference))
+  {
+    pAsset = ezAssetCurator::GetSingleton()->FindSubAsset(szAssetReference);
+
+    if (pAsset == nullptr)
+    {
+      const ezAssetBrowserAttribute* pAssetAttribute = m_pProp->GetAttributeByType<ezAssetBrowserAttribute>();
+
+      // if this file type is on the asset whitelist for this asset type, let it through
+      return ezAssetFileExtensionWhitelist::IsFileOnAssetWhitelist(pAssetAttribute->GetTypeFilter(), szAssetReference);
+    }
+  }
+  else
+  {
+    const ezUuid AssetGuid = ezConversionUtils::ConvertStringToUuid(szAssetReference);
+
+    pAsset = ezAssetCurator::GetSingleton()->GetSubAsset(AssetGuid);
+  }
+
+  // invalid asset in general
+  if (pAsset == nullptr)
+    return false;
+
+  const ezAssetBrowserAttribute* pAssetAttribute = m_pProp->GetAttributeByType<ezAssetBrowserAttribute>();
+
+  if (ezStringUtils::IsEqual(pAssetAttribute->GetTypeFilter(), ";;")) // empty type list -> allows everything
+    return true;
+
+  const ezStringBuilder sTypeFilter(";", pAsset->m_Data.m_sAssetTypeName.GetData(), ";");
+  return ezStringUtils::FindSubString_NoCase(pAssetAttribute->GetTypeFilter(), sTypeFilter) != nullptr;
 }
 
-void ezAssetBrowserPropertyWidget::UpdateThumbnail(const ezUuid& guid, const char* szThumbnailPath)
+void ezQtAssetPropertyWidget::OnInit()
+{
+  EZ_ASSERT_DEV(m_pProp->GetAttributeByType<ezAssetBrowserAttribute>() != nullptr, "ezQtAssetPropertyWidget was created without a ezAssetBrowserAttribute!");
+}
+
+void ezQtAssetPropertyWidget::UpdateThumbnail(const ezUuid& guid, const char* szThumbnailPath)
 {
   const QPixmap* pThumbnailPixmap = nullptr;
 
@@ -113,7 +97,11 @@ void ezAssetBrowserPropertyWidget::UpdateThumbnail(const ezUuid& guid, const cha
     ezUInt64 uiUserData1, uiUserData2;
     m_AssetGuid.GetValues(uiUserData1, uiUserData2);
 
-    pThumbnailPixmap = QtImageCache::QueryPixmap(szThumbnailPath, QModelIndex(), QVariant(uiUserData1), QVariant(uiUserData2), &m_uiThumbnailID);
+    const ezAssetBrowserAttribute* pAssetAttribute = m_pProp->GetAttributeByType<ezAssetBrowserAttribute>();
+    ezStringBuilder sTypeFilter = pAssetAttribute->GetTypeFilter();
+    sTypeFilter.Trim(" ;");
+
+    pThumbnailPixmap = ezQtImageCache::GetSingleton()->QueryPixmapForType(sTypeFilter, szThumbnailPath, QModelIndex(), QVariant(uiUserData1), QVariant(uiUserData2), &m_uiThumbnailID);
   }
 
   if (pThumbnailPixmap)
@@ -128,9 +116,10 @@ void ezAssetBrowserPropertyWidget::UpdateThumbnail(const ezUuid& guid, const cha
   }
 }
 
-void ezAssetBrowserPropertyWidget::InternalSetValue(const ezVariant& value)
+void ezQtAssetPropertyWidget::InternalSetValue(const ezVariant& value)
 {
-  QtScopedBlockSignals b(m_pWidget);
+  ezQtScopedBlockSignals b(m_pWidget);
+  ezQtScopedBlockSignals b2(m_pButton);
 
   if (!value.IsValid())
   {
@@ -144,15 +133,32 @@ void ezAssetBrowserPropertyWidget::InternalSetValue(const ezVariant& value)
 
     if (ezConversionUtils::IsStringUuid(sText))
     {
+      if (!IsValidAssetType(sText))
+      {
+        m_uiThumbnailID = 0;
+
+        m_pWidget->setText(QString());
+        m_pWidget->setPlaceholderText(QStringLiteral("<Selected Invalid Asset Type>"));
+
+        m_pButton->setIcon(QIcon());
+        m_pButton->setToolButtonStyle(Qt::ToolButtonStyle::ToolButtonTextOnly);
+
+        auto pal = m_pWidget->palette();
+        pal.setColor(QPalette::Text, Qt::red);
+        m_pWidget->setPalette(pal);
+
+        return;
+      }
+
       m_AssetGuid = ezConversionUtils::ConvertStringToUuid(sText);
 
-      const auto* pAsset = ezAssetCurator::GetInstance()->GetAssetInfo(m_AssetGuid);
+      auto pAsset = ezAssetCurator::GetSingleton()->GetSubAsset(m_AssetGuid);
 
       if (pAsset)
       {
-        sText = pAsset->m_sRelativePath;
+        pAsset->GetSubAssetIdentifier(sText);
 
-        sThumbnailPath = ezAssetDocumentManager::GenerateResourceThumbnailPath(pAsset->m_sAbsolutePath);
+        sThumbnailPath = ezAssetDocumentManager::GenerateResourceThumbnailPath(pAsset->m_pAssetInfo->m_sAbsolutePath);
       }
       else
         m_AssetGuid = ezUuid();
@@ -177,28 +183,28 @@ void ezAssetBrowserPropertyWidget::InternalSetValue(const ezVariant& value)
   }
 }
 
-void ezAssetBrowserPropertyWidget::on_TextFinished_triggered()
+void ezQtAssetPropertyWidget::on_TextFinished_triggered()
 {
   ezStringBuilder sText = m_pWidget->text().toUtf8().data();
 
-  const auto* pAsset = ezAssetCurator::GetInstance()->FindAssetInfo(sText);
+  auto pAsset = ezAssetCurator::GetSingleton()->FindSubAsset(sText);
 
   if (pAsset)
   {
-    sText = ezConversionUtils::ToString(pAsset->m_Info.m_DocumentID);
+    ezConversionUtils::ToString(pAsset->m_Data.m_Guid, sText);
   }
 
   BroadcastValueChanged(sText.GetData());
 }
 
 
-void ezAssetBrowserPropertyWidget::on_TextChanged_triggered(const QString& value)
+void ezQtAssetPropertyWidget::on_TextChanged_triggered(const QString& value)
 {
   if (!hasFocus())
     on_TextFinished_triggered();
 }
 
-void ezAssetBrowserPropertyWidget::ThumbnailLoaded(QString sPath, QModelIndex index, QVariant UserData1, QVariant UserData2)
+void ezQtAssetPropertyWidget::ThumbnailLoaded(QString sPath, QModelIndex index, QVariant UserData1, QVariant UserData2)
 {
   const ezUuid guid(UserData1.toULongLong(), UserData2.toULongLong());
 
@@ -209,7 +215,7 @@ void ezAssetBrowserPropertyWidget::ThumbnailLoaded(QString sPath, QModelIndex in
 }
 
 
-void ezAssetBrowserPropertyWidget::ThumbnailInvalidated(QString sPath, ezUInt32 uiImageID)
+void ezQtAssetPropertyWidget::ThumbnailInvalidated(QString sPath, ezUInt32 uiImageID)
 {
   if (m_uiThumbnailID == uiImageID)
   {
@@ -218,7 +224,7 @@ void ezAssetBrowserPropertyWidget::ThumbnailInvalidated(QString sPath, ezUInt32 
 }
 
 
-void ezAssetBrowserPropertyWidget::on_customContextMenuRequested(const QPoint& pt)
+void ezQtAssetPropertyWidget::on_customContextMenuRequested(const QPoint& pt)
 {
   QMenu m;
 
@@ -228,48 +234,162 @@ void ezAssetBrowserPropertyWidget::on_customContextMenuRequested(const QPoint& p
   m.addAction(QIcon(QLatin1String(":/GuiFoundation/Icons/Document16.png")), QLatin1String("Open Asset"), this, SLOT(OnOpenAssetDocument()))->setEnabled(bAsset);
   m.addAction(QIcon(), QLatin1String("Select in Asset Browser"), this, SLOT(OnSelectInAssetBrowser()))->setEnabled(bAsset);
   m.addAction(QIcon(QLatin1String(":/GuiFoundation/Icons/OpenFolder16.png")), QLatin1String("Open Containing Folder"), this, SLOT(OnOpenExplorer()));
+  m.addAction(QIcon(QLatin1String(":/GuiFoundation/Icons/DocumentGuid16.png")), QLatin1String("Copy Asset Guid"), this, SLOT(OnCopyAssetGuid()));
+  m.addAction(QIcon(), QLatin1String("Create New Asset"), this, SLOT(OnCreateNewAsset()));
+  m.addAction(QIcon(":/GuiFoundation/Icons/Delete16.png"), QLatin1String("Clear Asset Reference"), this, SLOT(OnClearReference()));
 
   m.exec(m_pButton->mapToGlobal(pt));
 }
 
-void ezAssetBrowserPropertyWidget::OnOpenAssetDocument()
+void ezQtAssetPropertyWidget::OnOpenAssetDocument()
 {
-  ezEditorApp::GetInstance()->OpenDocument(ezAssetCurator::GetInstance()->GetAssetInfo(m_AssetGuid)->m_sAbsolutePath);
+  ezQtEditorApp::GetSingleton()->OpenDocument(ezAssetCurator::GetSingleton()->GetSubAsset(m_AssetGuid)->m_pAssetInfo->m_sAbsolutePath, GetSelection()[0].m_pObject);
 }
 
-void ezAssetBrowserPropertyWidget::OnSelectInAssetBrowser()
+void ezQtAssetPropertyWidget::OnSelectInAssetBrowser()
 {
-  ezAssetBrowserPanel::GetInstance()->AssetBrowserWidget->SetSelectedAsset(ezAssetCurator::GetInstance()->GetAssetInfo(m_AssetGuid)->m_sRelativePath);
+  ezQtAssetBrowserPanel::GetSingleton()->AssetBrowserWidget->SetSelectedAsset(m_AssetGuid);
 }
 
-void ezAssetBrowserPropertyWidget::OnOpenExplorer()
+void ezQtAssetPropertyWidget::OnOpenExplorer()
 {
   ezString sPath;
 
   if (m_AssetGuid.IsValid())
   {
-    sPath = ezAssetCurator::GetInstance()->GetAssetInfo(m_AssetGuid)->m_sAbsolutePath;
+    sPath = ezAssetCurator::GetSingleton()->GetSubAsset(m_AssetGuid)->m_pAssetInfo->m_sAbsolutePath;
   }
   else
   {
     sPath = m_pWidget->text().toUtf8().data();
-    if (!ezEditorApp::GetInstance()->MakeDataDirectoryRelativePathAbsolute(sPath))
+    if (!ezQtEditorApp::GetSingleton()->MakeDataDirectoryRelativePathAbsolute(sPath))
       return;
   }
 
-  ezUIServices::OpenInExplorer(sPath);
+  ezQtUiServices::OpenInExplorer(sPath);
 }
 
-void ezAssetBrowserPropertyWidget::on_BrowseFile_clicked()
+void ezQtAssetPropertyWidget::OnCopyAssetGuid()
 {
-  ezString sFile = m_pWidget->text().toUtf8().data();
+  ezStringBuilder sGuid;
+
+  if (m_AssetGuid.IsValid())
+  {
+    ezConversionUtils::ToString(m_AssetGuid, sGuid);
+  }
+  else
+  {
+    sGuid = m_pWidget->text().toUtf8().data();
+    if (!ezQtEditorApp::GetSingleton()->MakePathDataDirectoryRelative(sGuid))
+      return;
+  }
+
+  QClipboard* clipboard = QApplication::clipboard();
+  QMimeData* mimeData = new QMimeData();
+  mimeData->setText(QString::fromUtf8(sGuid.GetData()));
+  clipboard->setMimeData(mimeData);
+}
+
+void ezQtAssetPropertyWidget::OnCreateNewAsset()
+{
+  ezString sPath;
+
+  // try to pick a good path
+  {
+    if (m_AssetGuid.IsValid())
+    {
+      sPath = ezAssetCurator::GetSingleton()->GetSubAsset(m_AssetGuid)->m_pAssetInfo->m_sAbsolutePath;
+    }
+    else
+    {
+      sPath = m_pWidget->text().toUtf8().data();
+      ezQtEditorApp::GetSingleton()->MakeDataDirectoryRelativePathAbsolute(sPath);
+    }
+  }
+
+  const ezAssetBrowserAttribute* pAssetAttribute = m_pProp->GetAttributeByType<ezAssetBrowserAttribute>();
+  ezStringBuilder sTypeFilter = pAssetAttribute->GetTypeFilter();
+
+  ezAssetDocumentManager* pAssetManToUse = nullptr;
+  {
+    const ezHybridArray<ezDocumentManager*, 16>& managers = ezDocumentManager::GetAllDocumentManagers();
+
+    ezSet<ezString> documentTypes;
+
+    for (ezDocumentManager* pMan : managers)
+    {
+      if (!pMan->GetDynamicRTTI()->IsDerivedFrom<ezAssetDocumentManager>())
+        continue;
+
+      ezAssetDocumentManager* pAssetMan = static_cast<ezAssetDocumentManager*>(pMan);
+
+      documentTypes.Clear();
+      pAssetMan->QuerySupportedAssetTypes(documentTypes);
+
+      for (const ezString& assetType : documentTypes)
+      {
+        if (!sTypeFilter.FindSubString(assetType))
+          continue;
+
+        pAssetManToUse = pAssetMan;
+        goto found;
+      }
+    }
+  }
+
+  return;
+
+found:
+
+  ezDynamicArray<const ezDocumentTypeDescriptor*> documentTypes;
+  pAssetManToUse->GetSupportedDocumentTypes(documentTypes);
+  const ezString sAssetType = documentTypes[0]->m_sDocumentTypeName;
+  const ezString sExtension = documentTypes[0]->m_sFileExtension;
+
+  ezStringBuilder sOutput = sPath;
+  {
+    ezStringBuilder sTemp = sOutput.GetFileDirectory();
+    ezStringBuilder title("Create ", sAssetType), sFilter;
+
+    sFilter.Format("{0} (*.{1})", sAssetType, sExtension);
+
+    QString sStartDir = sTemp.GetData();
+    QString sSelectedFilter = sExtension.GetData();
+    sOutput = QFileDialog::getSaveFileName(QApplication::activeWindow(), title.GetData(), sStartDir, sFilter.GetData(), &sSelectedFilter, QFileDialog::Option::DontResolveSymlinks).toUtf8().data();
+
+    if (sOutput.IsEmpty())
+      return;
+  }
+
+  ezDocument* pDoc;
+  if (pAssetManToUse->CreateDocument(sAssetType, sOutput, pDoc).m_Result.Succeeded())
+  {
+    pDoc->EnsureVisible();
+
+    InternalSetValue(sOutput.GetData());
+    on_TextFinished_triggered();
+  }
+}
+
+
+void ezQtAssetPropertyWidget::OnClearReference()
+{
+  InternalSetValue("");
+  on_TextFinished_triggered();
+}
+
+void ezQtAssetPropertyWidget::on_BrowseFile_clicked()
+{
+  ezStringBuilder sFile = m_pWidget->text().toUtf8().data();
   const ezAssetBrowserAttribute* pAssetAttribute = m_pProp->GetAttributeByType<ezAssetBrowserAttribute>();
 
-  ezAssetBrowserDlg dlg(this, sFile, pAssetAttribute->GetTypeFilter());
+  ezQtAssetBrowserDlg dlg(this, m_AssetGuid, pAssetAttribute->GetTypeFilter());
   if (dlg.exec() == 0)
     return;
 
-  sFile = dlg.GetSelectedAssetGuid();
+  ezUuid assetGuid = dlg.GetSelectedAssetGuid();
+  if (assetGuid.IsValid())
+    ezConversionUtils::ToString(assetGuid, sFile);
 
   if (sFile.IsEmpty())
   {
@@ -279,14 +399,15 @@ void ezAssetBrowserPropertyWidget::on_BrowseFile_clicked()
     {
       sFile = dlg.GetSelectedAssetPathAbsolute();
 
-      ezEditorApp::GetInstance()->MakePathDataDirectoryRelative(sFile);
+      ezQtEditorApp::GetSingleton()->MakePathDataDirectoryRelative(sFile);
     }
   }
 
   if (sFile.IsEmpty())
     return;
 
-  m_pWidget->setText(sFile.GetData());
+  InternalSetValue(sFile.GetData());
+
   on_TextFinished_triggered();
 }
 

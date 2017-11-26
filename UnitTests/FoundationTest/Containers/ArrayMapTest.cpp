@@ -1,4 +1,4 @@
-#include <PCH.h>
+﻿#include <PCH.h>
 #include <Foundation/Containers/ArrayMap.h>
 #include <Foundation/Containers/Map.h>
 #include <Foundation/Strings/String.h>
@@ -112,6 +112,34 @@ EZ_CREATE_SIMPLE_TEST(Containers, ArrayMap)
     EZ_TEST_BOOL(sa.Contains("z"));
   }
 
+  EZ_TEST_BLOCK(ezTestBlock::Enabled, "Contains")
+  {
+    ezArrayMap<ezString, ezInt32> sa;
+
+    EZ_TEST_BOOL(!sa.Contains("a", 0));
+    EZ_TEST_BOOL(!sa.Contains("z", 0));
+
+    sa.Insert("z", 0);
+    sa.Insert("y", 1);
+    sa.Insert("x", 2);
+
+    EZ_TEST_BOOL(!sa.Contains("a", 0));
+    EZ_TEST_BOOL(sa.Contains("z", 0));
+    EZ_TEST_BOOL(sa.Contains("y", 1));
+    EZ_TEST_BOOL(sa.Contains("x", 2));
+
+    sa.Insert("c", 3);
+    sa.Insert("b", 4);
+    sa.Insert("a", 5);
+
+    EZ_TEST_BOOL(sa.Contains("a", 5));
+    EZ_TEST_BOOL(sa.Contains("b", 4));
+    EZ_TEST_BOOL(sa.Contains("c", 3));
+    EZ_TEST_BOOL(sa.Contains("z", 0));
+    EZ_TEST_BOOL(sa.Contains("y", 1));
+    EZ_TEST_BOOL(sa.Contains("x", 2));
+  }
+
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "GetValue / GetKey / Copy Constructor")
   {
     ezArrayMap<ezString, ezInt32> sa;
@@ -195,9 +223,9 @@ EZ_CREATE_SIMPLE_TEST(Containers, ArrayMap)
     ezArrayMap<ezInt32, ezInt32> sa;
     ezMap<ezInt32, ezInt32> map;
 
-    const ezUInt32 uiElements = 100000;
+    const ezInt32 uiElements = 100000;
 
-    const ezTime t0 = s.Checkpoint();
+    //const ezTime t0 = s.Checkpoint();
 
     {
       sa.Reserve(uiElements);
@@ -210,16 +238,16 @@ EZ_CREATE_SIMPLE_TEST(Containers, ArrayMap)
       sa.Sort();
     }
 
-    const ezTime t1 = s.Checkpoint();
+    //const ezTime t1 = s.Checkpoint();
 
     {
-      for (ezUInt32 i = 0; i < uiElements; ++i)
+      for (ezInt32 i = 0; i < uiElements; ++i)
       {
         EZ_TEST_INT(sa.GetValue(sa.Find(uiElements - i)), i * 2);
       }
     }
 
-    const ezTime t2 = s.Checkpoint();
+    //const ezTime t2 = s.Checkpoint();
 
     {
       for (ezUInt32 i = 0; i < uiElements; ++i)
@@ -228,7 +256,7 @@ EZ_CREATE_SIMPLE_TEST(Containers, ArrayMap)
       }
     }
 
-    const ezTime t3 = s.Checkpoint();
+    //const ezTime t3 = s.Checkpoint();
 
     {
       for (ezUInt32 i = 0; i < uiElements; ++i)
@@ -237,9 +265,9 @@ EZ_CREATE_SIMPLE_TEST(Containers, ArrayMap)
       }
     }
 
-    const ezTime t4 = s.Checkpoint();
+    //const ezTime t4 = s.Checkpoint();
 
-    int breakpoint = 0;
+    //int breakpoint = 0;
   }
 
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "Lower Bound / Upper Bound")

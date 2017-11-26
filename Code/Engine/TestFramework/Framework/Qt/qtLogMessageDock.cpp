@@ -1,10 +1,8 @@
-#include <TestFramework/PCH.h>
+#include <PCH.h>
 #ifdef EZ_USE_QT
 
 #include <TestFramework/Framework/Qt/qtLogMessageDock.h>
 #include <TestFramework/Framework/TestFramework.h>
-#include <Foundation/Strings/StringUtils.h>
-#include <QApplication>
 #include <QStringBuilder>
 
 ////////////////////////////////////////////////////////////////////////

@@ -10,7 +10,7 @@
 
 class QCheckBox;
 class QDoubleSpinBox;
-class QSpinBox; 
+class QSpinBox;
 class QLabel;
 class QHBoxLayout;
 class QLineEdit;
@@ -20,17 +20,17 @@ class QStandardItemModel;
 class QStandardItem;
 class QToolButton;
 class QMenu;
-class ezDocumentObjectBase;
-class QDoubleSpinBoxLessAnnoying;
+class ezDocumentObject;
+class ezQtDoubleSpinBox;
 
 /// *** CHECKBOX ***
 
-class EZ_GUIFOUNDATION_DLL ezPropertyEditorCheckboxWidget : public ezStandardPropertyBaseWidget
+class EZ_GUIFOUNDATION_DLL ezQtPropertyEditorCheckboxWidget : public ezQtStandardPropertyWidget
 {
   Q_OBJECT
 
 public:
-  ezPropertyEditorCheckboxWidget();
+  ezQtPropertyEditorCheckboxWidget();
 
   virtual void mousePressEvent(QMouseEvent * ev) override;
 
@@ -43,88 +43,132 @@ protected:
 
   QHBoxLayout* m_pLayout;
   QCheckBox* m_pWidget;
-  
+
 };
 
 
 
 /// *** DOUBLE SPINBOX ***
 
-class EZ_GUIFOUNDATION_DLL ezPropertyEditorDoubleSpinboxWidget : public ezStandardPropertyBaseWidget
+class EZ_GUIFOUNDATION_DLL ezQtPropertyEditorDoubleSpinboxWidget : public ezQtStandardPropertyWidget
 {
   Q_OBJECT
 
 public:
-  ezPropertyEditorDoubleSpinboxWidget(ezInt8 iNumComponents);
+  ezQtPropertyEditorDoubleSpinboxWidget(ezInt8 iNumComponents);
 
 private slots:
   void on_EditingFinished_triggered();
   void SlotValueChanged();
 
 protected:
-  virtual void OnInit() override {}
+  virtual void OnInit() override;
   virtual void InternalSetValue(const ezVariant& value) override;
 
   bool m_bTemporaryCommand;
   ezInt8 m_iNumComponents;
   QHBoxLayout* m_pLayout;
-  QDoubleSpinBoxLessAnnoying*  m_pWidget[4];
+  ezQtDoubleSpinBox*  m_pWidget[4];
+};
+
+/// *** TIME SPINBOX ***
+
+class EZ_GUIFOUNDATION_DLL ezQtPropertyEditorTimeWidget : public ezQtStandardPropertyWidget
+{
+  Q_OBJECT
+
+public:
+  ezQtPropertyEditorTimeWidget();
+
+  private slots:
+  void on_EditingFinished_triggered();
+  void SlotValueChanged();
+
+protected:
+  virtual void OnInit() override;
+  virtual void InternalSetValue(const ezVariant& value) override;
+
+  bool m_bTemporaryCommand;
+  QHBoxLayout* m_pLayout;
+  ezQtDoubleSpinBox*  m_pWidget;
+};
+
+/// *** ANGLE SPINBOX ***
+
+class EZ_GUIFOUNDATION_DLL ezQtPropertyEditorAngleWidget : public ezQtStandardPropertyWidget
+{
+  Q_OBJECT
+
+public:
+  ezQtPropertyEditorAngleWidget();
+
+private slots:
+  void on_EditingFinished_triggered();
+  void SlotValueChanged();
+
+protected:
+  virtual void OnInit() override;
+  virtual void InternalSetValue(const ezVariant& value) override;
+
+  bool m_bTemporaryCommand;
+  QHBoxLayout* m_pLayout;
+  ezQtDoubleSpinBox*  m_pWidget;
 };
 
 /// *** INT SPINBOX ***
 
-class EZ_GUIFOUNDATION_DLL ezPropertyEditorIntSpinboxWidget : public ezStandardPropertyBaseWidget
+class EZ_GUIFOUNDATION_DLL ezQtPropertyEditorIntSpinboxWidget : public ezQtStandardPropertyWidget
 {
   Q_OBJECT
 
 public:
-  ezPropertyEditorIntSpinboxWidget(ezInt32 iMinValue, ezInt32 iMaxValue);
+  ezQtPropertyEditorIntSpinboxWidget(ezInt32 iMinValue, ezInt32 iMaxValue);
 
 private slots:
   void SlotValueChanged();
   void on_EditingFinished_triggered();
 
 protected:
-  virtual void OnInit() override {}
+  virtual void OnInit() override;
   virtual void InternalSetValue(const ezVariant& value) override;
 
   bool m_bTemporaryCommand;
   QHBoxLayout* m_pLayout;
-  QSpinBox* m_pWidget;
+  ezQtDoubleSpinBox* m_pWidget;
 };
 
-/// *** DOUBLE SPINBOX ***
+/// *** QUATERNION ***
 
-class EZ_GUIFOUNDATION_DLL ezPropertyEditorQuaternionWidget : public ezStandardPropertyBaseWidget
+class EZ_GUIFOUNDATION_DLL ezQtPropertyEditorQuaternionWidget : public ezQtStandardPropertyWidget
 {
   Q_OBJECT
 
 public:
-  ezPropertyEditorQuaternionWidget();
+  ezQtPropertyEditorQuaternionWidget();
 
 private slots:
   void on_EditingFinished_triggered();
   void SlotValueChanged();
 
 protected:
-  virtual void OnInit() override {}
+  virtual void OnInit() override;
   virtual void InternalSetValue(const ezVariant& value) override;
 
 protected:
   bool m_bTemporaryCommand;
   QHBoxLayout* m_pLayout;
-  QDoubleSpinBox*  m_pWidget[3];
+  ezQtDoubleSpinBox* m_pWidget[3];
 };
 
 
 /// *** LINEEDIT ***
 
-class EZ_GUIFOUNDATION_DLL ezPropertyEditorLineEditWidget : public ezStandardPropertyBaseWidget
+class EZ_GUIFOUNDATION_DLL ezQtPropertyEditorLineEditWidget : public ezQtStandardPropertyWidget
 {
   Q_OBJECT
 
 public:
-  ezPropertyEditorLineEditWidget();
+  ezQtPropertyEditorLineEditWidget();
 
 protected slots:
   void on_TextChanged_triggered(const QString& value);
@@ -140,34 +184,14 @@ protected:
 };
 
 
-/// *** File Browser ***
-
-class EZ_GUIFOUNDATION_DLL ezPropertyEditorFileBrowserWidget : public ezPropertyEditorLineEditWidget
-{
-  Q_OBJECT
-
-public:
-  ezPropertyEditorFileBrowserWidget();
-
-private slots:
-  void on_BrowseFile_clicked();
-
-protected:
-  virtual void OnInit() override;
-
-protected:
-  QToolButton* m_pButton;
-};
-
-
 /// *** COLOR ***
 
-class EZ_GUIFOUNDATION_DLL ezColorButton : public QFrame
+class EZ_GUIFOUNDATION_DLL ezQtColorButtonWidget : public QFrame
 {
   Q_OBJECT
 
 public:
-  explicit ezColorButton(QWidget* parent);
+  explicit ezQtColorButtonWidget(QWidget* parent);
   void SetColor(const ezVariant& color);
 
 signals:
@@ -178,38 +202,39 @@ protected:
 
 };
 
-class EZ_GUIFOUNDATION_DLL ezPropertyEditorColorWidget : public ezStandardPropertyBaseWidget
+class EZ_GUIFOUNDATION_DLL ezQtPropertyEditorColorWidget : public ezQtStandardPropertyWidget
 {
   Q_OBJECT
 
 public:
-  ezPropertyEditorColorWidget();
+  ezQtPropertyEditorColorWidget();
 
 private slots:
   void on_Button_triggered();
-  void on_CurrentColor_changed(const QColor& color);
+  void on_CurrentColor_changed(const ezColor& color);
   void on_Color_reset();
   void on_Color_accepted();
 
 protected:
-  virtual void OnInit() override {}
+  virtual void OnInit() override;
   virtual void InternalSetValue(const ezVariant& value) override;
 
 protected:
+  bool m_bExposeAlpha;
   QHBoxLayout* m_pLayout;
-  ezColorButton* m_pWidget;
+  ezQtColorButtonWidget* m_pWidget;
   ezVariant m_OriginalValue;
 };
 
 
 /// *** ENUM COMBOBOX ***
 
-class EZ_GUIFOUNDATION_DLL ezPropertyEditorEnumWidget : public ezStandardPropertyBaseWidget
+class EZ_GUIFOUNDATION_DLL ezQtPropertyEditorEnumWidget : public ezQtStandardPropertyWidget
 {
   Q_OBJECT
 
 public:
-  ezPropertyEditorEnumWidget();
+  ezQtPropertyEditorEnumWidget();
 
 private slots:
   void on_CurrentEnum_changed(int iEnum);
@@ -227,13 +252,13 @@ protected:
 
 /// *** BITFLAGS COMBOBOX ***
 
-class EZ_GUIFOUNDATION_DLL ezPropertyEditorBitflagsWidget : public ezStandardPropertyBaseWidget
+class EZ_GUIFOUNDATION_DLL ezQtPropertyEditorBitflagsWidget : public ezQtStandardPropertyWidget
 {
   Q_OBJECT
 
 public:
-  ezPropertyEditorBitflagsWidget();
-  virtual ~ezPropertyEditorBitflagsWidget();
+  ezQtPropertyEditorBitflagsWidget();
+  virtual ~ezQtPropertyEditorBitflagsWidget();
 
 private slots:
   void on_Menu_aboutToShow();

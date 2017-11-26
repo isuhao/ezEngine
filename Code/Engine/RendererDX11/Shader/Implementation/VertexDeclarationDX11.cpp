@@ -1,9 +1,8 @@
 
-#include <RendererDX11/PCH.h>
+#include <PCH.h>
 #include <RendererDX11/Device/DeviceDX11.h>
-#include <RendererDX11/Shader/ShaderDX11.h>
 #include <RendererDX11/Shader/VertexDeclarationDX11.h>
-#include <Foundation/Logging/Log.h>
+#include <RendererFoundation/Shader/Shader.h>
 
 #include <d3d11.h>
 
@@ -31,7 +30,13 @@ static const char* GALSemanticToDX11[ezGALVertexAttributeSemantic::ENUM_COUNT] =
   "TEXCOORD",
   "TEXCOORD",
   "TEXCOORD",
-  "TEXCOORD"
+  "TEXCOORD",
+  "TEXCOORD",
+  "BITANGENT",
+  "BONEINDICES",
+  "BONEINDICES",
+  "BONEWEIGHTS",
+  "BONEWEIGHTS"
 };
 
 static UINT GALSemanticToIndexDX11[ezGALVertexAttributeSemantic::ENUM_COUNT] =
@@ -49,7 +54,12 @@ static UINT GALSemanticToIndexDX11[ezGALVertexAttributeSemantic::ENUM_COUNT] =
   6,
   7,
   8,
-  9
+  9,
+  0,
+  0,
+  1,
+  0,
+  1
 };
 
 // ??
@@ -80,7 +90,7 @@ ezResult ezGALVertexDeclarationDX11::InitPlatform(ezGALDevice* pDevice)
 
     if(DXDesc.Format == DXGI_FORMAT_UNKNOWN)
     {
-      ezLog::Error("Vertex attribute format %d of attribute at index %d is unknown!", Current.m_eFormat, i);
+      ezLog::Error("Vertex attribute format {0} of attribute at index {1} is unknown!", Current.m_eFormat, i);
       return EZ_FAILURE;
     }
 

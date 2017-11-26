@@ -1,4 +1,4 @@
-#include <GuiFoundation/PCH.h>
+#include <PCH.h>
 #include <GuiFoundation/Action/Action.h>
 #include <GuiFoundation/Action/ActionManager.h>
 
@@ -14,6 +14,7 @@ ezActionDescriptor::ezActionDescriptor(ezActionType::Enum type, ezActionScope::E
   , m_sActionName(szName)
   , m_sCategoryPath(szCategoryPath)
   , m_sShortcut(szShortcut)
+  , m_sDefaultShortcut(szShortcut)
   , m_CreateAction(createAction)
   , m_DeleteAction(deleteAction)
 {
@@ -24,11 +25,15 @@ ezAction* ezActionDescriptor::CreateAction(const ezActionContext& context) const
   EZ_ASSERT_DEV(!m_Handle.IsInvalidated(), "Handle invalid!");
   auto pAction = m_CreateAction(context);
   pAction->m_DescriptorHandle = m_Handle;
+
+  m_CreatedActions.PushBack(pAction);
   return pAction;
 }
 
 void ezActionDescriptor::DeleteAction(ezAction* pAction) const
 {
+  m_CreatedActions.RemoveSwap(pAction);
+
   if (m_DeleteAction == nullptr)
   {
     EZ_DEFAULT_DELETE(pAction);
@@ -37,10 +42,19 @@ void ezActionDescriptor::DeleteAction(ezAction* pAction) const
     m_DeleteAction(pAction);
 }
 
+
+void ezActionDescriptor::UpdateExistingActions()
+{
+  for (auto pAction : m_CreatedActions)
+  {
+    pAction->TriggerUpdate();
+  }
+}
+
 void ezAction::TriggerUpdate()
 {
   m_StatusUpdateEvent.Broadcast(this);
 }
 
-EZ_BEGIN_DYNAMIC_REFLECTED_TYPE(ezAction, ezReflectedClass, 0, ezRTTINoAllocator);
-EZ_END_DYNAMIC_REFLECTED_TYPE();
+EZ_BEGIN_DYNAMIC_REFLECTED_TYPE(ezAction, 1, ezRTTINoAllocator);
+EZ_END_DYNAMIC_REFLECTED_TYPE

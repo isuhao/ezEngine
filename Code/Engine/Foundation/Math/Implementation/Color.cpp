@@ -1,5 +1,4 @@
-#include <Foundation/PCH.h>
-#include <Foundation/Math/Color.h>
+#include <PCH.h>
 #include <Foundation/Math/Color8UNorm.h>
 #include <Foundation/Math/Mat4.h>
 
@@ -24,9 +23,14 @@ bool ezColor::IsNormalized() const
 }
 
 // http://en.literateprograms.org/RGB_to_HSV_color_space_conversion_%28C%29
-void ezColor::ToLinearHSV(float& out_hue, float& out_sat, float& out_value) const
+void ezColor::GetHSV(float& out_hue, float& out_sat, float& out_value) const
 {
-  out_value = ezMath::Max(r, g, b); // Value
+  // The formula below assumes values in gamma space
+  const float r2 = LinearToGamma(r);
+  const float g2 = LinearToGamma(g);
+  const float b2 = LinearToGamma(b);
+
+  out_value = ezMath::Max(r2, g2, b2); // Value
 
   if (out_value < ezMath::BasicType<float>::SmallEpsilon())
   {
@@ -37,9 +41,9 @@ void ezColor::ToLinearHSV(float& out_hue, float& out_sat, float& out_value) cons
   }
 
   const float invV = 1.0f / out_value;
-  float norm_r = r * invV;
-  float norm_g = g * invV;
-  float norm_b = b * invV;
+  float norm_r = r2 * invV;
+  float norm_g = g2 * invV;
+  float norm_b = b2 * invV;
   float rgb_min = ezMath::Min(norm_r, norm_g, norm_b);
   float rgb_max = ezMath::Max(norm_r, norm_g, norm_b);
 
@@ -74,11 +78,11 @@ void ezColor::ToLinearHSV(float& out_hue, float& out_sat, float& out_value) cons
 }
 
 // http://www.rapidtables.com/convert/color/hsv-to-rgb.htm
-void ezColor::FromLinearHSV(float hue, float sat, float val)
+void ezColor::SetHSV(float hue, float sat, float val)
 {
-  EZ_ASSERT_DEBUG(hue <= 360 && hue >= 0, "HSV Hue value is in invalid range.");
-  EZ_ASSERT_DEBUG(sat <= 1 && val >= 0, "HSV saturation value is in invalid range.");
-  EZ_ASSERT_DEBUG(val <= 1 && val >= 0, "HSV value is in invalid range.");
+  EZ_ASSERT_DEBUG(hue <= 360 && hue >= 0, "HSV 'hue' is in invalid range.");
+  EZ_ASSERT_DEBUG(sat <= 1 && val >= 0, "HSV 'saturation' is in invalid range.");
+  EZ_ASSERT_DEBUG(val >= 0, "HSV 'value' is in invalid range.");
 
   float c = sat * val;
   float x = c * (1.0f - ezMath::Abs(ezMath::Mod(hue / 60.0f, 2) - 1.0f));
@@ -123,12 +127,17 @@ void ezColor::FromLinearHSV(float hue, float sat, float val)
     g = 0 + m;
     b = x + m;
   }
+
+  // The formula above produces value in gamma space
+  r = GammaToLinear(r);
+  g = GammaToLinear(g);
+  b = GammaToLinear(b);
 }
 
 float ezColor::GetSaturation() const
 {
   float hue, sat, val;
-  ToLinearHSV(hue, sat, val);
+  GetHSV(hue, sat, val);
 
   return sat;
 }
@@ -168,6 +177,12 @@ bool ezColor::IsEqualRGBA(const ezColor& rhs, float fEpsilon) const
           ezMath::IsEqual(a, rhs.a, fEpsilon));
 }
 
+
+ezColor ezColor::WithAlpha(float alpha) const
+{
+  return ezColor(r, g, b, alpha);
+}
+
 void ezColor::operator/= (float f)
 {
   float f_inv = 1.0f / f;
@@ -189,52 +204,77 @@ void ezColor::operator*= (const ezMat4& rhs)
   b = v.z;
 }
 
+
+void ezColor::ScaleRGB(float factor)
+{
+  r *= factor;
+  g *= factor;
+  b *= factor;
+}
+
+float ezColor::ComputeHdrMultiplier() const
+{
+  return ezMath::Max(1.0f, r, g, b);
+}
+
+ezUInt32 ezColor::ComputeHdrMultiplierPOT() const
+{
+  const float mult = ComputeHdrMultiplier();
+  return (ezUInt32)ezMath::PowerOfTwo_Ceil((ezUInt32)mult);
+}
+
+ezUInt32 ezColor::ComputeHdrExposureValue() const
+{
+  const ezUInt32 mult = ComputeHdrMultiplierPOT();
+  return ezMath::Log2i(mult);
+}
+
+void ezColor::ApplyHdrExposureValue(ezUInt32 ev)
+{
+  const float factor = (float)(1U << ev);
+  r *= factor;
+  g *= factor;
+  b *= factor;
+}
+
+
+void ezColor::NormalizeToLdrRange()
+{
+  ScaleRGB(1.0f / ComputeHdrMultiplier());
+}
+
 ezColor ezColor::GetComplementaryColor() const
 {
   float hue, sat, val;
-  ToLinearHSV(hue, sat, val);
+  GetHSV(hue, sat, val);
 
   ezColor Shifted;
-  Shifted.FromLinearHSV(ezMath::Mod(hue + 180.0f, 360.0f), sat, val);
+  Shifted.SetHSV(ezMath::Mod(hue + 180.0f, 360.0f), sat, val);
   Shifted.a = a;
 
   return Shifted;
 }
 
-void ezColor::FromGammaHSV(float hue, float sat, float val)
+float ezColor::GammaToLinear(float gamma)
 {
-  ezColor gamma;
-  gamma.FromLinearHSV(hue, sat, val);
-
-  const ezVec3 linear = GammaToLinear(ezVec3(gamma.r, gamma.g, gamma.b));
-
-  r = linear.x;
-  g = linear.y;
-  b = linear.z;
-  a = gamma.a;
+  return gamma <= 0.04045f ? (gamma / 12.92f) : (ezMath::Pow((gamma + 0.055f) / 1.055f, 2.4f));
 }
 
-void ezColor::ToGammaHSV(float& hue, float& sat, float& val) const
+float ezColor::LinearToGamma(float linear)
 {
-  const ezVec3 gamma = LinearToGamma(ezVec3(r, g, b));
-
-  ezColor ColorGamma(gamma.x, gamma.y, gamma.z, a);
-  ColorGamma.ToLinearHSV(hue, sat, val);
+  // assuming we have linear color (not CIE xyY or CIE XYZ)
+  return linear <= 0.0031308f ? (12.92f * linear) : (1.055f * ezMath::Pow(linear, 1.0f / 2.4f) - 0.055f);
 }
 
 ezVec3 ezColor::GammaToLinear(const ezVec3& gamma)
 {
-  return ezVec3(gamma.x <= 0.04045f ? (gamma.x / 12.92f) : (ezMath::Pow((gamma.x + 0.055f) / 1.055f, 2.4f)),
-                gamma.y <= 0.04045f ? (gamma.y / 12.92f) : (ezMath::Pow((gamma.y + 0.055f) / 1.055f, 2.4f)),
-                gamma.z <= 0.04045f ? (gamma.z / 12.92f) : (ezMath::Pow((gamma.z + 0.055f) / 1.055f, 2.4f)));
+  return ezVec3(GammaToLinear(gamma.x), GammaToLinear(gamma.y), GammaToLinear(gamma.z));
 }
 
 ezVec3 ezColor::LinearToGamma(const ezVec3& linear)
 {
   // assuming we have linear color (not CIE xyY or CIE XYZ)
-  return ezVec3(linear.x <= 0.0031308f ? (12.92f * linear.x) : (1.055f * ezMath::Pow(linear.x, 1.0f / 2.4f) - 0.055f),
-                linear.y <= 0.0031308f ? (12.92f * linear.y) : (1.055f * ezMath::Pow(linear.y, 1.0f / 2.4f) - 0.055f),
-                linear.z <= 0.0031308f ? (12.92f * linear.z) : (1.055f * ezMath::Pow(linear.z, 1.0f / 2.4f) - 0.055f));
+  return ezVec3(LinearToGamma(linear.x), LinearToGamma(linear.y), LinearToGamma(linear.z));
 }
 
 const ezColor ezColor::AliceBlue(ezColorGammaUB(0xF0, 0xF8, 0xFF));
@@ -254,7 +294,7 @@ const ezColor ezColor::CadetBlue(ezColorGammaUB(0x5F, 0x9E, 0xA0));
 const ezColor ezColor::Chartreuse(ezColorGammaUB(0x7F, 0xFF, 0x00));
 const ezColor ezColor::Chocolate(ezColorGammaUB(0xD2, 0x69, 0x1E));
 const ezColor ezColor::Coral(ezColorGammaUB(0xFF, 0x7F, 0x50));
-const ezColor ezColor::CornflowerBlue(ezColorGammaUB(0x64, 0x95, 0xED));
+const ezColor ezColor::CornflowerBlue(ezColorGammaUB(0x64, 0x95, 0xED)); // The Original!
 const ezColor ezColor::Cornsilk(ezColorGammaUB(0xFF, 0xF8, 0xDC));
 const ezColor ezColor::Crimson(ezColorGammaUB(0xDC, 0x14, 0x3C));
 const ezColor ezColor::Cyan(ezColorGammaUB(0x00, 0xFF, 0xFF));
@@ -262,6 +302,7 @@ const ezColor ezColor::DarkBlue(ezColorGammaUB(0x00, 0x00, 0x8B));
 const ezColor ezColor::DarkCyan(ezColorGammaUB(0x00, 0x8B, 0x8B));
 const ezColor ezColor::DarkGoldenRod(ezColorGammaUB(0xB8, 0x86, 0x0B));
 const ezColor ezColor::DarkGray(ezColorGammaUB(0xA9, 0xA9, 0xA9));
+const ezColor ezColor::DarkGrey(ezColorGammaUB(0xA9, 0xA9, 0xA9));
 const ezColor ezColor::DarkGreen(ezColorGammaUB(0x00, 0x64, 0x00));
 const ezColor ezColor::DarkKhaki(ezColorGammaUB(0xBD, 0xB7, 0x6B));
 const ezColor ezColor::DarkMagenta(ezColorGammaUB(0x8B, 0x00, 0x8B));
@@ -273,11 +314,13 @@ const ezColor ezColor::DarkSalmon(ezColorGammaUB(0xE9, 0x96, 0x7A));
 const ezColor ezColor::DarkSeaGreen(ezColorGammaUB(0x8F, 0xBC, 0x8F));
 const ezColor ezColor::DarkSlateBlue(ezColorGammaUB(0x48, 0x3D, 0x8B));
 const ezColor ezColor::DarkSlateGray(ezColorGammaUB(0x2F, 0x4F, 0x4F));
+const ezColor ezColor::DarkSlateGrey(ezColorGammaUB(0x2F, 0x4F, 0x4F));
 const ezColor ezColor::DarkTurquoise(ezColorGammaUB(0x00, 0xCE, 0xD1));
 const ezColor ezColor::DarkViolet(ezColorGammaUB(0x94, 0x00, 0xD3));
 const ezColor ezColor::DeepPink(ezColorGammaUB(0xFF, 0x14, 0x93));
 const ezColor ezColor::DeepSkyBlue(ezColorGammaUB(0x00, 0xBF, 0xFF));
 const ezColor ezColor::DimGray(ezColorGammaUB(0x69, 0x69, 0x69));
+const ezColor ezColor::DimGrey(ezColorGammaUB(0x69, 0x69, 0x69));
 const ezColor ezColor::DodgerBlue(ezColorGammaUB(0x1E, 0x90, 0xFF));
 const ezColor ezColor::FireBrick(ezColorGammaUB(0xB2, 0x22, 0x22));
 const ezColor ezColor::FloralWhite(ezColorGammaUB(0xFF, 0xFA, 0xF0));
@@ -288,6 +331,7 @@ const ezColor ezColor::GhostWhite(ezColorGammaUB(0xF8, 0xF8, 0xFF));
 const ezColor ezColor::Gold(ezColorGammaUB(0xFF, 0xD7, 0x00));
 const ezColor ezColor::GoldenRod(ezColorGammaUB(0xDA, 0xA5, 0x20));
 const ezColor ezColor::Gray(ezColorGammaUB(0x80, 0x80, 0x80));
+const ezColor ezColor::Grey(ezColorGammaUB(0x80, 0x80, 0x80));
 const ezColor ezColor::Green(ezColorGammaUB(0x00, 0x80, 0x00));
 const ezColor ezColor::GreenYellow(ezColorGammaUB(0xAD, 0xFF, 0x2F));
 const ezColor ezColor::HoneyDew(ezColorGammaUB(0xF0, 0xFF, 0xF0));
@@ -305,12 +349,14 @@ const ezColor ezColor::LightCoral(ezColorGammaUB(0xF0, 0x80, 0x80));
 const ezColor ezColor::LightCyan(ezColorGammaUB(0xE0, 0xFF, 0xFF));
 const ezColor ezColor::LightGoldenRodYellow(ezColorGammaUB(0xFA, 0xFA, 0xD2));
 const ezColor ezColor::LightGray(ezColorGammaUB(0xD3, 0xD3, 0xD3));
+const ezColor ezColor::LightGrey(ezColorGammaUB(0xD3, 0xD3, 0xD3));
 const ezColor ezColor::LightGreen(ezColorGammaUB(0x90, 0xEE, 0x90));
 const ezColor ezColor::LightPink(ezColorGammaUB(0xFF, 0xB6, 0xC1));
 const ezColor ezColor::LightSalmon(ezColorGammaUB(0xFF, 0xA0, 0x7A));
 const ezColor ezColor::LightSeaGreen(ezColorGammaUB(0x20, 0xB2, 0xAA));
 const ezColor ezColor::LightSkyBlue(ezColorGammaUB(0x87, 0xCE, 0xFA));
 const ezColor ezColor::LightSlateGray(ezColorGammaUB(0x77, 0x88, 0x99));
+const ezColor ezColor::LightSlateGrey(ezColorGammaUB(0x77, 0x88, 0x99));
 const ezColor ezColor::LightSteelBlue(ezColorGammaUB(0xB0, 0xC4, 0xDE));
 const ezColor ezColor::LightYellow(ezColorGammaUB(0xFF, 0xFF, 0xE0));
 const ezColor ezColor::Lime(ezColorGammaUB(0x00, 0xFF, 0x00));
@@ -364,6 +410,7 @@ const ezColor ezColor::Silver(ezColorGammaUB(0xC0, 0xC0, 0xC0));
 const ezColor ezColor::SkyBlue(ezColorGammaUB(0x87, 0xCE, 0xEB));
 const ezColor ezColor::SlateBlue(ezColorGammaUB(0x6A, 0x5A, 0xCD));
 const ezColor ezColor::SlateGray(ezColorGammaUB(0x70, 0x80, 0x90));
+const ezColor ezColor::SlateGrey(ezColorGammaUB(0x70, 0x80, 0x90));
 const ezColor ezColor::Snow(ezColorGammaUB(0xFF, 0xFA, 0xFA));
 const ezColor ezColor::SpringGreen(ezColorGammaUB(0x00, 0xFF, 0x7F));
 const ezColor ezColor::SteelBlue(ezColorGammaUB(0x46, 0x82, 0xB4));
@@ -381,4 +428,7 @@ const ezColor ezColor::YellowGreen(ezColorGammaUB(0x9A, 0xCD, 0x32));
 
 
 
+
+
+EZ_STATICLINK_FILE(Foundation, Foundation_Math_Implementation_Color);
 

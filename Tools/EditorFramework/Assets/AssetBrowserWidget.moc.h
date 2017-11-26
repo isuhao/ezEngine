@@ -2,32 +2,36 @@
 
 #include <EditorFramework/Plugin.h>
 #include <Tools/EditorFramework/ui_AssetBrowserWidget.h>
-#include <EditorFramework/Assets/AssetBrowserModel.moc.h>
 #include <ToolsFoundation/Project/ToolsProject.h>
 
-class ezToolBarActionMapView;
+class ezQtToolBarActionMapView;
+class ezQtAssetBrowserFilter;
+class ezQtAssetBrowserModel;
+struct ezAssetCuratorEvent;
 
-class ezAssetBrowserWidget : public QWidget, public Ui_AssetBrowserWidget
+class ezQtAssetBrowserWidget : public QWidget, public Ui_AssetBrowserWidget
 {
   Q_OBJECT
-
 public:
-  ezAssetBrowserWidget(QWidget* parent);
-  ~ezAssetBrowserWidget();
+  ezQtAssetBrowserWidget(QWidget* parent);
+  ~ezQtAssetBrowserWidget();
 
   void SetDialogMode();
-  void SetSelectedAsset(const char* szAssetPath);
+  void SetSelectedAsset(ezUuid preselectedAsset);
   void ShowOnlyTheseTypeFilters(const char* szFilters);
 
   void SaveState(const char* szSettingsName);
   void RestoreState(const char* szSettingsName);
 
-  ezAssetBrowserModel* GetAssetBrowserModel() { return m_pModel; }
-  const ezAssetBrowserModel* GetAssetBrowserModel() const { return m_pModel; }
+  ezQtAssetBrowserModel* GetAssetBrowserModel() { return m_pModel; }
+  const ezQtAssetBrowserModel* GetAssetBrowserModel() const { return m_pModel; }
+  ezQtAssetBrowserFilter* GetAssetBrowserFilter() { return m_pFilter; }
+  const ezQtAssetBrowserFilter* GetAssetBrowserFilter() const { return m_pFilter; }
 
 signals:
-  void ItemChosen(QString sAssetGUID, QString sAssetPathRelative, QString sAssetPathAbsolute);
-  void ItemSelected(QString sAssetGUID, QString sAssetPathRelative, QString sAssetPathAbsolute);
+  void ItemChosen(ezUuid guid, QString sAssetPathRelative, QString sAssetPathAbsolute);
+  void ItemSelected(ezUuid guid, QString sAssetPathRelative, QString sAssetPathAbsolute);
+  void ItemCleared();
 
 private slots:
   void OnTextFilterChanged();
@@ -40,31 +44,41 @@ private slots:
   void on_ButtonIconMode_clicked();
   void on_IconSizeSlider_valueChanged(int iValue);
   void on_ListAssets_ViewZoomed(ezInt32 iIconSizePercentage);
-  void on_LineSearchFilter_textEdited(const QString& text);
-  void on_ButtonClearSearch_clicked();
+  void OnSearchWidgetTextChanged(const QString& text);
   void on_ListTypeFilter_itemChanged(QListWidgetItem* item);
   void on_TreeFolderFilter_itemSelectionChanged();
   void on_TreeFolderFilter_customContextMenuRequested(const QPoint& pt);
-  void OnScrollToItem(QString sPath);
+  void OnScrollToItem(ezUuid preselectedAsset);
   void OnTreeOpenExplorer();
   void OnShowSubFolderItemsToggled();
+  void OnShowHiddenFolderItemsToggled();
   void on_ListAssets_customContextMenuRequested(const QPoint& pt);
   void OnListOpenExplorer();
   void OnListOpenAssetDocument();
+  void OnTransform();
   void OnListToggleSortByRecentlyUsed();
+  void OnListCopyAssetGuid();
+  void OnSelectionTimer();
+  void OnAssetSelectionChanged(const QItemSelection &selected, const QItemSelection &deselected);
+  void OnAssetSelectionCurrentChanged(const QModelIndex &current, const QModelIndex &previous);
+  void OnModelReset();
+  void OnNewAsset();
 
 private:
-  void AssetCuratorEventHandler(const ezAssetCurator::Event& e);
+  void AssetCuratorEventHandler(const ezAssetCuratorEvent& e);
   void UpdateDirectoryTree();
-  void BuildDirectoryTree(const char* szCurPath, QTreeWidgetItem* pParent, const char* szCurPathToItem);
+  void ClearDirectoryTree();
+  void BuildDirectoryTree(const char* szCurPath, QTreeWidgetItem* pParent, const char* szCurPathToItem, bool bIsHidden);
   bool SelectPathFilter(QTreeWidgetItem* pParent, const QString& sPath);
   void UpdateAssetTypes();
-  void ProjectEventHandler(const ezToolsProject::Event& e);
+  void ProjectEventHandler(const ezToolsProjectEvent& e);
+  void AddAssetCreatorMenu(QMenu* pMenu, bool useSelectedAsset);
 
   bool m_bDialogMode;
   ezUInt32 m_uiKnownAssetFolderCount;
 
-  ezToolBarActionMapView* m_pToolbar;
+  ezQtToolBarActionMapView* m_pToolbar;
   ezString m_sAllTypesFilter;
-  ezAssetBrowserModel* m_pModel;
+  ezQtAssetBrowserModel* m_pModel;
+  ezQtAssetBrowserFilter* m_pFilter;
 };

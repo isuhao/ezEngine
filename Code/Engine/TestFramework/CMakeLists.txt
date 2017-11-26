@@ -20,12 +20,24 @@ endif()
 # Add all the libraries that this project needs to link against here
 SET (LINK_LIBRARIES
   Foundation      # Example: Another library build with cmake
-  CoreUtils
+  FileservePlugin
 )
 
+SET (EZ_TESTFRAMEWORK_USE_FILESERVE OFF)
+
+if(BUILDSYSTEM_PLATFORM_WINDOWS_UWP)
+  SET (EZ_TESTFRAMEWORK_USE_FILESERVE ON)
+endif()
+
+
+if(EZ_TESTFRAMEWORK_USE_FILESERVE)
+  SET (LINK_LIBRARIES ${LINK_LIBRARIES} FileservePlugin)
+  add_definitions (-DEZ_TESTFRAMEWORK_USE_FILESERVE)
+endif()
 
 # Enables the use of Qt in this library and sets up the required modules.
 QT_MODULES(Core Gui Widgets)
+SET (EZ_COPY_QT_DLLS ON)
 
 # Set all headers, that shall be MOC'ed that do not end with moc.h and thus will be MOC'ed automatically.
 SET (EZ_MOC_HEADERS

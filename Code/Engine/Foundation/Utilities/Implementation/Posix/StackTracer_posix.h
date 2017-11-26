@@ -9,11 +9,15 @@
 #include <execinfo.h>
 #include <Foundation/Math/Math.h>
 
+void ezStackTracer::OnPluginEvent(const ezPlugin::PluginEvent& e)
+{
+}
+
 //static
-ezUInt32 ezStackTracer::GetStackTrace(ezArrayPtr<void*>& trace)
+ezUInt32 ezStackTracer::GetStackTrace(ezArrayPtr<void*>& trace, void* pContext)
 {
   int iSymbols = backtrace(trace.GetPtr(), trace.GetCount());
-  
+
   return iSymbols;
 }
 
@@ -21,9 +25,9 @@ ezUInt32 ezStackTracer::GetStackTrace(ezArrayPtr<void*>& trace)
 void ezStackTracer::ResolveStackTrace(const ezArrayPtr<void*>& trace, PrintFunc printFunc)
 {
   char szBuffer[512];
-  
+
   char** ppSymbols = backtrace_symbols(trace.GetPtr(), trace.GetCount());
-  
+
   if (ppSymbols != nullptr)
   {
     for (ezUInt32 i = 0; i < trace.GetCount(); i++)
@@ -32,12 +36,12 @@ void ezStackTracer::ResolveStackTrace(const ezArrayPtr<void*>& trace, PrintFunc 
       memcpy(szBuffer, ppSymbols[i], iLen);
       szBuffer[iLen] = '\n';
       szBuffer[iLen + 1] = '\0';
-      
+
       (*printFunc)(szBuffer);
     }
-  
+
     free(ppSymbols);
   }
-  
+
 }
 

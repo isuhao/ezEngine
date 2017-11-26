@@ -10,9 +10,9 @@
 
 void FormatSize(ezStringBuilder& s, const char* szPrefix, ezUInt64 uiSize);
 
-ezResourceWidget* ezResourceWidget::s_pWidget = nullptr;
+ezQtResourceWidget* ezQtResourceWidget::s_pWidget = nullptr;
 
-ezResourceWidget::ezResourceWidget(QWidget* parent) : QDockWidget(parent)
+ezQtResourceWidget::ezQtResourceWidget(QWidget* parent) : QDockWidget(parent)
 {
   s_pWidget = this;
 
@@ -23,7 +23,7 @@ ezResourceWidget::ezResourceWidget(QWidget* parent) : QDockWidget(parent)
   ResetStats();
 }
 
-void ezResourceWidget::ResetStats()
+void ezQtResourceWidget::ResetStats()
 {
   m_Resources.Clear();
 
@@ -44,6 +44,7 @@ void ezResourceWidget::ResetStats()
     Headers.append(" CPU Mem. ");
     Headers.append(" GPU Mem. ");
     Headers.append(" Resource ID ");
+    Headers.append(" Description ");
 
     Table->setColumnCount(Headers.size());
     Table->setHorizontalHeaderLabels(Headers);
@@ -56,7 +57,7 @@ void ezResourceWidget::ResetStats()
 }
 
 
-void ezResourceWidget::UpdateStats()
+void ezQtResourceWidget::UpdateStats()
 {
   if (!m_bUpdateTable)
     return;
@@ -74,13 +75,13 @@ public:
 
   bool operator< (const QTableWidgetItem& other) const
   {
-    return m_uiBytes < ((ByteSizeItem&) other).m_uiBytes;
+    return m_uiBytes < ((ByteSizeItem&)other).m_uiBytes;
   }
 
   ezUInt32 m_uiBytes;
 };
 
-void ezResourceWidget::UpdateTable()
+void ezQtResourceWidget::UpdateTable()
 {
   if (!m_bUpdateTable)
     return;
@@ -150,7 +151,7 @@ void ezResourceWidget::UpdateTable()
       {
         bShowItem = false;
       }
-      else if (!m_sNameFilter.IsEmpty() && res.m_sResourceID.FindSubString_NoCase(m_sNameFilter) == nullptr)
+      else if (!m_sNameFilter.IsEmpty() && res.m_sResourceID.FindSubString_NoCase(m_sNameFilter) == nullptr && res.m_sResourceDescription.FindSubString_NoCase(m_sNameFilter) == nullptr)
       {
         bShowItem = false;
       }
@@ -185,11 +186,15 @@ void ezResourceWidget::UpdateTable()
         Table->setItem(iTableRow, 5, new ByteSizeItem(0, ""));
         Table->setItem(iTableRow, 6, new ByteSizeItem(0, ""));
         Table->setItem(iTableRow, 7, new QTableWidgetItem());
+        Table->setItem(iTableRow, 8, new QTableWidgetItem());
       }
       else
       {
         iTableRow = Table->row(res.m_pMainItem);
       }
+
+      pItem = Table->item(iTableRow, 8);
+      pItem->setText(res.m_sResourceDescription.GetData());
 
       pItem = Table->item(iTableRow, 7);
       pItem->setText(res.m_sResourceID.GetData());
@@ -243,6 +248,9 @@ void ezResourceWidget::UpdateTable()
         pItem->setText("Lowest");
         pItem->setTextColor(QColor::fromRgb(127, 201, 255));
         break;
+
+      case ezResourcePriority::Unchanged:
+        break;
       }
 
       if (res.m_Flags.IsAnySet(ezResourceFlags::IsPreloading))
@@ -278,26 +286,26 @@ void ezResourceWidget::UpdateTable()
       }
 
       pItem = Table->item(iTableRow, 3);
-      sTemp.Format("%u", res.m_LoadingState.m_uiQualityLevelsDiscardable);
+      sTemp.Format("{0}", res.m_LoadingState.m_uiQualityLevelsDiscardable);
       pItem->setText(sTemp.GetData());
       pItem->setToolTip("The number of quality levels that could be discarded to free up memory.");
 
       pItem = Table->item(iTableRow, 4);
-      sTemp.Format("%u", res.m_LoadingState.m_uiQualityLevelsLoadable);
+      sTemp.Format("{0}", res.m_LoadingState.m_uiQualityLevelsLoadable);
       pItem->setText(sTemp.GetData());
       pItem->setToolTip("The number of quality levels that could be additionally loaded for higher quality.");
 
       ByteSizeItem* pByteItem;
 
-      pByteItem = (ByteSizeItem*) Table->item(iTableRow, 5);
-      sTemp.Format("%u Bytes", res.m_Memory.m_uiMemoryCPU);
+      pByteItem = (ByteSizeItem*)Table->item(iTableRow, 5);
+      sTemp.Format("{0} Bytes", res.m_Memory.m_uiMemoryCPU);
       pByteItem->setToolTip(sTemp.GetData());
       FormatSize(sTemp, "", res.m_Memory.m_uiMemoryCPU);
       pByteItem->setText(sTemp.GetData());
       pByteItem->m_uiBytes = res.m_Memory.m_uiMemoryCPU;
 
-      pByteItem = (ByteSizeItem*) Table->item(iTableRow, 6);
-      sTemp.Format("%u Bytes", res.m_Memory.m_uiMemoryGPU);
+      pByteItem = (ByteSizeItem*)Table->item(iTableRow, 6);
+      sTemp.Format("{0} Bytes", res.m_Memory.m_uiMemoryGPU);
       pByteItem->setToolTip(sTemp.GetData());
       FormatSize(sTemp, "", res.m_Memory.m_uiMemoryGPU);
       pByteItem->setText(sTemp.GetData());
@@ -325,7 +333,7 @@ void ezResourceWidget::UpdateTable()
   Table->blockSignals(false);
 }
 
-void ezResourceWidget::UpdateAll()
+void ezQtResourceWidget::UpdateAll()
 {
   m_bUpdateTable = true;
 
@@ -335,14 +343,14 @@ void ezResourceWidget::UpdateAll()
   }
 }
 
-void ezResourceWidget::on_LineFilterByName_textChanged()
+void ezQtResourceWidget::on_LineFilterByName_textChanged()
 {
   m_sNameFilter = LineFilterByName->text().toUtf8().data();
 
   UpdateAll();
 }
 
-void ezResourceWidget::on_ComboResourceTypes_currentIndexChanged(int state)
+void ezQtResourceWidget::on_ComboResourceTypes_currentIndexChanged(int state)
 {
   if (state == 0)
     m_sTypeFilter.Clear();
@@ -352,13 +360,13 @@ void ezResourceWidget::on_ComboResourceTypes_currentIndexChanged(int state)
   UpdateAll();
 }
 
-void ezResourceWidget::on_CheckShowDeleted_toggled(bool checked)
+void ezQtResourceWidget::on_CheckShowDeleted_toggled(bool checked)
 {
   m_bShowDeleted = checked;
   UpdateAll();
 }
 
-void ezResourceWidget::ProcessTelemetry(void* pUnuseed)
+void ezQtResourceWidget::ProcessTelemetry(void* pUnuseed)
 {
   if (!s_pWidget)
     return;
@@ -375,7 +383,7 @@ void ezResourceWidget::ProcessTelemetry(void* pUnuseed)
     ResourceData& rd = s_pWidget->m_Resources[uiResourceNameHash];
     rd.m_bUpdate = true;
 
-    if (Msg.GetMessageID() == 'SET')
+    if (Msg.GetMessageID() == ' SET')
     {
       Msg.GetReader() >> rd.m_sResourceID;
 
@@ -389,7 +397,7 @@ void ezResourceWidget::ProcessTelemetry(void* pUnuseed)
 
       ezUInt8 uiPriority = 0;
       Msg.GetReader() >> uiPriority;
-      rd.m_Priority = (ezResourcePriority) uiPriority;
+      rd.m_Priority = (ezResourcePriority)uiPriority;
 
       ezUInt8 uiFlags = 0;
       Msg.GetReader() >> uiFlags;
@@ -399,19 +407,20 @@ void ezResourceWidget::ProcessTelemetry(void* pUnuseed)
       ezUInt8 uiLoadingState = 0;
       Msg.GetReader() >> uiLoadingState;
 
-      rd.m_LoadingState.m_State = (ezResourceState) uiLoadingState;
+      rd.m_LoadingState.m_State = (ezResourceState)uiLoadingState;
       Msg.GetReader() >> rd.m_LoadingState.m_uiQualityLevelsDiscardable;
       Msg.GetReader() >> rd.m_LoadingState.m_uiQualityLevelsLoadable;
 
       Msg.GetReader() >> rd.m_Memory.m_uiMemoryCPU;
       Msg.GetReader() >> rd.m_Memory.m_uiMemoryGPU;
+      Msg.GetReader() >> rd.m_sResourceDescription;
     }
 
     if (Msg.GetMessageID() == 'UPDT')
     {
       ezUInt8 uiPriority = 0;
       Msg.GetReader() >> uiPriority;
-      rd.m_Priority = (ezResourcePriority) uiPriority;
+      rd.m_Priority = (ezResourcePriority)uiPriority;
 
       ezUInt8 uiFlags = 0;
       Msg.GetReader() >> uiFlags;
@@ -421,7 +430,7 @@ void ezResourceWidget::ProcessTelemetry(void* pUnuseed)
       ezUInt8 uiLoadingState = 0;
       Msg.GetReader() >> uiLoadingState;
 
-      rd.m_LoadingState.m_State = (ezResourceState) uiLoadingState;
+      rd.m_LoadingState.m_State = (ezResourceState)uiLoadingState;
       Msg.GetReader() >> rd.m_LoadingState.m_uiQualityLevelsDiscardable;
       Msg.GetReader() >> rd.m_LoadingState.m_uiQualityLevelsLoadable;
 
@@ -429,7 +438,7 @@ void ezResourceWidget::ProcessTelemetry(void* pUnuseed)
       Msg.GetReader() >> rd.m_Memory.m_uiMemoryGPU;
     }
 
-    if (Msg.GetMessageID() == 'DEL')
+    if (Msg.GetMessageID() == ' DEL')
     {
       rd.m_Flags.Remove(ezResourceFlags::IsPreloading);
       rd.m_LoadingState.m_State = ezResourceState::Invalid;

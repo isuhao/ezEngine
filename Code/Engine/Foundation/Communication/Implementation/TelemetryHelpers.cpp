@@ -1,13 +1,6 @@
-#include <Foundation/PCH.h>
+#include <PCH.h>
 #include <Foundation/Communication/Telemetry.h>
 #include <Foundation/Profiling/Profiling.h>
-#include <Foundation/Threading/Lock.h>
-#include <Foundation/Threading/Mutex.h>
-
-namespace
-{
-  ezProfilingId g_PerFrameUpdateProfilingId = ezProfilingSystem::CreateId("Telemetry.PerFrameUpdate");
-}
 
 void ezTelemetry::QueueOutgoingMessage(TransmitMode tm, ezUInt32 uiSystemID, ezUInt32 uiMsgID, const void* pData, ezUInt32 uiDataBytes)
 {
@@ -72,12 +65,21 @@ void ezTelemetry::FlushOutgoingQueues()
 
 ezResult ezTelemetry::ConnectToServer(const char* szConnectTo)
 {
+#ifdef BUILDSYSTEM_ENABLE_ENET_SUPPORT
   return OpenConnection(Client, szConnectTo);
+#else
+  ezLog::SeriousWarning("Enet is not compiled into this build, ezTelemetry::ConnectToServer() will be ignored.");
+  return EZ_FAILURE;
+#endif // BUILDSYSTEM_ENABLE_ENET_SUPPORT
 }
 
 void ezTelemetry::CreateServer()
 {
+#ifdef BUILDSYSTEM_ENABLE_ENET_SUPPORT
   EZ_VERIFY(OpenConnection(Server) == EZ_SUCCESS, "Opening a connection as a server should not be possible to fail.");
+#else
+  ezLog::SeriousWarning("Enet is not compiled into this build, ezTelemetry::CreateServer() will be ignored.");
+#endif // BUILDSYSTEM_ENABLE_ENET_SUPPORT
 }
 
 void ezTelemetry::AcceptMessagesForSystem(ezUInt32 uiSystemID, bool bAccept, ProcessMessagesCallback Callback, void* pPassThrough)
@@ -91,7 +93,7 @@ void ezTelemetry::AcceptMessagesForSystem(ezUInt32 uiSystemID, bool bAccept, Pro
 
 void ezTelemetry::PerFrameUpdate()
 {
-  EZ_PROFILE(g_PerFrameUpdateProfilingId);
+  EZ_PROFILE("Telemetry.PerFrameUpdate");
   EZ_LOCK(GetTelemetryMutex());
 
   // Call each callback to process the incoming messages
@@ -131,7 +133,7 @@ void ezTelemetry::Broadcast(TransmitMode tm, ezUInt32 uiSystemID, ezUInt32 uiMsg
   Send(tm, uiSystemID, uiMsgID, pData, uiDataBytes);
 }
 
-void ezTelemetry::Broadcast(TransmitMode tm, ezUInt32 uiSystemID, ezUInt32 uiMsgID, ezStreamReaderBase& Stream, ezInt32 iDataBytes)
+void ezTelemetry::Broadcast(TransmitMode tm, ezUInt32 uiSystemID, ezUInt32 uiMsgID, ezStreamReader& Stream, ezInt32 iDataBytes)
 {
   if (s_ConnectionMode != ezTelemetry::Server)
     return;
@@ -155,7 +157,7 @@ void ezTelemetry::SendToServer(ezUInt32 uiSystemID, ezUInt32 uiMsgID, const void
   Send(ezTelemetry::Reliable, uiSystemID, uiMsgID, pData, uiDataBytes);
 }
 
-void ezTelemetry::SendToServer(ezUInt32 uiSystemID, ezUInt32 uiMsgID, ezStreamReaderBase& Stream, ezInt32 iDataBytes)
+void ezTelemetry::SendToServer(ezUInt32 uiSystemID, ezUInt32 uiMsgID, ezStreamReader& Stream, ezInt32 iDataBytes)
 {
   if (s_ConnectionMode != ezTelemetry::Client)
     return;

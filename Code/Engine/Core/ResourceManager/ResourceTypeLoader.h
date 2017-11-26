@@ -1,18 +1,13 @@
-#pragma once
+﻿#pragma once
 
 #include <Core/ResourceManager/Implementation/Declarations.h>
 #include <Foundation/IO/Stream.h>
 #include <Foundation/Time/Timestamp.h>
+#include <Foundation/IO/MemoryStream.h>
 
 /// \brief Data returned by ezResourceTypeLoader implementations.
 struct EZ_CORE_DLL ezResourceLoadData
 {
-  ezResourceLoadData()
-  {
-    m_pDataStream = nullptr;
-    m_pCustomLoaderData = nullptr;
-  }
-
   /// Additional (optional) description that can help during debugging (e.g. the final file path).
   ezString m_sResourceDescription;
 
@@ -20,10 +15,10 @@ struct EZ_CORE_DLL ezResourceLoadData
   ezTimestamp m_LoadedFileModificationDate;
 
   /// All loaded data should be stored in a memory stream. This stream reader allows the resource to read the memory stream.
-  ezStreamReaderBase* m_pDataStream;
+  ezStreamReader* m_pDataStream = nullptr;
 
   /// Custom loader data, e.g. a pointer to a custom memory block, that needs to be freed when the resource is done updating.
-  void* m_pCustomLoaderData;
+  void* m_pCustomLoaderData = nullptr;
 };
 
 /// \brief Base class for all resource loaders.
@@ -66,5 +61,30 @@ public:
   virtual ezResourceLoadData OpenDataStream(const ezResourceBase* pResource) override;
   virtual void CloseDataStream(const ezResourceBase* pResource, const ezResourceLoadData& LoaderData) override;
   virtual bool IsResourceOutdated(const ezResourceBase* pResource) const override;
+};
+
+
+/// \brief A resource loader that is mainly used to update a resource on the fly with custom data, e.g. in an editor
+///
+/// Use like this:
+/// Allocate a ezResourceLoaderFromMemory instance on the heap, using EZ_DEFAULT_NEW and store the result in a ezUniquePtr<ezResourceTypeLoader>.
+/// Then set the description, the modification time (simply use ezTimestamp::CurrentTimestamp()), and the custom date.
+/// Use a ezMemoryStreamWriter to write your custom data. Make sure to write EXACTLY the same format that the targeted resource type would read, including all data
+/// that would typically be written by outside code, e.g. the default ezResourceLoaderFromFile additionally writes the path to the resource at the start of the stream.
+/// If such data is usually present in the stream, you must write this yourself.
+/// Then call ezResourceManager::UpdateResourceWithCustomLoader(), specify the target resource and std::move your created loader in there.
+class EZ_CORE_DLL ezResourceLoaderFromMemory : public ezResourceTypeLoader
+{
+public:
+  virtual ezResourceLoadData OpenDataStream(const ezResourceBase* pResource) override;
+  virtual void CloseDataStream(const ezResourceBase* pResource, const ezResourceLoadData& LoaderData) override;
+  virtual bool IsResourceOutdated(const ezResourceBase* pResource) const override;
+
+  ezString m_sResourceDescription;
+  ezTimestamp m_ModificationTimestamp;
+  ezMemoryStreamStorage m_CustomData;
+
+private:
+  ezMemoryStreamReader m_Reader;
 };
 

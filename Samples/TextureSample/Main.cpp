@@ -18,10 +18,9 @@
 #include <Core/Application/Application.h>
 #include <Core/Input/InputManager.h>
 #include <Core/ResourceManager/ResourceManager.h>
-#include <Core/Application/Config/ApplicationConfig.h>
 
-#include <CoreUtils/Geometry/GeomUtils.h>
-#include <CoreUtils/Image/ImageConversion.h>
+#include <Core/Graphics/Geometry.h>
+#include <Foundation/Image/ImageConversion.h>
 
 #include <System/Window/Window.h>
 
@@ -29,14 +28,17 @@
 
 #include <RendererFoundation/Device/SwapChain.h>
 #include <RendererFoundation/Context/Context.h>
-
+#include <RendererCore/ShaderCompiler/ShaderManager.h>
 #include <RendererCore/RenderContext/RenderContext.h>
 #include <RendererCore/ShaderCompiler/ShaderCompiler.h>
 #include <RendererCore/Shader/ShaderResource.h>
-#include <RendererCore/ConstantBuffers/ConstantBufferResource.h>
 #include <RendererCore/Material/MaterialResource.h>
 #include <RendererCore/Meshes/MeshBufferResource.h>
-#include <RendererCore/Textures/TextureResource.h>
+#include <RendererCore/Textures/Texture2DResource.h>
+#include <RendererCore/Textures/TextureLoader.h>
+
+// Constant buffer definition is shared between shader code and C++
+#include <RendererCore/../../../Data/Samples/TextureSample/Shaders/SampleConstantBuffer.h>
 
 class TextureSampleWindow : public ezWindow
 {
@@ -72,6 +74,8 @@ const bool g_bPreloadAllTextures = false;
 class TextureSample : public ezApplication
 {
   CustomTextureResourceLoader m_TextureResourceLoader;
+  ezConstantBufferStorageHandle m_hSampleConstants;
+  ezConstantBufferStorage<ezTextureSampleConstants>* m_pSampleConstantBuffer;
 
 public:
 
@@ -80,16 +84,13 @@ public:
     m_vCameraPosition.SetZero();
   }
 
-  void AfterEngineInit() override
+  void AfterCoreStartup() override
   {
-    ezStringBuilder sBaseDir = BUILDSYSTEM_OUTPUT_FOLDER;
-    sBaseDir.AppendPath("../../Shared/Data/");
+    ezStringBuilder sProjectDir = ">sdk/Data/Samples/TextureSample";
+    ezStringBuilder sProjectDirResolved;
+    ezFileSystem::ResolveSpecialDirectory(sProjectDir, sProjectDirResolved);
 
-    ezStringBuilder sSharedDir = BUILDSYSTEM_OUTPUT_FOLDER;
-    sSharedDir.AppendPath("../../Shared/FreeContent/");
-
-    ezStringBuilder sProjectDir = BUILDSYSTEM_OUTPUT_FOLDER;
-    sProjectDir.AppendPath("../../Shared/Samples/TextureSample");
+    ezFileSystem::SetSpecialDirectory("project", sProjectDirResolved);
 
     // setup the 'asset management system'
     {
@@ -100,10 +101,15 @@ public:
     }
 
     ezFileSystem::RegisterDataDirectoryFactory(ezDataDirectory::FolderType::Factory);
-    ezFileSystem::AddDataDirectory("");
-    ezFileSystem::AddDataDirectory(sBaseDir.GetData(), ezFileSystem::ReadOnly, "Base");
-    ezFileSystem::AddDataDirectory(sSharedDir.GetData(), ezFileSystem::ReadOnly, "Shared");
-    ezFileSystem::AddDataDirectory(sProjectDir.GetData(), ezFileSystem::AllowWrites, "Project");
+
+    ezFileSystem::AddDataDirectory("", "", ":", ezFileSystem::AllowWrites);
+    ezFileSystem::AddDataDirectory(">appdir/", "AppBin", "bin", ezFileSystem::AllowWrites); // writing to the binary directory
+    ezFileSystem::AddDataDirectory(">appdir/", "ShaderCache", "shadercache", ezFileSystem::AllowWrites); // for shader files
+    ezFileSystem::AddDataDirectory(">user/ezEngine Project/TextureSample", "AppData", "appdata", ezFileSystem::AllowWrites); // app user data
+
+    ezFileSystem::AddDataDirectory(">sdk/Data/Base", "Base", "base");
+    ezFileSystem::AddDataDirectory(">sdk/Data/FreeContent", "Shared", "shared");
+    ezFileSystem::AddDataDirectory(">project/", "Project", "project", ezFileSystem::AllowWrites);
 
     ezGlobalLog::AddLogWriter(ezLogWriter::Console::LogMessageHandler);
     ezGlobalLog::AddLogWriter(ezLogWriter::VisualStudio::LogMessageHandler);
@@ -113,13 +119,9 @@ public:
 
     EZ_VERIFY(ezPlugin::LoadPlugin("ezShaderCompilerHLSL").Succeeded(), "Compiler Plugin not found");
 
-    ezClock::SetNumGlobalClocks();
-
     // Register Input
     {
       ezInputActionConfig cfg;
-
-      //ezStandardInputDevice::
 
       cfg = ezInputManager::GetInputActionConfig("Main", "CloseApp");
       cfg.m_sInputSlotTrigger[0] = ezInputSlot_KeyEscape;
@@ -154,8 +156,8 @@ public:
     // Create a window for rendering
     {
       ezWindowCreationDesc WindowCreationDesc;
-      WindowCreationDesc.m_ClientAreaSize.width = g_uiWindowWidth;
-      WindowCreationDesc.m_ClientAreaSize.height = g_uiWindowHeight;
+      WindowCreationDesc.m_Resolution.width = g_uiWindowWidth;
+      WindowCreationDesc.m_Resolution.height = g_uiWindowHeight;
       m_pWindow = EZ_DEFAULT_NEW(TextureSampleWindow);
       m_pWindow->Initialize(WindowCreationDesc);
     }
@@ -167,10 +169,7 @@ public:
       DeviceInit.m_bDebugDevice = true;
       DeviceInit.m_PrimarySwapChainDescription.m_pWindow = m_pWindow;
       DeviceInit.m_PrimarySwapChainDescription.m_SampleCount = ezGALMSAASampleCount::None;
-      DeviceInit.m_PrimarySwapChainDescription.m_bCreateDepthStencilBuffer = true;
-      DeviceInit.m_PrimarySwapChainDescription.m_DepthStencilBufferFormat = ezGALResourceFormat::D24S8;
       DeviceInit.m_PrimarySwapChainDescription.m_bAllowScreenshots = true;
-      DeviceInit.m_PrimarySwapChainDescription.m_bVerticalSynchronization = true;
 
       m_pDevice = EZ_DEFAULT_NEW(ezGALDeviceDX11, DeviceInit);
       EZ_VERIFY(m_pDevice->Init() == EZ_SUCCESS, "Device init failed!");
@@ -186,9 +185,17 @@ public:
     {
       ezGALSwapChainHandle hPrimarySwapChain = m_pDevice->GetPrimarySwapChain();
       const ezGALSwapChain* pPrimarySwapChain = m_pDevice->GetSwapChain(hPrimarySwapChain);
-      
-      m_hBBRTV = pPrimarySwapChain->GetBackBufferRenderTargetView();
-      m_hBBDSV = pPrimarySwapChain->GetDepthStencilTargetView();
+
+      ezGALTextureCreationDescription texDesc;
+      texDesc.m_uiWidth = g_uiWindowWidth;
+      texDesc.m_uiHeight = g_uiWindowHeight;
+      texDesc.m_Format = ezGALResourceFormat::D24S8;
+      texDesc.m_bCreateRenderTarget = true;
+
+      m_hDepthStencilTexture = m_pDevice->CreateTexture(texDesc);
+
+      m_hBBRTV = m_pDevice->GetDefaultRenderTargetView(pPrimarySwapChain->GetBackBufferTexture());
+      m_hBBDSV = m_pDevice->GetDefaultRenderTargetView(m_hDepthStencilTexture);
     }
 
     // Create Rasterizer State
@@ -211,7 +218,7 @@ public:
 
     // Setup Shaders and Materials
     {
-      ezRenderContext::ConfigureShaderSystem("DX11_SM40", true);
+      ezShaderManager::Configure("DX11_SM50", true);
 
       m_hMaterial = ezResourceManager::LoadResource<ezMaterialResource>("Materials/Texture.ezMaterial");
 
@@ -221,15 +228,20 @@ public:
 
     // Setup default resources
     {
-      ezTextureResourceHandle hFallback = ezResourceManager::LoadResource<ezTextureResource>("Textures/Reference_D.dds");
-      ezTextureResourceHandle hMissing = ezResourceManager::LoadResource<ezTextureResource>("Textures/MissingTexture_D.dds");
+      ezTexture2DResourceHandle hFallback = ezResourceManager::LoadResource<ezTexture2DResource>("Textures/Reference_D.dds");
+      ezTexture2DResourceHandle hMissing = ezResourceManager::LoadResource<ezTexture2DResource>("Textures/MissingTexture_D.dds");
 
-      ezTextureResource::SetTypeFallbackResource(hFallback);
-      ezTextureResource::SetTypeMissingResource(hMissing);
+      ezTexture2DResource::SetTypeFallbackResource(hFallback);
+      ezTexture2DResource::SetTypeMissingResource(hMissing);
 
       // redirect all texture load operations through our custom loader, so that we can duplicate the single source texture
       // that we have as often as we like (to waste memory)
-      ezResourceManager::SetResourceTypeLoader<ezTextureResource>(&m_TextureResourceLoader);
+      ezResourceManager::SetResourceTypeLoader<ezTexture2DResource>(&m_TextureResourceLoader);
+    }
+
+    // Setup constant buffer that this sample uses
+    {
+      m_hSampleConstants = ezRenderContext::CreateConstantBufferStorage(m_pSampleConstantBuffer);
     }
 
     // Pre-allocate all textures
@@ -242,9 +254,10 @@ public:
       {
         for (ezInt32 x = -g_iMaxHalfExtent; x < g_iMaxHalfExtent; ++x)
         {
-          sResourceName.Format("Loaded_%+03i_%+03i_D", x, y);
+          sResourceName.Printf("Loaded_%+03i_%+03i_D",
+                               x, y);
 
-          ezTextureResourceHandle hTexture = ezResourceManager::LoadResource<ezTextureResource>(sResourceName);
+          ezTexture2DResourceHandle hTexture = ezResourceManager::LoadResource<ezTexture2DResource>(sResourceName);
 
           if (g_bPreloadAllTextures)
             ezResourceManager::PreloadResource(hTexture, ezTime::Seconds(1.0));
@@ -262,7 +275,7 @@ public:
       return ApplicationExecution::Quit;
 
     // make sure time goes on
-    ezClock::UpdateAllGlobalClocks();
+    ezClock::GetGlobalClock()->Update();
 
     if (ezInputManager::GetInputActionState("Main", "MouseDown") == ezKeyState::Down)
     {
@@ -280,7 +293,7 @@ public:
     }
 
     // update all input state
-    ezInputManager::Update(ezClock::Get()->GetTimeDiff());
+    ezInputManager::Update(ezClock::GetGlobalClock()->GetTimeDiff());
 
     // make sure telemetry is sent out regularly
     ezTelemetry::PerFrameUpdate();
@@ -299,7 +312,7 @@ public:
          .SetDepthStencilTarget(m_hBBDSV);
 
       pContext->SetRenderTargetSetup(RTS);
-      pContext->SetViewport(0.0f, 0.0f, (float) g_uiWindowWidth, (float) g_uiWindowHeight, 0.0f, 1.0f);
+      pContext->SetViewport(ezRectFloat(0.0f, 0.0f, (float) g_uiWindowWidth, (float) g_uiWindowHeight), 0.0f, 1.0f);
       pContext->Clear(ezColor::Black);
 
       pContext->SetRasterizerState(m_hRasterizerState);
@@ -309,9 +322,8 @@ public:
       Proj.SetIdentity();
       Proj.SetOrthographicProjectionMatrix(m_vCameraPosition.x + -(float) g_uiWindowWidth * 0.5f, m_vCameraPosition.x + (float) g_uiWindowWidth * 0.5f, m_vCameraPosition.y + -(float) g_uiWindowHeight * 0.5f, m_vCameraPosition.y + (float) g_uiWindowHeight * 0.5f, -1.0f, 1.0f);
 
-      ezRenderContext::SetMaterialParameter("ViewProjectionMatrix", Proj);
-
-      ezRenderContext::GetDefaultInstance()->SetMaterialState(m_hMaterial);
+      ezRenderContext::GetDefaultInstance()->BindConstantBuffer("ezTextureSampleConstants", m_hSampleConstants);
+      ezRenderContext::GetDefaultInstance()->BindMaterial(m_hMaterial);
 
       ezMat4 mTransform;
       mTransform.SetIdentity();
@@ -334,23 +346,29 @@ public:
         {
           mTransform.SetTranslationVector(ezVec3((float) x * 100.0f, (float) y * 100.0f, 0));
 
-          ezRenderContext::SetMaterialParameter("ModelMatrix", mTransform);
+          // Update the constant buffer
+          {
+            ezTextureSampleConstants& cb = m_pSampleConstantBuffer->GetDataForWriting();
+            cb.ModelMatrix = mTransform;
+            cb.ViewProjectionMatrix = Proj;
+          }
 
-          sResourceName.Format("Loaded_%+03i_%+03i_D", x, y);
+          sResourceName.Printf("Loaded_%+03i_%+03i_D",
+                               x, y);
 
-          ezTextureResourceHandle hTexture = ezResourceManager::LoadResource<ezTextureResource>(sResourceName, ezResourcePriority::Highest, ezTextureResourceHandle());
+          ezTexture2DResourceHandle hTexture = ezResourceManager::LoadResource<ezTexture2DResource>(sResourceName, ezResourcePriority::Highest, ezTexture2DResourceHandle());
 
           // force immediate loading
           if (g_bForceImmediateLoading)
-            ezResourceLock<ezTextureResource> l(hTexture, ezResourceAcquireMode::NoFallback);
+            ezResourceLock<ezTexture2DResource> l(hTexture, ezResourceAcquireMode::NoFallback);
 
-          ezRenderContext::GetDefaultInstance()->BindTexture("TexDiffuse", hTexture);
+          ezRenderContext::GetDefaultInstance()->BindTexture2D(ezGALShaderStage::PixelShader, "DiffuseTexture", hTexture);
           ezRenderContext::GetDefaultInstance()->BindMeshBuffer(m_hQuadMeshBuffer);
           ezRenderContext::GetDefaultInstance()->DrawMeshBuffer();
         }
       }
 
-      m_pDevice->Present(m_pDevice->GetPrimarySwapChain());
+      m_pDevice->Present(m_pDevice->GetPrimarySwapChain(), true);
 
       m_pDevice->EndFrame();
     }
@@ -366,8 +384,17 @@ public:
     return ezApplication::Continue;
   }
 
-  void BeforeEngineShutdown() override
+  void BeforeCoreShutdown() override
   {
+    // make sure that no textures are continue to be streamed in while the engine shuts down
+    ezResourceManager::EngineAboutToShutdown();
+
+    ezRenderContext::DeleteConstantBufferStorage(m_hSampleConstants);
+    m_hSampleConstants.Invalidate();
+
+    m_pDevice->DestroyTexture(m_hDepthStencilTexture);
+    m_hDepthStencilTexture.Invalidate();
+
     m_hMaterial.Invalidate();
     m_hQuadMeshBuffer.Invalidate();
 
@@ -407,10 +434,9 @@ public:
 
     ezMeshBufferResourceDescriptor desc;
     desc.AddStream(ezGALVertexAttributeSemantic::Position, ezGALResourceFormat::XYZFloat);
-    desc.AddStream(ezGALVertexAttributeSemantic::Normal, ezGALResourceFormat::XYZFloat);
     desc.AddStream(ezGALVertexAttributeSemantic::TexCoord0, ezGALResourceFormat::UVFloat);
 
-    desc.AllocateStreams(geom.GetVertices().GetCount(), geom.GetPolygons().GetCount() * 2);
+    desc.AllocateStreams(geom.GetVertices().GetCount(), ezGALPrimitiveTopology::Triangles, geom.GetPolygons().GetCount() * 2);
 
     for (ezUInt32 v = 0; v < geom.GetVertices().GetCount(); ++v)
     {
@@ -418,8 +444,7 @@ public:
       tc += ezVec2(0.5f);
 
       desc.SetVertexData<ezVec3>(0, v, geom.GetVertices()[v].m_vPosition);
-      desc.SetVertexData<ezVec3>(1, v, ezVec3(0, 0, -1));
-      desc.SetVertexData<ezVec2>(2, v, tc);
+      desc.SetVertexData<ezVec2>(1, v, tc);
     }
 
     ezUInt32 t = 0;
@@ -446,6 +471,7 @@ private:
 
   ezGALRenderTargetViewHandle m_hBBRTV;
   ezGALRenderTargetViewHandle m_hBBDSV;
+  ezGALTextureHandle m_hDepthStencilTexture;
 
   ezGALRasterizerStateHandle m_hRasterizerState;
   ezGALDepthStencilStateHandle m_hDepthStencilState;
@@ -491,7 +517,7 @@ ezResourceLoadData CustomTextureResourceLoader::OpenDataStream(const ezResourceB
 
   if (pData->m_Image.GetImageFormat() == ezImageFormat::B8G8R8_UNORM)
   {
-    ezImageConversionBase::Convert(pData->m_Image, pData->m_Image, ezImageFormat::B8G8R8A8_UNORM);
+    ezImageConversion::Convert(pData->m_Image, pData->m_Image, ezImageFormat::B8G8R8A8_UNORM);
   }
 
   ezMemoryStreamWriter w(&pData->m_Storage);
@@ -499,7 +525,7 @@ ezResourceLoadData CustomTextureResourceLoader::OpenDataStream(const ezResourceB
   ezImage* pImage = &pData->m_Image;
   w.WriteBytes(&pImage, sizeof(ezImage*));
 
-  /// \todo As long as we don't have a custom format or asset meta data, this is a hack to get the SRGB information for the texture
+  /// This is a hack to get the SRGB information for the texture
 
   const ezStringBuilder sName = ezPathUtils::GetFileName(sFileToLoad);
 

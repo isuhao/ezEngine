@@ -1,4 +1,4 @@
-
+﻿
 // ***** Const Iterator *****
 
 template <typename IdType, typename ValueType>
@@ -15,7 +15,7 @@ ezIdTableBase<IdType, ValueType>::ConstIterator::ConstIterator(const ezIdTableBa
 }
 
 template <typename IdType, typename ValueType>
-EZ_FORCE_INLINE bool ezIdTableBase<IdType, ValueType>::ConstIterator::IsValid() const
+EZ_ALWAYS_INLINE bool ezIdTableBase<IdType, ValueType>::ConstIterator::IsValid() const
 {
   return m_uiCurrentCount < m_idTable.m_uiCount;
 }
@@ -27,13 +27,13 @@ EZ_FORCE_INLINE bool ezIdTableBase<IdType, ValueType>::ConstIterator::operator==
 }
 
 template <typename IdType, typename ValueType>
-EZ_FORCE_INLINE bool ezIdTableBase<IdType, ValueType>::ConstIterator::operator!=(const typename ezIdTableBase<IdType, ValueType>::ConstIterator& it2) const
+EZ_ALWAYS_INLINE bool ezIdTableBase<IdType, ValueType>::ConstIterator::operator!=(const typename ezIdTableBase<IdType, ValueType>::ConstIterator& it2) const
 {
   return !(*this == it2);
 }
 
 template <typename IdType, typename ValueType>
-EZ_FORCE_INLINE IdType ezIdTableBase<IdType, ValueType>::ConstIterator::Id() const
+EZ_ALWAYS_INLINE IdType ezIdTableBase<IdType, ValueType>::ConstIterator::Id() const
 {
   return m_idTable.m_pEntries[m_uiCurrentIndex].id;
 }
@@ -59,7 +59,7 @@ void ezIdTableBase<IdType, ValueType>::ConstIterator::Next()
 }
 
 template <typename IdType, typename ValueType>
-EZ_FORCE_INLINE void ezIdTableBase<IdType, ValueType>::ConstIterator::operator++()
+EZ_ALWAYS_INLINE void ezIdTableBase<IdType, ValueType>::ConstIterator::operator++()
 {
   Next();
 }
@@ -74,7 +74,7 @@ ezIdTableBase<IdType, ValueType>::Iterator::Iterator(const ezIdTableBase<IdType,
 }
 
 template <typename IdType, typename ValueType>
-EZ_FORCE_INLINE ValueType& ezIdTableBase<IdType, ValueType>::Iterator::Value()
+EZ_ALWAYS_INLINE ValueType& ezIdTableBase<IdType, ValueType>::Iterator::Value()
 {
   return this->m_idTable.m_pEntries[this->m_uiCurrentIndex].value;
 }
@@ -154,13 +154,13 @@ void ezIdTableBase<IdType, ValueType>::Reserve(IndexType uiCapacity)
 }
 
 template <typename IdType, typename ValueType>
-EZ_FORCE_INLINE typename ezIdTableBase<IdType, ValueType>::IndexType ezIdTableBase<IdType, ValueType>::GetCount() const
+EZ_ALWAYS_INLINE typename ezIdTableBase<IdType, ValueType>::IndexType ezIdTableBase<IdType, ValueType>::GetCount() const
 {
   return m_uiCount;
 }
 
 template <typename IdType, typename ValueType>
-EZ_FORCE_INLINE bool ezIdTableBase<IdType, ValueType>::IsEmpty() const
+EZ_ALWAYS_INLINE bool ezIdTableBase<IdType, ValueType>::IsEmpty() const
 {
   return m_uiCount == 0;
 }
@@ -196,7 +196,26 @@ IdType ezIdTableBase<IdType, ValueType>::Insert(const ValueType& value)
 
   m_uiFreelistDequeue = entry.id.m_InstanceIndex;
   entry.id.m_InstanceIndex = uiNewIndex;
+
   ezMemoryUtils::CopyConstruct(&entry.value, value, 1);
+
+  ++m_uiCount;
+
+  return entry.id;
+}
+
+template <typename IdType, typename ValueType>
+IdType ezIdTableBase<IdType, ValueType>::Insert(ValueType&& value)
+{
+  Reserve(m_uiCount + 1);
+
+  const IndexType uiNewIndex = m_uiFreelistDequeue;
+  Entry& entry = m_pEntries[uiNewIndex];
+
+  m_uiFreelistDequeue = entry.id.m_InstanceIndex;
+  entry.id.m_InstanceIndex = uiNewIndex;
+
+  ezMemoryUtils::MoveConstruct<ValueType>(&entry.value, std::move(value));
 
   ++m_uiCount;
 
@@ -221,6 +240,10 @@ bool ezIdTableBase<IdType, ValueType>::Remove(const IdType id, ValueType* out_ol
 
   entry.id.m_InstanceIndex = m_pEntries[m_uiFreelistEnqueue].id.m_InstanceIndex;
   ++entry.id.m_Generation;
+
+  // at wrap around, prevent generation from becoming 0, to ensure that a zero initialized array could ever contain a valid ID
+  if (entry.id.m_Generation == 0)
+    entry.id.m_Generation = 1;
 
   m_pEntries[m_uiFreelistEnqueue].id.m_InstanceIndex = uiIndex;
   m_uiFreelistEnqueue = uiIndex;
@@ -256,10 +279,10 @@ EZ_FORCE_INLINE bool ezIdTableBase<IdType, ValueType>::TryGetValue(const IdType 
 template <typename IdType, typename ValueType>
 EZ_FORCE_INLINE const ValueType& ezIdTableBase<IdType, ValueType>::operator[](const IdType id) const
 {
-  EZ_ASSERT_DEV(id.m_InstanceIndex < m_uiCapacity, "Out of bounds access. Table has %i elements, trying to access element at index %i.", m_uiCapacity, id.m_InstanceIndex);
-  Entry& entry = m_pEntries[id.m_InstanceIndex];
+  EZ_ASSERT_DEV(id.m_InstanceIndex < m_uiCapacity, "Out of bounds access. Table has {0} elements, trying to access element at index {1}.", m_uiCapacity, id.m_InstanceIndex);
+  const Entry& entry = m_pEntries[id.m_InstanceIndex];
   EZ_ASSERT_DEV(entry.id.IsIndexAndGenerationEqual(id),
-            "Stale access. Trying to access a value (generation: %i) that has been removed and replaced by a new value (generation: %i)", entry.id.m_Generation, id.m_Generation);
+            "Stale access. Trying to access a value (generation: {0}) that has been removed and replaced by a new value (generation: {1})", entry.id.m_Generation, id.m_Generation);
 
   return entry.value;
 }
@@ -267,10 +290,10 @@ EZ_FORCE_INLINE const ValueType& ezIdTableBase<IdType, ValueType>::operator[](co
 template <typename IdType, typename ValueType>
 EZ_FORCE_INLINE ValueType& ezIdTableBase<IdType, ValueType>::operator[](const IdType id)
 {
-  EZ_ASSERT_DEV(id.m_InstanceIndex < m_uiCapacity, "Out of bounds access. Table has %i elements, trying to access element at index %i.", m_uiCapacity, id.m_InstanceIndex);
+  EZ_ASSERT_DEV(id.m_InstanceIndex < m_uiCapacity, "Out of bounds access. Table has {0} elements, trying to access element at index {1}.", m_uiCapacity, id.m_InstanceIndex);
   Entry& entry = m_pEntries[id.m_InstanceIndex];
   EZ_ASSERT_DEV(entry.id.IsIndexAndGenerationEqual(id),
-            "Stale access. Trying to access a value (generation: %i) that has been removed and replaced by a new value (generation: %i)", entry.id.m_Generation, id.m_Generation);
+            "Stale access. Trying to access a value (generation: {0}) that has been removed and replaced by a new value (generation: {1})", static_cast<int>(entry.id.m_Generation), id.m_Generation);
 
   return entry.value;
 }
@@ -278,14 +301,14 @@ EZ_FORCE_INLINE ValueType& ezIdTableBase<IdType, ValueType>::operator[](const Id
 template <typename IdType, typename ValueType>
 EZ_FORCE_INLINE const ValueType& ezIdTableBase<IdType, ValueType>::GetValueUnchecked(const IndexType index) const
 {
-  EZ_ASSERT_DEV(index < m_uiCapacity, "Out of bounds access. Table has %i elements, trying to access element at index %i.", m_uiCapacity, index);
+  EZ_ASSERT_DEV(index < m_uiCapacity, "Out of bounds access. Table has {0} elements, trying to access element at index {1}.", m_uiCapacity, index);
   return m_pEntries[index].value;
 }
 
 template <typename IdType, typename ValueType>
 EZ_FORCE_INLINE ValueType& ezIdTableBase<IdType, ValueType>::GetValueUnchecked(const IndexType index)
 {
-  EZ_ASSERT_DEV(index < m_uiCapacity, "Out of bounds access. Table has %i elements, trying to access element at index %i.", m_uiCapacity, index);
+  EZ_ASSERT_DEV(index < m_uiCapacity, "Out of bounds access. Table has {0} elements, trying to access element at index {1}.", m_uiCapacity, index);
   return m_pEntries[index].value;
 }
 
@@ -297,19 +320,19 @@ EZ_FORCE_INLINE bool ezIdTableBase<IdType, ValueType>::Contains(const IdType id)
 }
 
 template <typename IdType, typename ValueType>
-EZ_FORCE_INLINE typename ezIdTableBase<IdType, ValueType>::Iterator ezIdTableBase<IdType, ValueType>::GetIterator()
+EZ_ALWAYS_INLINE typename ezIdTableBase<IdType, ValueType>::Iterator ezIdTableBase<IdType, ValueType>::GetIterator()
 {
   return Iterator(*this);
 }
 
 template <typename IdType, typename ValueType>
-EZ_FORCE_INLINE typename ezIdTableBase<IdType, ValueType>::ConstIterator ezIdTableBase<IdType, ValueType>::GetIterator() const
+EZ_ALWAYS_INLINE typename ezIdTableBase<IdType, ValueType>::ConstIterator ezIdTableBase<IdType, ValueType>::GetIterator() const
 {
   return ConstIterator(*this);
 }
 
 template <typename IdType, typename ValueType>
-EZ_FORCE_INLINE ezAllocatorBase* ezIdTableBase<IdType, ValueType>::GetAllocator() const
+EZ_ALWAYS_INLINE ezAllocatorBase* ezIdTableBase<IdType, ValueType>::GetAllocator() const
 {
   return m_pAllocator;
 }
@@ -362,7 +385,7 @@ inline void ezIdTableBase<IdType, ValueType>::InitializeFreelist(IndexType uiSta
   for (IndexType i = uiStart; i < uiEnd; ++i)
   {
     IdType& id = m_pEntries[i].id;
-    id = IdType(i + 1, 0);
+    id = IdType(i + 1, 1); // initialize generation with 1, to prevent 0 from being a valid ID
   }
 
   m_uiFreelistEnqueue = uiEnd - 1;

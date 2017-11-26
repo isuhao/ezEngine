@@ -1,15 +1,16 @@
-#pragma once
+﻿#pragma once
 
 /// \file
 
 #include <Foundation/Basics.h>
-#include <Foundation/Communication/Message.h>
+
+class ezMessage;
 
 /// \brief The base class for all message handlers that a type provides.
 class EZ_FOUNDATION_DLL ezAbstractMessageHandler
 {
 public:
-  EZ_FORCE_INLINE void operator()(void* pInstance, ezMessage& msg)
+  EZ_ALWAYS_INLINE void operator()(void* pInstance, ezMessage& msg)
   {
     (*m_DispatchFunc)(pInstance, msg);
   }
@@ -20,12 +21,12 @@ public:
     (*m_ConstDispatchFunc)(pInstance, msg);
   }
 
-  EZ_FORCE_INLINE ezMessageId GetMessageId() const
+  EZ_ALWAYS_INLINE ezMessageId GetMessageId() const
   {
     return m_Id;
   }
 
-  EZ_FORCE_INLINE bool IsConst() const
+  EZ_ALWAYS_INLINE bool IsConst() const
   {
     return m_bIsConst;
   }
@@ -41,6 +42,12 @@ protected:
   };
   ezMessageId m_Id;
   bool m_bIsConst;
+};
+
+struct ezMessageSenderInfo
+{
+  const char* m_szName;
+  const ezRTTI* m_pMessageType;
 };
 
 namespace ezInternal
@@ -62,7 +69,7 @@ namespace ezInternal
       Impl()
       {
         m_DispatchFunc = &Dispatch;
-        m_Id = MessageType::GetMsgId();
+        m_Id = MessageType::GetTypeMsgId();
         m_bIsConst = false;
       }
 
@@ -84,7 +91,7 @@ namespace ezInternal
       Impl()
       {
         m_ConstDispatchFunc = &Dispatch;
-        m_Id = MessageType::GetMsgId();
+        m_Id = MessageType::GetTypeMsgId();
         m_bIsConst = true;
       }
 

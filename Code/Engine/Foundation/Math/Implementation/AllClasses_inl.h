@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <Foundation/Math/BoundingBox.h>
 #include <Foundation/Math/BoundingSphere.h>
@@ -7,13 +7,13 @@
 #include <Foundation/Math/Mat4.h>
 
 template<typename Type>
-EZ_FORCE_INLINE bool ezBoundingBoxTemplate<Type>::Contains(const ezBoundingSphereTemplate<Type>& sphere) const
+EZ_ALWAYS_INLINE bool ezBoundingBoxTemplate<Type>::Contains(const ezBoundingSphereTemplate<Type>& sphere) const
 {
   return Contains(sphere.GetBoundingBox());
 }
 
 template<typename Type>
-EZ_FORCE_INLINE bool ezBoundingBoxTemplate<Type>::Overlaps(const ezBoundingSphereTemplate<Type>& sphere) const
+EZ_ALWAYS_INLINE bool ezBoundingBoxTemplate<Type>::Overlaps(const ezBoundingSphereTemplate<Type>& sphere) const
 {
   // check whether the closest point between box and sphere is inside the sphere (it is definitely inside the box)
   return sphere.Contains(GetClampedPoint(sphere.m_vCenter));
@@ -296,7 +296,7 @@ ezResult ezMat4Template<Type>::Invert(Type fEpsilon)
 
   for (ezInt32 i = 0; i < 4; ++i)
   {
-      
+
     Inverse.Element(i, 0) = GetDeterminantOf3x3SubMatrix (*this, i, 0) * fOneDivDet;
     fOneDivDet = -fOneDivDet;
     Inverse.Element(i, 1) = GetDeterminantOf3x3SubMatrix (*this, i, 1) * fOneDivDet;
@@ -345,7 +345,7 @@ void ezMat4Template<Type>::SetPerspectiveProjectionMatrix(Type fLeft, Type fRigh
 
   const Type fTwoNearZ = fNearZ + fNearZ;
   const Type fOneDivNearMinusFar = (Type)1 / (fNearZ - fFarZ);
-  
+
   if (DepthRange == ezProjectionDepthRange::MinusOneToOne)
   {
     // The OpenGL Way (but LH): http://wiki.delphigl.com/index.php/glFrustum

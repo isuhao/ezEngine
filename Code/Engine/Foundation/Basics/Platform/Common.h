@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 // On MSVC 2008 in 64 Bit <cmath> generates a lot of warnings (actually it is math.h, which is included by cmath)
 #define EZ_MSVC_WARNING_NUMBER 4985
@@ -29,7 +29,7 @@
   // EZ_CHECK_AT_COMPILETIME_MSG(exp, msg) : checks exp and displays msg
   #define EZ_CHECK_AT_COMPILETIME(exp) \
     static_assert(exp, EZ_STRINGIZE(exp) " is false.");
-  
+
   #define EZ_CHECK_AT_COMPILETIME_MSG(exp, msg) \
     static_assert(exp, EZ_STRINGIZE(exp) " is false. Message: " msg);
 
@@ -43,16 +43,16 @@
 
 #endif
 
-/// \brief Disallow the copy constructor and the assignment operator for this type. 
+/// \brief Disallow the copy constructor and the assignment operator for this type.
 #define EZ_DISALLOW_COPY_AND_ASSIGN(type) \
   private: \
-    type(const type&); \
-    void operator=(const type&)
+    type(const type&) = delete; \
+    void operator=(const type&) = delete
 
 #if EZ_ENABLED(EZ_COMPILE_FOR_DEVELOPMENT)
   /// \brief Macro helper to check alignment
   #define EZ_CHECK_ALIGNMENT(ptr, alignment) \
-    EZ_ASSERT_DEV(((size_t)ptr & (alignment - 1)) == 0, "Wrong alignment. Expected %d bytes alignment", alignment)
+    EZ_ASSERT_DEV(((size_t)ptr & (alignment - 1)) == 0, "Wrong alignment.")
 #else
   /// \brief Macro helper to check alignment
   #define EZ_CHECK_ALIGNMENT(ptr, alignment)
@@ -98,9 +98,9 @@
   /// This in turn will drag all global variables into the visibility of the linker, and since it mustn't optimize them away,
   /// they then end up in the final application, where they will do what they are meant for.
   #define EZ_STATICLINK_FILE(LibraryName, UniqueName) \
-    void ezReferenceFunction_##UniqueName(bool bReturn = true) { } \
-    void ezReferenceFunction_##LibraryName(bool bReturn = true); \
-    static ezStaticLinkHelper StaticLinkHelper(ezReferenceFunction_##LibraryName);
+    void ezReferenceFunction_##UniqueName(bool bReturn) { } \
+    void ezReferenceFunction_##LibraryName(bool bReturn); \
+    static ezStaticLinkHelper StaticLinkHelper_##UniqueName(ezReferenceFunction_##LibraryName);
 
   /// \brief Used by the tool 'StaticLinkUtil' to generate the block after EZ_STATICLINK_LIBRARY, to create references to all
   /// files inside a library. \see EZ_STATICLINK_FILE
@@ -124,7 +124,7 @@ namespace ezInternal
 #define EZ_ARRAY_SIZE(a) (sizeof(*ezInternal::ArraySizeHelper(a))+0)
 
 /// \brief Template helper which allows to suppress "Unused variable" warnings (e.g. result used in platform specific block, ..)
-template<class T> 
+template<class T>
 void EZ_IGNORE_UNUSED(const T&) {}
 
 

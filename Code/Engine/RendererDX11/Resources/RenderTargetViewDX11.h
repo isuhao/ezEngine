@@ -1,4 +1,4 @@
-
+﻿
 #pragma once
 
 #include <RendererFoundation/Resources/RenderTargetView.h>
@@ -12,18 +12,18 @@ class ezGALRenderTargetViewDX11 : public ezGALRenderTargetView
 public:
 
 
-  EZ_FORCE_INLINE ID3D11RenderTargetView* GetRenderTargetView() const;
+  EZ_ALWAYS_INLINE ID3D11RenderTargetView* GetRenderTargetView() const;
 
-  EZ_FORCE_INLINE ID3D11DepthStencilView* GetDepthStencilView() const;
+  EZ_ALWAYS_INLINE ID3D11DepthStencilView* GetDepthStencilView() const;
 
-  EZ_FORCE_INLINE ID3D11UnorderedAccessView* GetUnorderedAccessView() const;
+  EZ_ALWAYS_INLINE ID3D11UnorderedAccessView* GetUnorderedAccessView() const;
 
 protected:
 
   friend class ezGALDeviceDX11;
   friend class ezMemoryUtils;
 
-  ezGALRenderTargetViewDX11(const ezGALRenderTargetViewCreationDescription& Description);
+  ezGALRenderTargetViewDX11(ezGALTexture* pTexture, const ezGALRenderTargetViewCreationDescription& Description);
 
   virtual ~ezGALRenderTargetViewDX11();
 

@@ -3,6 +3,8 @@
  * For conditions of distribution and use, see copyright notice in zlib.h
  */
 
+#ifdef BUILDSYSTEM_ENABLE_ZLIB_SUPPORT
+
 #ifdef _LARGEFILE64_SOURCE
 #  ifndef _LARGEFILE_SOURCE
 #    define _LARGEFILE_SOURCE 1
@@ -16,6 +18,10 @@
 #  define ZLIB_INTERNAL __attribute__((visibility ("hidden")))
 #else
 #  define ZLIB_INTERNAL
+#endif
+
+#ifdef _WIN32
+  #define _CRT_SECURE_NO_WARNINGS
 #endif
 
 #include <stdio.h>
@@ -207,3 +213,6 @@ char ZLIB_INTERNAL *gz_strwinerror OF((DWORD error));
 unsigned ZLIB_INTERNAL gz_intmax OF((void));
 #  define GT_OFF(x) (sizeof(int) == sizeof(z_off64_t) && (x) > gz_intmax())
 #endif
+
+#endif // BUILDSYSTEM_ENABLE_ZLIB_SUPPORT
+

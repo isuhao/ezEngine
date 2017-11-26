@@ -4,9 +4,9 @@
 #include <Foundation/Communication/Telemetry.h>
 #include <MainWindow.moc.h>
 
-ezReflectionWidget* ezReflectionWidget::s_pWidget = nullptr;
+ezQtReflectionWidget* ezQtReflectionWidget::s_pWidget = nullptr;
 
-ezReflectionWidget::ezReflectionWidget(QWidget* parent) : QDockWidget (parent)
+ezQtReflectionWidget::ezQtReflectionWidget(QWidget* parent) : QDockWidget (parent)
 {
   s_pWidget = this;
 
@@ -15,7 +15,7 @@ ezReflectionWidget::ezReflectionWidget(QWidget* parent) : QDockWidget (parent)
   ResetStats();
 }
 
-void ezReflectionWidget::ResetStats()
+void ezQtReflectionWidget::ResetStats()
 {
   TypeTree->clear();
 
@@ -32,7 +32,7 @@ void ezReflectionWidget::ResetStats()
   }
 }
 
-void ezReflectionWidget::ProcessTelemetry(void* pUnuseed)
+void ezQtReflectionWidget::ProcessTelemetry(void* pUnuseed)
 {
   if (!s_pWidget)
     return;
@@ -43,7 +43,7 @@ void ezReflectionWidget::ProcessTelemetry(void* pUnuseed)
 
   while (ezTelemetry::RetrieveMessage('RFLC', msg) == EZ_SUCCESS)
   {
-    if (msg.GetMessageID() == 'CLR')
+    if (msg.GetMessageID() == ' CLR')
     {
       s_pWidget->m_Types.Clear();
       s_pWidget->TypeTree->clear();
@@ -103,7 +103,7 @@ found:
   }
 }
 
-bool ezReflectionWidget::UpdateTree()
+bool ezQtReflectionWidget::UpdateTree()
 {
   bool bAddedAny = false;
 
@@ -123,7 +123,7 @@ bool ezReflectionWidget::UpdateTree()
       it.Value().m_pTreeItem = pItem;
 
       ezStringBuilder sText;
-      sText.Format("%i", it.Value().m_uiSize);
+      sText.Format("{0}", it.Value().m_uiSize);
 
       pItem->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
       pItem->setText(0, it.Key().GetData());
@@ -168,6 +168,10 @@ bool ezReflectionWidget::UpdateTree()
         case ezPropertyCategory::Set:
           pProperty->setText(0, it.Value().m_Properties[i].m_sType.GetData());
           pProperty->setIcon(0, QIcon(":/Icons/Icons/Set.png"));
+          break;
+        case ezPropertyCategory::Map:
+          pProperty->setText(0, it.Value().m_Properties[i].m_sType.GetData());
+          pProperty->setIcon(0, QIcon(":/Icons/Icons/Map.png"));
           break;
         }
 

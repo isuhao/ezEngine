@@ -2,6 +2,8 @@
 
 #include <Foundation/Strings/StringView.h>
 
+class ezStringBuilder;
+
 /// \brief Contains Helper functions to work with paths.
 ///
 /// Only functions that require read-only access to a string are provided here
@@ -16,6 +18,9 @@ public:
 
   /// \brief Returns whether c is any known path separator.
   static bool IsPathSeparator (ezUInt32 c); // [tested]
+
+  /// \brief Checks if a given character is allowed in a filename (not path!)
+  static bool IsValidFilenameChar(ezUInt32 character);
 
   /// \brief Searches for the previous path separator before szStartSearchAt. Will return nullptr if it reaches szPathStart before finding any separator.
   static const char* FindPreviousSeparator(const char* szPathStart, const char* szStartSearchAt); // [tested]
@@ -53,6 +58,26 @@ public:
 
   /// \brief Returns true, if the given path represents a relative path on the current OS.
   static bool IsRelativePath(const char* szPath); // [tested]
+
+  /// \brief A rooted path starts with a colon and then names a file-system data directory. Rooted paths are used as 'absolute' paths within the ezFileSystem.
+  static bool IsRootedPath(const char* szPath); // [tested]
+
+  /// \brief Extracts the root name from a rooted path
+  ///
+  /// ":MyRoot" -> "MyRoot"
+  /// ":MyRoot\folder" -> "MyRoot"
+  /// ":\MyRoot\folder" -> "MyRoot"
+  /// ":/MyRoot\folder" -> "MyRoot"
+  /// Returns an empty string, if the path is not rooted.
+  static ezStringView GetRootedPathRootName(const char* szPath);
+
+  /// \brief Creates a valid filename (not path!) using the given string by replacing all unallowed characters.
+  ///
+  /// Note that path separators in the given string will be replaced as well!
+  /// Asserts that replacementCharacter is not allowed itself.
+  /// Fails for empty strings.
+  /// \see IsValidFilenameChar()
+  static ezResult MakeValidFilename(const char* szFilename, ezUInt32 replacementCharacter, ezStringBuilder& outFilename);
 };
 
 #include <Foundation/Strings/Implementation/PathUtils_inl.h>

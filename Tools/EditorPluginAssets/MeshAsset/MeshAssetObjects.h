@@ -1,11 +1,11 @@
-#pragma once
+﻿#pragma once
 
 #include <ToolsFoundation/Object/DocumentObjectBase.h>
-#include <ToolsFoundation/Reflection/ReflectedTypeDirectAccessor.h>
 #include <EditorFramework/Assets/SimpleAssetDocument.h>
-//#include <EditorFramework/GUI/PropertyEditorBaseWidget.moc.h>
 
-struct ezResourceSlot
+struct ezPropertyMetaStateEvent;
+
+struct ezMaterialResourceSlot
 {
   ezString m_sLabel;
   ezString m_sResource;
@@ -35,16 +35,19 @@ struct ezMeshPrimitive
 
 EZ_DECLARE_REFLECTABLE_TYPE(EZ_NO_LINKAGE, ezMeshPrimitive);
 
-EZ_DECLARE_REFLECTABLE_TYPE(EZ_NO_LINKAGE, ezResourceSlot);
+EZ_DECLARE_REFLECTABLE_TYPE(EZ_NO_LINKAGE, ezMaterialResourceSlot);
 
 class ezMeshAssetProperties : public ezReflectedClass
 {
-  EZ_ADD_DYNAMIC_REFLECTION(ezMeshAssetProperties);
+  EZ_ADD_DYNAMIC_REFLECTION(ezMeshAssetProperties, ezReflectedClass);
 
 public:
   ezMeshAssetProperties();
 
+  static void PropertyMetaStateEventHandler(ezPropertyMetaStateEvent& e);
+
   ezString m_sMeshFile;
+  ezString m_sSubMeshName;
   float m_fUniformScaling;
   ezVec3 m_vNonUniformScaling;
   float m_fRadius;
@@ -55,21 +58,24 @@ public:
   ezUInt16 m_uiDetail2;
   bool m_bCap;
   bool m_bCap2;
-  ezVec3 m_vScaleXYZ;
-
 
   ezEnum<ezBasisAxis> m_ForwardDir;
   ezEnum<ezBasisAxis> m_RightDir;
   ezEnum<ezBasisAxis> m_UpDir;
 
   ezMeshPrimitive::Enum m_PrimitiveType;
-  ezHybridArray<ezResourceSlot, 8> m_Slots;
 
-  const ezString& GetResourceSlotProperty(ezUInt32 uiSlot) const;
+  bool m_bRecalculateNormals;
+  bool m_bInvertNormals;
+
+  bool m_bImportMaterials;
+  bool m_bUseSubFolderForImportedMaterials;
+  ezHybridArray<ezMaterialResourceSlot, 8> m_Slots;
+
+  const ezString GetResourceSlotProperty(ezUInt32 uiSlot) const;
 
   ezUInt32 m_uiVertices;
   ezUInt32 m_uiTriangles;
 
-private:
 
 };

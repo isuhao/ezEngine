@@ -1,141 +1,85 @@
 #include <PCH.h>
 #include <EditorFramework/EditorApp/EditorApp.moc.h>
-#include <ToolsFoundation/Settings/Settings.h>
-#include <Foundation/IO/JSONWriter.h>
-#include <Foundation/IO/ExtendedJSONWriter.h>
-#include <Foundation/IO/ExtendedJSONReader.h>
 #include <Foundation/IO/FileSystem/FileReader.h>
 #include <Foundation/IO/FileSystem/FileWriter.h>
+#include <EditorFramework/Preferences/Preferences.h>
+#include <ToolsFoundation/Application/ApplicationServices.h>
 
-void ezEditorApp::RegisterPluginNameForSettings(const char* szPluginName)
+void ezQtEditorApp::SaveRecentFiles()
 {
-  s_SettingsPluginNames.Insert(szPluginName);
+  s_RecentProjects.Save(":appdata/Settings/RecentProjects.txt");
+  s_RecentDocuments.Save(":appdata/Settings/RecentDocuments.txt");
 }
 
-ezSettings& ezEditorApp::GetEditorSettings(const char* szPlugin)
+void ezQtEditorApp::LoadRecentFiles()
 {
-  return GetSettings(s_EditorSettings, szPlugin, "");
+  s_RecentProjects.Load(":appdata/Settings/RecentProjects.txt");
+  s_RecentDocuments.Load(":appdata/Settings/RecentDocuments.txt");
 }
 
-ezSettings& ezEditorApp::GetProjectSettings(const char* szPlugin)
+void ezQtEditorApp::SaveOpenDocumentsList()
 {
-  EZ_ASSERT_DEV(ezToolsProject::IsProjectOpen(), "No project is open");
+  const ezDynamicArray<ezQtDocumentWindow*>& windows = ezQtDocumentWindow::GetAllDocumentWindows();
 
-  return GetSettings(s_ProjectSettings, szPlugin, ezEditorApp::GetDocumentDataFolder(ezToolsProject::GetInstance()->GetProjectPath()));
-}
+  if (windows.IsEmpty())
+    return;
 
-ezSettings& ezEditorApp::GetDocumentSettings(const ezDocumentBase* pDocument, const char* szPlugin)
-{
-  return GetDocumentSettings(pDocument->GetDocumentPath(), szPlugin);
-}
+  ezRecentFilesList allDocs(windows.GetCount());
 
-ezSettings& ezEditorApp::GetDocumentSettings(const char* szDocument, const char* szPlugin)
-{
-  return GetSettings(s_DocumentSettings[szDocument], szPlugin, ezEditorApp::GetDocumentDataFolder(szDocument));
-}
-
-ezSettings& ezEditorApp::GetSettings(ezMap<ezString, ezSettings>& SettingsMap, const char* szPlugin, const char* szSearchPath)
-{
-  EZ_ASSERT_DEV(s_SettingsPluginNames.Contains(szPlugin), "The plugin name '%s' has not been registered with 'ezEditorApp::RegisterPluginNameForSettings'", szPlugin);
-
-  bool bExisted = false;
-
-  auto itSett = SettingsMap.FindOrAdd(szPlugin, &bExisted);
-
-  ezSettings& settings = itSett.Value();
-
-  if (!bExisted)
+  ezDynamicArray<ezQtDocumentWindow*> allWindows;
+  allWindows.Reserve(windows.GetCount());
+  const auto& containers = ezQtContainerWindow::GetAllContainerWindows();
+  for (auto* container : containers)
   {
-    ezStringBuilder sPath = szSearchPath;
-
-    sPath.AppendPath("Settings", szPlugin);
-    sPath.ChangeFileExtension("settings");
-
-    ezFileReader file;
-    if (file.Open(sPath.GetData()).Succeeded())
+    ezHybridArray<ezQtDocumentWindow*, 16> windows;
+    container->GetDocumentWindows(windows);
+    for (auto* pWindow : windows)
     {
-      settings.ReadFromJSON(file);
-      file.Close();
-    }
-
-    ezStringBuilder sUserFile;
-    sUserFile.Append(GetApplicationUserName().GetData(), ".usersettings");
-    sPath.ChangeFileExtension(sUserFile.GetData());
-
-    if (file.Open(sPath.GetData()).Succeeded())
-    {
-      settings.ReadFromJSON(file);
-      file.Close();
+      allWindows.PushBack(pWindow);
     }
   }
 
-  return settings;
-}
-
-void ezEditorApp::SaveRecentFiles()
-{
-  s_RecentProjects.Save("Settings/RecentProjects.txt");
-  s_RecentDocuments.Save("Settings/RecentDocuments.txt");
-}
-
-void ezEditorApp::LoadRecentFiles()
-{
-  s_RecentProjects.Load("Settings/RecentProjects.txt");
-  s_RecentDocuments.Load("Settings/RecentDocuments.txt");
-}
-
-void ezEditorApp::StoreSettings(const ezMap<ezString, ezSettings>& settings, const char* szFolder)
-{
-  for (auto it = settings.GetIterator(); it.IsValid(); ++it)
+  for (ezInt32 w = (ezInt32)allWindows.GetCount() - 1; w >= 0; --w)
   {
-    const ezSettings& settings = it.Value();
-
-    ezStringBuilder sPath = szFolder;
-    sPath.AppendPath("Settings", it.Key().GetData());
-    sPath.ChangeFileExtension("settings");
-
-    ezFileWriter file;
-    if (file.Open(sPath.GetData()).Succeeded())
+    if (allWindows[w]->GetDocument())
     {
-      settings.WriteToJSON(file, true, false);
-      file.Close();
-    }
-
-    ezStringBuilder sUserFile;
-    sUserFile.Append(GetApplicationUserName().GetData(), ".usersettings");
-    sPath.ChangeFileExtension(sUserFile.GetData());
-
-    if (file.Open(sPath.GetData()).Succeeded())
-    {
-      settings.WriteToJSON(file, false, true);
-      file.Close();
+      allDocs.Insert(allWindows[w]->GetDocument()->GetDocumentPath(),
+        allWindows[w]->GetContainerWindow()->GetUniqueIdentifier());
     }
   }
+
+  ezStringBuilder sFile = ezApplicationServices::GetSingleton()->GetProjectPreferencesFolder();
+  sFile.AppendPath("LastDocuments.txt");
+
+  allDocs.Save(sFile);
 }
 
-void ezEditorApp::SaveSettings()
+ezRecentFilesList ezQtEditorApp::LoadOpenDocumentsList()
+{
+  ezRecentFilesList allDocs(15);
+
+  ezStringBuilder sFile = ezApplicationServices::GetSingleton()->GetProjectPreferencesFolder();
+  sFile.AppendPath("LastDocuments.txt");
+
+  allDocs.Load(sFile);
+
+  return allDocs;
+}
+
+void ezQtEditorApp::SaveSettings()
 {
   SaveRecentFiles();
 
-  StoreSettings(s_EditorSettings, "");
+  ezPreferences::SaveApplicationPreferences();
 
   if (ezToolsProject::IsProjectOpen())
   {
+    ezPreferences::SaveProjectPreferences();
+    SaveOpenDocumentsList();
+
     m_FileSystemConfig.Save();
     m_EnginePluginConfig.Save();
-
-    StoreSettings(s_ProjectSettings, GetDocumentDataFolder(ezToolsProject::GetInstance()->GetProjectPath()));
   }
-}
-
-void ezEditorApp::SaveDocumentSettings(const ezDocumentBase* pDocument)
-{
-  auto it = s_DocumentSettings.Find(pDocument->GetDocumentPath());
-
-  if (!it.IsValid())
-    return;
-
-  StoreSettings(it.Value(), GetDocumentDataFolder(it.Key()));
 }
 
 

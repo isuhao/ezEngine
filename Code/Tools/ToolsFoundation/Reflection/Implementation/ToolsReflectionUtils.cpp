@@ -1,17 +1,88 @@
-#include <ToolsFoundation/PCH.h>
+﻿#include <PCH.h>
 #include <ToolsFoundation/Reflection/ReflectedType.h>
 #include <ToolsFoundation/Reflection/ToolsReflectionUtils.h>
 #include <ToolsFoundation/Reflection/PhantomRttiManager.h>
 #include <Foundation/Configuration/Startup.h>
-#include <Foundation/IO/ExtendedJSONWriter.h>
-#include <Foundation/IO/ExtendedJSONReader.h>
 #include <Foundation/Serialization/ReflectionSerializer.h>
 #include <ToolsFoundation/Reflection/IReflectedTypeAccessor.h>
 #include <ToolsFoundation/Object/DocumentObjectBase.h>
 #include <Foundation/Serialization/AbstractObjectGraph.h>
-#include <Foundation/Serialization/JsonSerializer.h>
 #include <ToolsFoundation/Serialization/DocumentObjectConverter.h>
+#include <Foundation/Serialization/RttiConverter.h>
 
+namespace
+{
+  struct GetDoubleFunc
+  {
+    GetDoubleFunc(const ezVariant& value) : m_Value(value) {}
+    template <typename T>
+    void operator()()
+    {
+      if (m_Value.CanConvertTo<double>())
+      {
+        m_fValue = m_Value.ConvertTo<double>();
+        m_bValid = true;
+      }
+    }
+
+    const ezVariant& m_Value;
+    double m_fValue = 0;
+    bool m_bValid = false;
+  };
+
+  template <>
+  void GetDoubleFunc::operator() < ezAngle > ()
+  {
+    m_fValue = m_Value.Get<ezAngle>().GetDegree();
+    m_bValid = true;
+  }
+
+  template <>
+  void GetDoubleFunc::operator() < ezTime > ()
+  {
+    m_fValue = m_Value.Get<ezTime>().GetSeconds();
+    m_bValid = true;
+  }
+
+  struct GetVariantFunc
+  {
+    GetVariantFunc(double fValue, ezVariantType::Enum type, ezVariant& out_value)
+      : m_fValue(fValue), m_Type(type), m_Value(out_value) {}
+    template <typename T>
+    void operator()()
+    {
+      m_Value = m_fValue;
+      if (m_Value.CanConvertTo(m_Type))
+      {
+        m_Value = m_Value.ConvertTo(m_Type);
+        m_bValid = true;
+      }
+      else
+      {
+        m_Value = ezVariant();
+      }
+    }
+
+    double m_fValue;
+    ezVariantType::Enum m_Type;
+    ezVariant& m_Value;
+    bool m_bValid = false;
+  };
+
+  template <>
+  void GetVariantFunc::operator() < ezAngle > ()
+  {
+    m_Value = ezAngle::Degree((float)m_fValue);
+    m_bValid = true;
+  }
+
+  template <>
+  void GetVariantFunc::operator() < ezTime > ()
+  {
+    m_Value = ezTime::Seconds(m_fValue);
+    m_bValid = true;
+  }
+}
 ////////////////////////////////////////////////////////////////////////
 // ezToolsReflectionUtils public functions
 ////////////////////////////////////////////////////////////////////////
@@ -46,12 +117,20 @@ ezVariant ezToolsReflectionUtils::GetDefaultVariantFromType(ezVariant::Type::Enu
     return ezVariant(0.0);
   case ezVariant::Type::Color:
     return ezVariant(ezColor(1.0f, 1.0f, 1.0f));
+  case ezVariant::Type::ColorGamma:
+    return ezVariant(ezColorGammaUB(255, 255, 255));
   case ezVariant::Type::Vector2:
     return ezVariant(ezVec2(0.0f, 0.0f));
   case ezVariant::Type::Vector3:
     return ezVariant(ezVec3(0.0f, 0.0f, 0.0f));
   case ezVariant::Type::Vector4:
     return ezVariant(ezVec4(0.0f, 0.0f, 0.0f, 0.0f));
+  case ezVariant::Type::Vector2I:
+    return ezVariant(ezVec2I32(0, 0));
+  case ezVariant::Type::Vector3I:
+    return ezVariant(ezVec3I32(0, 0, 0));
+  case ezVariant::Type::Vector4I:
+    return ezVariant(ezVec4I32(0, 0, 0, 0));
   case ezVariant::Type::Quaternion:
     return ezVariant(ezQuat(0.0f, 0.0f, 0.0f, 1.0f));
   case ezVariant::Type::Matrix3:
@@ -60,10 +139,16 @@ ezVariant ezToolsReflectionUtils::GetDefaultVariantFromType(ezVariant::Type::Enu
     return ezVariant(ezMat4::IdentityMatrix());
   case ezVariant::Type::String:
     return ezVariant("");
+  case ezVariant::Type::StringView:
+    return ezVariant("");
   case ezVariant::Type::Time:
     return ezVariant(ezTime());
   case ezVariant::Type::Uuid:
     return ezVariant(ezUuid());
+  case ezVariant::Type::Angle:
+    return ezVariant(ezAngle());
+  case ezVariant::Type::DataBuffer:
+    return ezVariant(ezDataBuffer());
   case ezVariant::Type::VariantArray:
     return ezVariantArray();
   case ezVariant::Type::VariantDictionary:
@@ -72,12 +157,52 @@ ezVariant ezToolsReflectionUtils::GetDefaultVariantFromType(ezVariant::Type::Enu
     return ezVariant();
   case ezVariant::Type::VoidPointer:
     return ezVariant();
-  case ezVariant::Type::ENUM_COUNT:
+
+  default:
     EZ_REPORT_FAILURE("Invalid case statement");
     return ezVariant();
   }
   return ezVariant();
 }
+
+ezVariant ezToolsReflectionUtils::GetStorageDefault(const ezAbstractProperty* pProperty)
+{
+  const ezDefaultValueAttribute* pAttrib = pProperty->GetAttributeByType<ezDefaultValueAttribute>();
+  auto type = pProperty->GetFlags().IsSet(ezPropertyFlags::StandardType) ? pProperty->GetSpecificType()->GetVariantType() : ezVariantType::Uuid;
+
+  switch (pProperty->GetCategory())
+  {
+  case ezPropertyCategory::Member:
+    {
+      return ezToolsReflectionUtils::GetDefaultValue(pProperty);
+    }
+    break;
+  case ezPropertyCategory::Array:
+  case ezPropertyCategory::Set:
+    {
+      if (pProperty->GetSpecificType()->GetTypeFlags().IsSet(ezTypeFlags::StandardType) && pAttrib && pAttrib->GetValue().IsA<ezVariantArray>())
+      {
+        const ezVariantArray& value = pAttrib->GetValue().Get<ezVariantArray>();
+        ezVariantArray ret;
+        ret.SetCount(value.GetCount());
+        for (ezUInt32 i = 0; i < value.GetCount(); i++)
+        {
+          ret[i] = value[i].ConvertTo(type);
+        }
+        return ret;
+      }
+      return ezVariantArray();
+    }
+    break;
+  case ezPropertyCategory::Map:
+    {
+      return ezVariantDictionary();
+    }
+    break;
+  }
+  return ezVariant();
+}
+
 
 ezVariant ezToolsReflectionUtils::GetDefaultValue(const ezAbstractProperty* pProperty)
 {
@@ -102,33 +227,46 @@ ezVariant ezToolsReflectionUtils::GetDefaultValue(const ezAbstractProperty* pPro
       if (pAttrib->GetValue().CanConvertTo(ezVariantType::Int64))
         iValue = pAttrib->GetValue().ConvertTo<ezInt64>();
     }
-    
+
     return ezReflectionUtils::MakeEnumerationValid(pProperty->GetSpecificType(), iValue);
   }
-  else if (pProperty->GetFlags().IsSet(ezPropertyFlags::Pointer))
+  else if (pProperty->GetFlags().IsAnySet(ezPropertyFlags::Class))
   {
     return ezUuid();
   }
-  EZ_REPORT_FAILURE("Cannot provide a default variant for a member struct / class reference.");
+  EZ_REPORT_FAILURE("Not reachable.");
   return ezVariant();
+}
+
+bool ezToolsReflectionUtils::GetFloatFromVariant(const ezVariant& val, double& out_fValue)
+{
+  if (val.IsValid())
+  {
+    GetDoubleFunc func(val);
+    ezVariant::DispatchTo(func, val.GetType());
+    out_fValue = func.m_fValue;
+    return func.m_bValid;
+  }
+  return false;
+}
+
+
+bool ezToolsReflectionUtils::GetVariantFromFloat(double fValue, ezVariantType::Enum type, ezVariant& out_val)
+{
+  GetVariantFunc func(fValue, type, out_val);
+  ezVariant::DispatchTo(func, type);
+
+  return func.m_bValid;
 }
 
 void ezToolsReflectionUtils::GetReflectedTypeDescriptorFromRtti(const ezRTTI* pRtti, ezReflectedTypeDescriptor& out_desc)
 {
-  EZ_ASSERT_DEV(pRtti != nullptr, "Type to process must not be null!");
-  out_desc.m_sTypeName = pRtti->GetTypeName();
-  out_desc.m_sPluginName = pRtti->GetPluginName();
-  out_desc.m_Flags = pRtti->GetTypeFlags();
-  out_desc.m_uiTypeSize = pRtti->GetTypeSize();
-  out_desc.m_uiTypeVersion = pRtti->GetTypeVersion();
-  const ezRTTI* pParentRtti = pRtti->GetParentType();
-  out_desc.m_sParentTypeName = pParentRtti ? pParentRtti->GetTypeName() : nullptr;
+  GetMinimalReflectedTypeDescriptorFromRtti(pRtti, out_desc);
+  out_desc.m_Flags.Remove(ezTypeFlags::Minimal);
 
-  out_desc.m_Properties.Clear();
   const ezArrayPtr<ezAbstractProperty*>& rttiProps = pRtti->GetProperties();
   const ezUInt32 uiCount = rttiProps.GetCount();
   out_desc.m_Properties.Reserve(uiCount);
-
   for (ezUInt32 i = 0; i < uiCount; ++i)
   {
     ezAbstractProperty* prop = rttiProps[i];
@@ -139,11 +277,11 @@ void ezToolsReflectionUtils::GetReflectedTypeDescriptorFromRtti(const ezRTTI* pR
       {
         ezAbstractConstantProperty* constantProp = static_cast<ezAbstractConstantProperty*>(prop);
         const ezRTTI* pPropRtti = constantProp->GetSpecificType();
-
         if (ezReflectionUtils::IsBasicType(pPropRtti))
         {
           ezVariant value = constantProp->GetConstant();
-          out_desc.m_Properties.PushBack(ezReflectedPropertyDescriptor(constantProp->GetPropertyName(), pPropRtti->GetVariantType(), value, prop->GetAttributes()));
+          EZ_ASSERT_DEV(pPropRtti->GetVariantType() == value.GetType(), "Variant value type and property type should always match!");
+          out_desc.m_Properties.PushBack(ezReflectedPropertyDescriptor(constantProp->GetPropertyName(), value, prop->GetAttributes()));
         }
         else
         {
@@ -155,138 +293,157 @@ void ezToolsReflectionUtils::GetReflectedTypeDescriptorFromRtti(const ezRTTI* pR
     case ezPropertyCategory::Member:
     case ezPropertyCategory::Array:
     case ezPropertyCategory::Set:
+    case ezPropertyCategory::Map:
       {
         const ezRTTI* pPropRtti = prop->GetSpecificType();
-        out_desc.m_Properties.PushBack(ezReflectedPropertyDescriptor(prop->GetCategory(), prop->GetPropertyName(), pPropRtti->GetTypeName(), pPropRtti->GetVariantType(), prop->GetFlags(), prop->GetAttributes()));
+        out_desc.m_Properties.PushBack(ezReflectedPropertyDescriptor(prop->GetCategory(), prop->GetPropertyName(), pPropRtti->GetTypeName(), prop->GetFlags(), prop->GetAttributes()));
       }
       break;
 
     case ezPropertyCategory::Function:
       break;
+
+    default:
+      break;
     }
   }
+
+  const ezArrayPtr<ezAbstractFunctionProperty*>& rttiFunc = pRtti->GetFunctions();
+  const ezUInt32 uiFuncCount = rttiFunc.GetCount();
+  out_desc.m_Functions.Reserve(uiFuncCount);
+
+  for (ezUInt32 i = 0; i < uiFuncCount; ++i)
+  {
+    ezAbstractFunctionProperty* prop = rttiFunc[i];
+    out_desc.m_Functions.PushBack(ezReflectedFunctionDescriptor(prop->GetPropertyName(), prop->GetFlags(), prop->GetFunctionType(), prop->GetAttributes()));
+    ezReflectedFunctionDescriptor& desc = out_desc.m_Functions.PeekBack();
+    desc.m_ReturnValue = ezFunctionArgumentDescriptor(prop->GetReturnType() ? prop->GetReturnType()->GetTypeName() : "", prop->GetReturnFlags());
+    const ezUInt32 uiArguments = prop->GetArgumentCount();
+    desc.m_Arguments.Reserve(uiArguments);
+    for (ezUInt32 a = 0; a < uiArguments; ++a)
+    {
+      desc.m_Arguments.PushBack(ezFunctionArgumentDescriptor(prop->GetArgumentType(a)->GetTypeName(), prop->GetArgumentFlags(a)));
+    }
+  }
+
+  out_desc.m_ReferenceAttributes = pRtti->GetAttributes();
 }
 
-ezPropertyPath ezToolsReflectionUtils::CreatePropertyPath(const char* pData1, const char* pData2, const char* pData3, const char* pData4, const char* pData5, const char* pData6)
+
+void ezToolsReflectionUtils::GetMinimalReflectedTypeDescriptorFromRtti(const ezRTTI* pRtti, ezReflectedTypeDescriptor& out_desc)
 {
-  ezPropertyPath path;
-  const ezUInt32 uiMaxParams = 6;
-  const char* pStrings[uiMaxParams] = { pData1, pData2, pData3, pData4, pData5, pData6 };
-  ezUInt32 uiUsedParams = 0;
-  for (ezUInt32 i = 0; i < uiMaxParams; ++i)
-  {
-    if (ezStringUtils::IsNullOrEmpty(pStrings[i]))
-      break;
+  EZ_ASSERT_DEV(pRtti != nullptr, "Type to process must not be null!");
+  out_desc.m_sTypeName = pRtti->GetTypeName();
+  out_desc.m_sPluginName = pRtti->GetPluginName();
+  out_desc.m_Flags = pRtti->GetTypeFlags() | ezTypeFlags::Minimal;
+  out_desc.m_uiTypeSize = pRtti->GetTypeSize();
+  out_desc.m_uiTypeVersion = pRtti->GetTypeVersion();
+  const ezRTTI* pParentRtti = pRtti->GetParentType();
+  out_desc.m_sParentTypeName = pParentRtti ? pParentRtti->GetTypeName() : nullptr;
 
-    path.PushBack(pStrings[i]);
-  }
-
-  return path;
+  out_desc.m_Properties.Clear();
+  out_desc.m_Functions.Clear();
+  out_desc.m_Attributes.Clear();
+  out_desc.m_ReferenceAttributes = ezArrayPtr<ezPropertyAttribute* const>();
 }
 
-ezAbstractProperty* ezToolsReflectionUtils::GetPropertyByPath(const ezRTTI* pRtti, const ezPropertyPath& path)
+static void GatherObjectTypesInternal(const ezDocumentObject* pObject, ezSet<const ezRTTI*>& inout_types)
 {
-  if (path.IsEmpty())
-    return nullptr;
-  ezAbstractProperty* pCurrentProp = pRtti->FindPropertyByName(path[0]);
-  if (path.GetCount() == 1)
-    return pCurrentProp;
+  inout_types.Insert(pObject->GetTypeAccessor().GetType());
+  ezReflectionUtils::GatherDependentTypes(pObject->GetTypeAccessor().GetType(), inout_types);
 
-  ezPropertyPath pathCopy = path;
-  pathCopy.RemoveAt(0);
+  for (const ezDocumentObject* pChild : pObject->GetChildren())
+  {
+    if (pChild->GetParentPropertyType()->GetAttributeByType<ezTemporaryAttribute>() != nullptr)
+      continue;
 
-  return GetPropertyByPath(pCurrentProp->GetSpecificType(), pathCopy);
+    GatherObjectTypesInternal(pChild, inout_types);
+  }
 }
 
-ezVariant ezToolsReflectionUtils::GetMemberPropertyValueByPath(const ezRTTI* pRtti, void* pObject, const ezPropertyPath& path)
+void ezToolsReflectionUtils::GatherObjectTypes(const ezDocumentObject* pObject, ezSet<const ezRTTI*>& inout_types)
 {
-  EZ_ASSERT_DEV(path.GetCount() > 0, "ezReflectedTypeDirectAccessor: the given property path is empty!");
-
-  ezAbstractMemberProperty* pCurrentProp = ezReflectionUtils::GetMemberProperty(pRtti, path[0]);
-
-  if (pCurrentProp == nullptr)
-    return ezVariant();
-
-  if (path.GetCount() == 1)
-    return ezReflectionUtils::GetMemberPropertyValue(pCurrentProp, pObject);
-
-  if (pCurrentProp->GetPropertyPointer(pObject) != nullptr)
-  {
-    ezPropertyPath pathCopy = path;
-    pathCopy.RemoveAt(0);
-
-    return GetMemberPropertyValueByPath(pCurrentProp->GetSpecificType(), pCurrentProp->GetPropertyPointer(pObject), pathCopy);
-  }
-  else if (pCurrentProp->GetSpecificType()->GetAllocator()->CanAllocate())
-  {
-    void* pValue = pCurrentProp->GetSpecificType()->GetAllocator()->Allocate();
-    pCurrentProp->GetValuePtr(pObject, pValue);
-
-    ezPropertyPath pathCopy = path;
-    pathCopy.RemoveAt(0);
-
-    ezVariant res = GetMemberPropertyValueByPath(pCurrentProp->GetSpecificType(), pValue, pathCopy);
-
-    pCurrentProp->GetSpecificType()->GetAllocator()->Deallocate(pValue);
-
-    return res;
-  }
-
-  return ezVariant();
+  GatherObjectTypesInternal(pObject, inout_types);
 }
 
-bool ezToolsReflectionUtils::SetMemberPropertyValueByPath(const ezRTTI* pRtti, void* pObject, const ezPropertyPath& path, const ezVariant& value)
+void ezToolsReflectionUtils::SerializeTypes(const ezSet<const ezRTTI*>& types, ezAbstractObjectGraph& typesGraph)
 {
-  EZ_ASSERT_DEV(path.GetCount() > 0, "ezReflectedTypeDirectAccessor: the given property path is empty!");
-
-  ezAbstractMemberProperty* pCurrentProp = ezReflectionUtils::GetMemberProperty(pRtti, path[0]);
-
-  if (pCurrentProp == nullptr)
-    return false;
-
-  if (path.GetCount() == 1)
+  ezRttiConverterContext context;
+  ezRttiConverterWriter rttiConverter(&typesGraph, &context, true, true);
+  for (const ezRTTI* pType : types)
   {
-    ezReflectionUtils::SetMemberPropertyValue(pCurrentProp, pObject, value);
-    return true;
+    ezReflectedTypeDescriptor desc;
+    if (pType->GetTypeFlags().IsSet(ezTypeFlags::Phantom))
+    {
+      ezToolsReflectionUtils::GetReflectedTypeDescriptorFromRtti(pType, desc);
+    }
+    else
+    {
+      ezToolsReflectionUtils::GetMinimalReflectedTypeDescriptorFromRtti(pType, desc);
+    }
+
+    context.RegisterObject(ezUuid::StableUuidForString(pType->GetTypeName()), ezGetStaticRTTI<ezReflectedTypeDescriptor>(), &desc);
+    rttiConverter.AddObjectToGraph(ezGetStaticRTTI<ezReflectedTypeDescriptor>(), &desc);
   }
-
-  if (pCurrentProp->GetPropertyPointer(pObject) != nullptr)
-  {
-    ezPropertyPath pathCopy = path;
-    pathCopy.RemoveAt(0);
-
-    return SetMemberPropertyValueByPath(pCurrentProp->GetSpecificType(), pCurrentProp->GetPropertyPointer(pObject), pathCopy, value);
-  }
-  else if (pCurrentProp->GetSpecificType()->GetAllocator()->CanAllocate())
-  {
-    void* pValue = pCurrentProp->GetSpecificType()->GetAllocator()->Allocate();
-    pCurrentProp->GetValuePtr(pObject, pValue);
-
-    ezPropertyPath pathCopy = path;
-    pathCopy.RemoveAt(0);
-
-    const bool res = SetMemberPropertyValueByPath(pCurrentProp->GetSpecificType(), pValue, pathCopy, value);
-
-    pCurrentProp->SetValuePtr(pObject, pValue);
-    pCurrentProp->GetSpecificType()->GetAllocator()->Deallocate(pValue);
-
-    return res;
-  }
-
-  return false;
 }
 
-void ezToolsReflectionUtils::WriteObjectToJSON(bool bSerializeOwnerPtrs, ezStreamWriterBase& stream, const ezDocumentObjectBase* pObject, ezJSONWriter::WhitespaceMode WhitespaceMode)
+bool ezToolsReflectionUtils::DependencySortTypeDescriptorArray(ezDynamicArray<ezReflectedTypeDescriptor*>& descriptors)
 {
-  ezAbstractObjectGraph graph;
-  ezDocumentObjectConverterWriter conv(&graph, pObject->GetDocumentObjectManager(), false, bSerializeOwnerPtrs);
+  ezMap<ezReflectedTypeDescriptor*, ezSet<ezString> > dependencies;
 
-  ezUuid guid;
-  guid.CreateNewUuid();
+  ezSet<ezString> typesInArray;
+  // Gather all types in array
+  for (ezReflectedTypeDescriptor* desc : descriptors)
+  {
+    typesInArray.Insert(desc->m_sTypeName);
+  }
 
-  ezAbstractObjectNode* pNode = conv.AddObjectToGraph(pObject, "root");
+  // Find all direct dependencies to types in the array for each type.
+  for (ezReflectedTypeDescriptor* desc : descriptors)
+  {
+    auto it = dependencies.Insert(desc, ezSet<ezString>());
 
-  ezAbstractGraphJsonSerializer::Write(stream, &graph, ezJSONWriter::WhitespaceMode::LessIndentation);
+    if (typesInArray.Contains(desc->m_sParentTypeName))
+    {
+      it.Value().Insert(desc->m_sParentTypeName);
+    }
+    for (ezReflectedPropertyDescriptor& propDesc : desc->m_Properties)
+    {
+      if (typesInArray.Contains(propDesc.m_sType))
+      {
+        it.Value().Insert(propDesc.m_sType);
+      }
+    }
+  }
+
+  ezSet<ezString> accu;
+  ezDynamicArray<ezReflectedTypeDescriptor*> sorted;
+  sorted.Reserve(descriptors.GetCount());
+  // Build new sorted types array.
+  while (!descriptors.IsEmpty())
+  {
+    bool bDeadEnd = true;
+    for (ezReflectedTypeDescriptor* desc : descriptors)
+    {
+      // Are the types dependencies met?
+      if (accu.Contains(dependencies[desc]))
+      {
+        sorted.PushBack(desc);
+        bDeadEnd = false;
+        descriptors.Remove(desc);
+        accu.Insert(desc->m_sTypeName);
+        break;
+      }
+    }
+
+    if (bDeadEnd)
+    {
+      return false;
+    }
+  }
+
+  descriptors = sorted;
+  return true;
 }
 
 

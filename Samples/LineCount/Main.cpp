@@ -115,6 +115,12 @@ FileStats GetFileStats(const char* szFile)
 
   FileContent.PushBack('\0');
 
+  if (!ezUnicodeUtils::IsValidUtf8((const char*)&FileContent[0]))
+  {
+    ezLog::Warning("File is not valid Utf-8: '{0}'", szFile);
+    return s;
+  }
+
   // We should not append that directly at the ezStringBuilder, as the file read operations may end
   // in between a Utf8 sequence and then ezStringBuilder will complain about invalid Utf8 strings.
   ezStringBuilder sContent = (const char*) &FileContent[0];
@@ -179,7 +185,7 @@ public:
     m_szSearchDir = "";
   }
 
-  virtual void AfterEngineInit() override
+  virtual void AfterCoreStartup() override
   {
     // pass the absolute path to the directory that should be scanned as the first parameter to this application
     if (GetArgumentCount() >= 2)
@@ -193,7 +199,7 @@ public:
     // As we only need access to files through global paths, we add the "empty data directory"
     // This data dir will manage all accesses through absolute paths, unless any other data directory can handle them
     // since we don't add any further data dirs, this is it
-    ezFileSystem::AddDataDirectory("");
+    ezFileSystem::AddDataDirectory("", "", ":", ezFileSystem::AllowWrites);
 
   
     // now we can set up the logging system (we could do it earlier, but the HTML writer needs access to the file system)
@@ -211,7 +217,7 @@ public:
     ezGlobalLog::AddLogWriter(ezLoggingEvent::Handler(&ezLogWriter::HTML::LogMessageHandler, &g_HtmlLog));
   }
 
-  virtual void BeforeEngineShutdown() override
+  virtual void BeforeCoreShutdown() override
   {
     // close the HTML log, from now on no more log messages are written to the file
     g_HtmlLog.EndLog();
@@ -237,7 +243,7 @@ public:
         b.AppendPath(it.GetStats().m_sFileName.GetData());
 
         // log some info
-        ezLog::Info("%s: %s", it.GetStats().m_bIsDirectory ? "Directory" : "File", b.GetData());
+        ezLog::Info("{0}: {1}", it.GetStats().m_bIsDirectory ? "Directory" : "File", b);
 
         if (it.GetStats().m_bIsDirectory)
           ++uiDirectories;
@@ -262,7 +268,7 @@ public:
 
 
       // now output some statistics
-      ezLog::Info("Directories: %i, Files: %i, Avg. Files per Dir: %.1f", uiDirectories, uiFiles, uiFiles / (float) uiDirectories);
+      ezLog::Info("Directories: {0}, Files: {1}, Avg. Files per Dir: {2}", uiDirectories, uiFiles, ezArgF(uiFiles / (float) uiDirectories, 1));
 
       FileStats AllTypes;
 
@@ -270,17 +276,17 @@ public:
       ezMap<ezString, FileStats>::Iterator MapIt = FileTypeStatistics.GetIterator();
       while (MapIt.IsValid())
       {
-        ezLog::Info("File Type: '%s': %i Files, %i Lines, %i Empty Lines, Bytes: %i, Non-ASCII Characters: %i, Words: %i", MapIt.Key().GetData(), MapIt.Value().m_uiFileCount, MapIt.Value().m_uiLines, MapIt.Value().m_uiEmptyLines, MapIt.Value().m_uiBytes, MapIt.Value().m_uiBytes - MapIt.Value().m_uiCharacters, MapIt.Value().m_uiWords);
+        ezLog::Info("File Type: '{0}': {1} Files, {2} Lines, {3} Empty Lines, Bytes: {4}, Non-ASCII Characters: {5}, Words: {6}", MapIt.Key(), MapIt.Value().m_uiFileCount, MapIt.Value().m_uiLines, MapIt.Value().m_uiEmptyLines, MapIt.Value().m_uiBytes, MapIt.Value().m_uiBytes - MapIt.Value().m_uiCharacters, MapIt.Value().m_uiWords);
 
         AllTypes += MapIt.Value();
 
         ++MapIt;
       }
 
-      ezLog::Info("File Type: '%s': %i Files, %i Lines, %i Empty Lines, All Lines: %i, Bytes: %i, Non-ASCII Characters: %i, Words: %i", "all", AllTypes.m_uiFileCount, AllTypes.m_uiLines, AllTypes.m_uiEmptyLines, AllTypes.m_uiLines + AllTypes.m_uiEmptyLines, AllTypes.m_uiBytes, AllTypes.m_uiBytes - AllTypes.m_uiCharacters, AllTypes.m_uiWords);
+      ezLog::Info("File Type: '{0}': {1} Files, {2} Lines, {3} Empty Lines, All Lines: {4}, Bytes: {5}, Non-ASCII Characters: {6}, Words: {7}", "all", AllTypes.m_uiFileCount, AllTypes.m_uiLines, AllTypes.m_uiEmptyLines, AllTypes.m_uiLines + AllTypes.m_uiEmptyLines, AllTypes.m_uiBytes, AllTypes.m_uiBytes - AllTypes.m_uiCharacters, AllTypes.m_uiWords);
     }
     else
-      ezLog::Error("Could not search the directory '%s'", m_szSearchDir);
+      ezLog::Error("Could not search the directory '{0}'", m_szSearchDir);
 
     return ezApplication::Quit;
   }

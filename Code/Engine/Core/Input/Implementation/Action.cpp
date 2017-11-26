@@ -1,5 +1,4 @@
-#include <Core/PCH.h>
-#include <Foundation/Logging/Log.h>
+﻿#include <PCH.h>
 #include <Core/Input/InputManager.h>
 
 ezInputActionConfig::ezInputActionConfig()
@@ -100,6 +99,9 @@ ezKeyState::Enum ezInputManager::GetInputActionState(const char* szInputSet, con
 
   if (iTriggeredSlot)
     *iTriggeredSlot = -1;
+
+  if (!s_sExclusiveInputSet.IsEmpty() && s_sExclusiveInputSet != szInputSet)
+    return ezKeyState::Up;
 
   const ezInputSetMap::ConstIterator ItSet = GetInternals().s_ActionMapping.Find(szInputSet);
 
@@ -260,7 +262,7 @@ void ezInputManager::UpdateInputActions(const char* szInputSet, ezActionMap& Act
       if (!itBestAction.IsValid())
         break;
 
-      const float fSlotScale = itBestAction.Value().m_Config.m_fInputSlotScale[itBestAction.Value().m_iTriggeredViaAlternative];
+      const float fSlotScale = itBestAction.Value().m_Config.m_fInputSlotScale[(ezUInt32)(itBestAction.Value().m_iTriggeredViaAlternative)];
 
       float fSlotValue = ItSlots.Value().m_fValue;
 
@@ -318,12 +320,7 @@ void ezInputManager::SetActionDisplayName(const char* szAction, const char* szDi
 
 const char* ezInputManager::GetActionDisplayName(const char* szAction)
 {
-  auto it = GetInternals().s_ActionDisplayNames.Find(szAction);
-
-  if (it.IsValid())
-    return it.Value().GetData();
-
-  return szAction;
+  return GetInternals().s_ActionDisplayNames.GetValueOrDefault(szAction, szAction);
 }
 
 void ezInputManager::GetAllInputSets(ezDynamicArray<ezString>& out_InputSetNames)
@@ -334,11 +331,14 @@ void ezInputManager::GetAllInputSets(ezDynamicArray<ezString>& out_InputSetNames
     out_InputSetNames.PushBack(it.Key());
 }
 
-void ezInputManager::GetAllInputActions(const char* szInputSetName, ezDynamicArray<ezString>& out_InputActions)
+void ezInputManager::GetAllInputActions(const char* szInputSetName, ezHybridArray<ezString, 24>& out_InputActions)
 {
-  out_InputActions.Clear();
+  const auto& map = GetInternals().s_ActionMapping[szInputSetName];
 
-  for (ezActionMap::Iterator it = GetInternals().s_ActionMapping[szInputSetName].GetIterator(); it.IsValid(); ++it)
+  out_InputActions.Clear();
+  out_InputActions.Reserve(map.GetCount());
+
+  for (ezActionMap::ConstIterator it = map.GetIterator(); it.IsValid(); ++it)
     out_InputActions.PushBack(it.Key());
 }
 

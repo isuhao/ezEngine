@@ -1,4 +1,4 @@
-#include <Foundation/PCH.h>
+﻿#include <PCH.h>
 #include <Foundation/Math/Math.h>
 
 #if EZ_ENABLED(EZ_PLATFORM_WINDOWS)
@@ -26,10 +26,10 @@ bool ezMath::IsPowerOf(ezInt32 value, ezInt32 base)
 
 ezInt32 ezMath::PowerOfTwo_Floor(ezUInt32 npot)
 {
-  if (IsPowerOf2 (npot))
+  if (IsPowerOf2(npot))
     return (npot);
 
-  for (ezInt32 i = 1; i <= (sizeof (npot) * 8); ++i)
+  for (ezInt32 i = 1; i <= (sizeof(npot) * 8); ++i)
   {
     npot >>= 1;
 
@@ -42,10 +42,10 @@ ezInt32 ezMath::PowerOfTwo_Floor(ezUInt32 npot)
 
 ezInt32 ezMath::PowerOfTwo_Ceil(ezUInt32 npot)
 {
-  if (IsPowerOf2 (npot))
+  if (IsPowerOf2(npot))
     return (npot);
 
-  for (int i=1; i <= (sizeof (npot) * 8); ++i)
+  for (int i = 1; i <= (sizeof(npot) * 8); ++i)
   {
     npot >>= 1;
 
@@ -54,12 +54,6 @@ ezInt32 ezMath::PowerOfTwo_Ceil(ezUInt32 npot)
   }
 
   return (1);
-}
-
-ezAngle ezAngle::AngleBetween(ezAngle a, ezAngle b)
-{
-  // taken from http://gamedev.stackexchange.com/questions/4467/comparing-angles-and-working-out-the-difference
-  return ezAngle(Pi<float>() - ezMath::Abs(ezMath::Abs(a.GetRadian() - b.GetRadian()) - Pi<float>()));
 }
 
 void ezAngle::NormalizeRange()

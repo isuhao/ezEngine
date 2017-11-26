@@ -1,4 +1,4 @@
-#include <Foundation/PCH.h>
+﻿#include <PCH.h>
 #include <Foundation/IO/FileSystem/DataDirTypeFolder.h>
 #include <Foundation/Logging/Log.h>
 
@@ -9,7 +9,7 @@ namespace ezDataDirectory
 
   ezResult FolderReader::InternalOpen()
   {
-    ezStringBuilder sPath = GetDataDirectory()->GetDataDirectoryPath();
+    ezStringBuilder sPath = ((ezDataDirectory::FolderType*)GetDataDirectory())->GetRedirectedDataDirectoryPath();
     sPath.AppendPath(GetFilePath().GetData());
 
     return m_File.Open(sPath.GetData(), ezFileMode::Read);
@@ -32,7 +32,7 @@ namespace ezDataDirectory
 
   ezResult FolderWriter::InternalOpen()
   {
-    ezStringBuilder sPath = GetDataDirectory()->GetDataDirectoryPath();
+    ezStringBuilder sPath = ((ezDataDirectory::FolderType*)GetDataDirectory())->GetRedirectedDataDirectoryPath();
     sPath.AppendPath(GetFilePath().GetData());
 
     return m_File.Open(sPath.GetData(), ezFileMode::Write);
@@ -53,7 +53,7 @@ namespace ezDataDirectory
     return m_File.GetFileSize();
   }
 
-  ezDataDirectoryType* FolderType::Factory(const char* szDataDirectory)
+  ezDataDirectoryType* FolderType::Factory(const char* szDataDirectory, const char* szGroup, const char* szRootName, ezFileSystem::DataDirUsage Usage)
   {
     FolderType* pDataDir = EZ_DEFAULT_NEW(FolderType);
 
@@ -66,23 +66,25 @@ namespace ezDataDirectory
 
   void FolderType::RemoveDataDirectory()
   {
-    for (ezUInt32 i = 0; i < m_Readers.GetCount(); ++i)
     {
-      EZ_ASSERT_DEV(!m_Readers[i]->m_bIsInUse, "Cannot remove a data directory while there are still files open in it.");
-    }
+      EZ_LOCK(m_ReaderWriterMutex);
+      for (ezUInt32 i = 0; i < m_Readers.GetCount(); ++i)
+      {
+        EZ_ASSERT_DEV(!m_Readers[i]->m_bIsInUse, "Cannot remove a data directory while there are still files open in it.");
+      }
 
-    for (ezUInt32 i = 0; i < m_Writers.GetCount(); ++i)
-    {
-      EZ_ASSERT_DEV(!m_Writers[i]->m_bIsInUse, "Cannot remove a data directory while there are still files open in it.");
+      for (ezUInt32 i = 0; i < m_Writers.GetCount(); ++i)
+      {
+        EZ_ASSERT_DEV(!m_Writers[i]->m_bIsInUse, "Cannot remove a data directory while there are still files open in it.");
+      }
     }
-
     FolderType* pThis = this;
     EZ_DEFAULT_DELETE(pThis);
   }
 
   void FolderType::DeleteFile(const char* szFile)
   {
-    ezStringBuilder sPath = GetDataDirectoryPath();
+    ezStringBuilder sPath = GetRedirectedDataDirectoryPath();
     sPath.AppendPath(szFile);
 
     ezOSFile::DeleteFile(sPath.GetData());
@@ -90,6 +92,7 @@ namespace ezDataDirectory
 
   FolderType::~FolderType()
   {
+    EZ_LOCK(m_ReaderWriterMutex);
     for (ezUInt32 i = 0; i < m_Readers.GetCount(); ++i)
       EZ_DEFAULT_DELETE(m_Readers[i]);
 
@@ -104,11 +107,13 @@ namespace ezDataDirectory
 
   void FolderType::LoadRedirectionFile()
   {
+    EZ_LOCK(m_RedirectionMutex);
     m_FileRedirection.Clear();
 
     if (!s_sRedirectionFile.IsEmpty())
     {
-      ezStringBuilder sRedirectionFile(GetDataDirectoryPath(), "/", s_sRedirectionFile);
+      ezStringBuilder sRedirectionFile(GetRedirectedDataDirectoryPath(), "/", s_sRedirectionFile);
+      sRedirectionFile.MakeCleanPath();
 
       EZ_LOG_BLOCK("LoadRedirectionFile", sRedirectionFile.GetData());
 
@@ -151,11 +156,29 @@ namespace ezDataDirectory
           szLineStart = szLineEnd + 1;
         }
 
-        ezLog::Success("Redirection file contains %u entries", m_FileRedirection.GetCount());
+        //ezLog::Debug("Redirection file contains {0} entries", m_FileRedirection.GetCount());
       }
-      else
-        ezLog::Warning("Redirection file could not be opened: '%s'", sRedirectionFile.GetData());
+      //else
+        //ezLog::Debug("No Redirection file found in: '{0}'", sRedirectionFile);
     }
+  }
+
+
+  bool FolderType::ExistsFile(const char* szFile, bool bOneSpecificDataDir)
+  {
+    ezStringBuilder sRedirectedAsset;
+    ResolveAssetRedirection(szFile, sRedirectedAsset);
+
+    ezStringBuilder sPath = GetRedirectedDataDirectoryPath();
+    sPath.AppendPath(sRedirectedAsset);
+    return ezOSFile::ExistsFile(sPath);
+  }
+
+  ezResult FolderType::GetFileStats(const char* szFileOrFolder, bool bOneSpecificDataDir, ezFileStats& out_Stats)
+  {
+    ezStringBuilder sPath = GetRedirectedDataDirectoryPath();
+    sPath.AppendPath(szFileOrFolder);
+    return ezOSFile::GetFileStats(sPath, out_Stats);
   }
 
   ezResult FolderType::InternalInitializeDataDirectory(const char* szDirectory)
@@ -164,88 +187,144 @@ namespace ezDataDirectory
     if (ezStringUtils::IsNullOrEmpty(szDirectory))
       return EZ_SUCCESS;
 
-    if (!ezOSFile::ExistsDirectory(szDirectory))
+    ezStringBuilder sRedirected;
+    if (ezFileSystem::ResolveSpecialDirectory(szDirectory, sRedirected).Succeeded())
+    {
+      m_sRedirectedDataDirPath = sRedirected;
+    }
+    else
+    {
+      m_sRedirectedDataDirPath = szDirectory;
+    }
+
+    if (!ezOSFile::ExistsDirectory(m_sRedirectedDataDirPath))
       return EZ_FAILURE;
 
-    LoadRedirectionFile();
+    ReloadExternalConfigs();
 
     return EZ_SUCCESS;
   }
 
   void FolderType::OnReaderWriterClose(ezDataDirectoryReaderWriterBase* pClosed)
   {
+    EZ_LOCK(m_ReaderWriterMutex);
     if (pClosed->IsReader())
     {
-      FolderReader* pReader = (FolderReader*) pClosed;
+      FolderReader* pReader = (FolderReader*)pClosed;
       pReader->m_bIsInUse = false;
     }
     else
     {
-      FolderWriter* pWriter = (FolderWriter*) pClosed;
+      FolderWriter* pWriter = (FolderWriter*)pClosed;
       pWriter->m_bIsInUse = false;
     }
   }
 
-  ezDataDirectoryReader* FolderType::OpenFileToRead(const char* szFile)
+  ezDataDirectory::FolderReader* FolderType::CreateFolderReader() const
   {
-    FolderReader* pReader = nullptr;
+    return EZ_DEFAULT_NEW(FolderReader);
+  }
 
-    for (ezUInt32 i = 0; i < m_Readers.GetCount(); ++i)
-    {
-      if (!m_Readers[i]->m_bIsInUse)
-        pReader = m_Readers[i];
-    }
+  ezDataDirectory::FolderWriter* FolderType::CreateFolderWriter() const
+  {
+    return EZ_DEFAULT_NEW(FolderWriter);
+  }
 
-    if (pReader == nullptr)
-    {
-      m_Readers.PushBack(EZ_DEFAULT_NEW(FolderReader));
-      pReader = m_Readers.PeekBack();
-    }
-
+  ezDataDirectoryReader* FolderType::OpenFileToRead(const char* szFile, bool bSpecificallyThisDataDir)
+  {
     ezStringBuilder sFileToOpen;
+    ResolveAssetRedirection(szFile, sFileToOpen);
 
-    // Check if we now about a file redirection for this
-    auto it = m_FileRedirection.Find(szFile);
-
-    if (it.IsValid())
-    {
-      // if available, open the file that is mentioned in the redirection file instead
-      sFileToOpen.Set(s_sRedirectionPrefix, it.Value());
-    }
-    else
-      sFileToOpen = szFile;
-
-    // if opening the file fails, the reader state is never set to 'used', so nothing else needs to be done
-    if (pReader->Open(sFileToOpen, this) == EZ_FAILURE)
+    // we know that these files cannot be opened, so don't even try
+    if (ezConversionUtils::IsStringUuid(sFileToOpen))
       return nullptr;
 
+    FolderReader* pReader = nullptr;
+    {
+      EZ_LOCK(m_ReaderWriterMutex);
+      for (ezUInt32 i = 0; i < m_Readers.GetCount(); ++i)
+      {
+        if (!m_Readers[i]->m_bIsInUse)
+          pReader = m_Readers[i];
+      }
+
+      if (pReader == nullptr)
+      {
+        m_Readers.PushBack(CreateFolderReader());
+        pReader = m_Readers.PeekBack();
+      }
+      pReader->m_bIsInUse = true;
+    }
+
+    // if opening the file fails, the reader's m_bIsInUse needs to be reset.
+    if (pReader->Open(sFileToOpen, this) == EZ_FAILURE)
+    {
+      EZ_LOCK(m_ReaderWriterMutex);
+      pReader->m_bIsInUse = false;
+      return nullptr;
+    }
+
     // if it succeeds, we return the reader
-    pReader->m_bIsInUse = true;
     return pReader;
+  }
+
+
+  bool FolderType::ResolveAssetRedirection(const char* szFile, ezStringBuilder& out_sRedirection)
+  {
+    EZ_LOCK(m_RedirectionMutex);
+    // Check if we know about a file redirection for this
+    auto it = m_FileRedirection.Find(szFile);
+
+    // if available, open the file that is mentioned in the redirection file instead
+    if (it.IsValid())
+    {
+
+      if (it.Value().StartsWith("?"))
+      {
+        // ? is an option to tell the system to skip the redirection prefix and use the path as is
+        out_sRedirection = &it.Value().GetData()[1];
+      }
+      else
+      {
+        out_sRedirection.Set(s_sRedirectionPrefix, it.Value());
+      }
+      return true;
+    }
+    else
+    {
+      out_sRedirection = szFile;
+      return false;
+    }
   }
 
   ezDataDirectoryWriter* FolderType::OpenFileToWrite(const char* szFile)
   {
     FolderWriter* pWriter = nullptr;
 
-    for (ezUInt32 i = 0; i < m_Writers.GetCount(); ++i)
     {
-      if (!m_Writers[i]->m_bIsInUse)
-        pWriter = m_Writers[i];
-    }
+      EZ_LOCK(m_ReaderWriterMutex);
+      for (ezUInt32 i = 0; i < m_Writers.GetCount(); ++i)
+      {
+        if (!m_Writers[i]->m_bIsInUse)
+          pWriter = m_Writers[i];
+      }
 
-    if (pWriter == nullptr)
-    {
-      m_Writers.PushBack(EZ_DEFAULT_NEW(FolderWriter));
-      pWriter = m_Writers.PeekBack();
+      if (pWriter == nullptr)
+      {
+        m_Writers.PushBack(CreateFolderWriter());
+        pWriter = m_Writers.PeekBack();
+      }
+      pWriter->m_bIsInUse = true;
     }
-
-    // if opening the file fails, the writer state is never set to 'used', so nothing else needs to be done
+    // if opening the file fails, the writer's m_bIsInUse needs to be reset.
     if (pWriter->Open(szFile, this) == EZ_FAILURE)
+    {
+      EZ_LOCK(m_ReaderWriterMutex);
+      pWriter->m_bIsInUse = false;
       return nullptr;
+    }
 
     // if it succeeds, we return the reader
-    pWriter->m_bIsInUse = true;
     return pWriter;
   }
 

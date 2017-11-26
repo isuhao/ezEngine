@@ -1,13 +1,11 @@
-#include <Core/PCH.h>
-#include <Foundation/Logging/Log.h>
-#include <Core/Input/InputDevice.h>
+#include <PCH.h>
 #include <Core/Input/InputManager.h>
 
 EZ_ENUMERABLE_CLASS_IMPLEMENTATION(ezInputDevice);
 
-EZ_BEGIN_DYNAMIC_REFLECTED_TYPE(ezInputDevice, ezReflectedClass, 1, ezRTTINoAllocator);
+EZ_BEGIN_DYNAMIC_REFLECTED_TYPE(ezInputDevice, 1, ezRTTINoAllocator);
   // no properties or message handlers
-EZ_END_DYNAMIC_REFLECTED_TYPE();
+EZ_END_DYNAMIC_REFLECTED_TYPE
 
 ezKeyState::Enum ezKeyState::GetNewKeyState(ezKeyState::Enum PrevState, bool bKeyDown)
 {
@@ -42,7 +40,7 @@ void ezInputDevice::Initialize()
 
   EZ_LOG_BLOCK("Initializing Input Device", GetDynamicRTTI()->GetTypeName());
 
-  ezLog::Info("Input Device Type: %s, Device Name: %s", GetDynamicRTTI()->GetParentType()->GetTypeName(), GetDynamicRTTI()->GetTypeName());
+  ezLog::Info("Input Device Type: {0}, Device Name: {1}", GetDynamicRTTI()->GetParentType()->GetTypeName(), GetDynamicRTTI()->GetTypeName());
 
   m_bInitialized = true;
 

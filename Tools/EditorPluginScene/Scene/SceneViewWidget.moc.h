@@ -1,53 +1,26 @@
 #pragma once
 
 #include <Foundation/Basics.h>
-#include <EditorFramework/DocumentWindow3D/3DViewWidget.moc.h>
-#include <EditorPluginScene/InputContexts/SelectionContext.h>
-#include <EditorPluginScene/InputContexts/CameraMoveContext.h>
-#include <EditorPluginScene/InputContexts/CameraPositionContext.h>
-#include <EditorPluginScene/Scene/SceneDocument.h>
+#include <EditorFramework/DocumentWindow/GameObjectViewWidget.moc.h>
 
-class QVBoxLayout;
-class ezSceneDocumentWindow;
-
-class ezSceneViewWidget : public ezEngineViewWidget
+class ezQtSceneViewWidget : public ezQtGameObjectViewWidget
 {
   Q_OBJECT
 public:
-  ezSceneViewWidget(QWidget* pParent, ezSceneDocumentWindow* pDocument, ezCameraMoveContextSettings* pCameraMoveSettings, ezSceneViewConfig* pViewConfig);
-  ~ezSceneViewWidget();
+  ezQtSceneViewWidget(QWidget* pParent, ezQtGameObjectDocumentWindow* pOwnerWindow, ezEngineViewConfig* pViewConfig);
+  ~ezQtSceneViewWidget();
 
-  ezSelectionContext* m_pSelectionContext;
-  ezCameraMoveContext* m_pCameraMoveContext;
-  ezCameraPositionContext* m_pCameraPositionContext;
-
-  virtual void SyncToEngine() override;
+  virtual bool IsPickingAgainstSelectionAllowed() const override;
 
 protected:
   virtual void dragEnterEvent(QDragEnterEvent* e) override;
   virtual void dragLeaveEvent(QDragLeaveEvent* e) override;
   virtual void dragMoveEvent(QDragMoveEvent* e) override;
   virtual void dropEvent(QDropEvent* e) override;
+  virtual void OnOpenContextMenu(QPoint globalPos) override;
 
-  ezUuid CreateDropObject(const ezVec3& vPosition, const char* szType, const char* szProperty, const char* szValue);
-  void MoveObjectToPosition(const ezUuid& guid, const ezVec3& vPosition);
-  void MoveDraggedObjectsToPosition(const ezVec3& vPosition);
-
-  ezHybridArray<ezUuid, 16> m_DraggedObjects;
+  bool m_bAllowPickSelectedWhileDragging;
   ezTime m_LastDragMoveEvent;
+
+  static bool s_bContextMenuInitialized;
 };
-
-class ezSceneViewWidgetContainer : public QWidget
-{
-  Q_OBJECT
-public:
-  ezSceneViewWidgetContainer(QWidget* pParent, ezSceneDocumentWindow* pDocument, ezCameraMoveContextSettings* pCameraMoveSettings, ezSceneViewConfig* pViewConfig);
-  ~ezSceneViewWidgetContainer();
-
-  ezSceneViewWidget* GetViewWidget() const { return m_pViewWidget; }
-
-private:
-  ezSceneViewWidget* m_pViewWidget;
-  QVBoxLayout* m_pLayout;
-};
-

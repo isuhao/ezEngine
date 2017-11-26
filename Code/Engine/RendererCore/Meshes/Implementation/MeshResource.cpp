@@ -1,18 +1,17 @@
-#include <RendererCore/PCH.h>
+#include <PCH.h>
 #include <RendererCore/Meshes/MeshResource.h>
 #include <RendererCore/Material/MaterialResource.h>
-#include <Foundation/Strings/StringBuilder.h>
-#include <CoreUtils/Assets/AssetFileHeader.h>
+#include <Core/Assets/AssetFileHeader.h>
 
-#include <Core/ResourceManager/ResourceManager.h>
 
-EZ_BEGIN_DYNAMIC_REFLECTED_TYPE(ezMeshResource, ezResourceBase, 1, ezRTTIDefaultAllocator<ezMeshResource>);
-EZ_END_DYNAMIC_REFLECTED_TYPE();
+EZ_BEGIN_DYNAMIC_REFLECTED_TYPE(ezMeshResource, 1, ezRTTIDefaultAllocator<ezMeshResource>);
+EZ_END_DYNAMIC_REFLECTED_TYPE
 
 ezUInt32 ezMeshResource::s_MeshBufferNameSuffix = 0;
 
 ezMeshResource::ezMeshResource() : ezResource<ezMeshResource, ezMeshResourceDescriptor>(DoUpdate::OnAnyThread, 1)
 {
+  m_Bounds.SetInvalid();
 }
 
 ezResourceLoadDesc ezMeshResource::UnloadData(Unload WhatToUnload)
@@ -37,7 +36,7 @@ ezResourceLoadDesc ezMeshResource::UnloadData(Unload WhatToUnload)
   return res;
 }
 
-ezResourceLoadDesc ezMeshResource::UpdateContent(ezStreamReaderBase* Stream)
+ezResourceLoadDesc ezMeshResource::UpdateContent(ezStreamReader* Stream)
 {
   ezMeshResourceDescriptor desc;
   ezResourceLoadDesc res;
@@ -84,7 +83,7 @@ ezResourceLoadDesc ezMeshResource::CreateResource(const ezMeshResourceDescriptor
   {
     s_MeshBufferNameSuffix++;
     ezStringBuilder sMbName;
-    sMbName.Format("%s  [MeshBuffer %04X]", GetResourceID().GetData(), s_MeshBufferNameSuffix);
+    sMbName.Format("{0}  [MeshBuffer {1}]", GetResourceID(), ezArgU(s_MeshBufferNameSuffix, 4, true, 16, true));
 
     m_hMeshBuffer = ezResourceManager::CreateResource<ezMeshBufferResource>(sMbName, desc.MeshBufferDesc(), GetResourceDescription());
   }
@@ -106,6 +105,7 @@ ezResourceLoadDesc ezMeshResource::CreateResource(const ezMeshResourceDescriptor
   }
 
   m_Bounds = desc.GetBounds();
+  EZ_ASSERT_DEV(m_Bounds.IsValid(), "The mesh bounds are invalid. Make sure to call ezMeshResourceDescriptor::ComputeBounds()");
 
   ezResourceLoadDesc res;
   res.m_uiQualityLevelsDiscardable = 0;

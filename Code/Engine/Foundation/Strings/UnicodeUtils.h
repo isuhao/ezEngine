@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <Foundation/Basics.h>
 #include <ThirdParty/utf8/utf8.h>
@@ -18,6 +18,9 @@ public:
 
   /// \brief Returns whether a character is a pure ASCII character (only the first 7 Bits are used)
   static bool IsASCII(ezUInt32 uiChar);// [tested]
+
+  /// \brief Checks whether the given byte is a start byte in a UTF-8 multi-byte sequence
+  static bool IsUtf8StartByte(char uiByte);// [tested]
 
   /// \brief Checks whether the given byte is a byte in a UTF-8 multi-byte sequence.
   static bool IsUtf8ContinuationByte(char uiByte); // [tested]
@@ -89,11 +92,11 @@ public:
   template <typename IntType, typename Container>
   struct UtfInserter
   {
-    EZ_FORCE_INLINE UtfInserter(Container* pContainer) { m_pContainer = pContainer; }
-    EZ_FORCE_INLINE void operator++() {}
-    EZ_FORCE_INLINE UtfInserter& operator++(int) { return *this; }
-    EZ_FORCE_INLINE void operator= (IntType rhs) { m_pContainer->PushBack(rhs); }
-    EZ_FORCE_INLINE UtfInserter& operator*() { return *this; }
+    EZ_ALWAYS_INLINE UtfInserter(Container* pContainer) { m_pContainer = pContainer; }
+    EZ_ALWAYS_INLINE void operator++() {}
+    EZ_ALWAYS_INLINE UtfInserter& operator++(int) { return *this; }
+    EZ_ALWAYS_INLINE void operator= (IntType rhs) { m_pContainer->PushBack(rhs); }
+    EZ_ALWAYS_INLINE UtfInserter& operator*() { return *this; }
 
     Container* m_pContainer;
   };

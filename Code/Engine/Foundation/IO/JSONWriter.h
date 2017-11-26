@@ -66,8 +66,14 @@ public:
   /// \brief Shorthand for "BeginVariable(szName); WriteUuid(value); EndVariable(); "
   void AddVariableUuid(const char* szName, ezUuid value); // [tested]
 
+  /// \brief Shorthand for "BeginVariable(szName); WriteAngle(value); EndVariable(); "
+  void AddVariableAngle(const char* szName, ezAngle value); // [tested]
+
   /// \brief Shorthand for "BeginVariable(szName); WriteColor(value); EndVariable(); "
   void AddVariableColor(const char* szName, const ezColor& value); // [tested]
+
+  /// \brief Shorthand for "BeginVariable(szName); WriteColorGamma(value); EndVariable(); "
+  void AddVariableColorGamma(const char* szName, const ezColorGammaUB& value); // [tested]
 
   /// \brief Shorthand for "BeginVariable(szName); WriteVec2(value); EndVariable(); "
   void AddVariableVec2(const char* szName, const ezVec2& value); // [tested]
@@ -78,6 +84,15 @@ public:
   /// \brief Shorthand for "BeginVariable(szName); WriteVec4(value); EndVariable(); "
   void AddVariableVec4(const char* szName, const ezVec4& value); // [tested]
 
+  /// \brief Shorthand for "BeginVariable(szName); WriteVec2I32(value); EndVariable(); "
+  void AddVariableVec2I32(const char* szName, const ezVec2I32& value); // [tested]
+
+  /// \brief Shorthand for "BeginVariable(szName); WriteVec3I32(value); EndVariable(); "
+  void AddVariableVec3I32(const char* szName, const ezVec3I32& value); // [tested]
+
+  /// \brief Shorthand for "BeginVariable(szName); WriteVec4I32(value); EndVariable(); "
+  void AddVariableVec4I32(const char* szName, const ezVec4I32& value); // [tested]
+
   /// \brief Shorthand for "BeginVariable(szName); WriteQuat(value); EndVariable(); "
   void AddVariableQuat(const char* szName, const ezQuat& value); // [tested]
 
@@ -86,6 +101,9 @@ public:
 
   /// \brief Shorthand for "BeginVariable(szName); WriteMat4(value); EndVariable(); "
   void AddVariableMat4(const char* szName, const ezMat4& value); // [tested]
+
+  /// \brief Shorthand for "BeginVariable(szName); WriteDataBuffer(value); EndVariable(); "
+  void AddVariableDataBuffer(const char* szName, const ezDataBuffer& value); // [tested]
 
   /// \brief Shorthand for "BeginVariable(szName); WriteVariant(value); EndVariable(); "
   void AddVariableVariant(const char* szName, const ezVariant& value); // [tested]
@@ -126,6 +144,11 @@ public:
   /// \note Standard JSON does not have a suitable type for this. A derived class might turn this into an object or output it via WriteBinaryData().
   virtual void WriteColor(const ezColor& value) = 0;
 
+  /// \brief Writes an ezColorGammaUB to the JSON file. Can only be called between BeginVariable() / EndVariable() or BeginArray() / EndArray().
+  ///
+  /// \note Standard JSON does not have a suitable type for this. A derived class might turn this into an object or output it via WriteBinaryData().
+  virtual void WriteColorGamma(const ezColorGammaUB& value) = 0;
+
   /// \brief Writes an ezVec2 to the JSON file. Can only be called between BeginVariable() / EndVariable() or BeginArray() / EndArray().
   ///
   /// \note Standard JSON does not have a suitable type for this. A derived class might turn this into an object or output it via WriteBinaryData().
@@ -140,6 +163,21 @@ public:
   ///
   /// \note Standard JSON does not have a suitable type for this. A derived class might turn this into an object or output it via WriteBinaryData().
   virtual void WriteVec4(const ezVec4& value) = 0;
+
+  /// \brief Writes an ezVec2I32 to the JSON file. Can only be called between BeginVariable() / EndVariable() or BeginArray() / EndArray().
+  ///
+  /// \note Standard JSON does not have a suitable type for this. A derived class might turn this into an object or output it via WriteBinaryData().
+  virtual void WriteVec2I32(const ezVec2I32& value) = 0;
+
+  /// \brief Writes an ezVec3I32 to the JSON file. Can only be called between BeginVariable() / EndVariable() or BeginArray() / EndArray().
+  ///
+  /// \note Standard JSON does not have a suitable type for this. A derived class might turn this into an object or output it via WriteBinaryData().
+  virtual void WriteVec3I32(const ezVec3I32& value) = 0;
+
+  /// \brief Writes an ezVec4I32 to the JSON file. Can only be called between BeginVariable() / EndVariable() or BeginArray() / EndArray().
+  ///
+  /// \note Standard JSON does not have a suitable type for this. A derived class might turn this into an object or output it via WriteBinaryData().
+  virtual void WriteVec4I32(const ezVec4I32& value) = 0;
 
   /// \brief Writes an ezQuat to the JSON file. Can only be called between BeginVariable() / EndVariable() or BeginArray() / EndArray().
   ///
@@ -160,6 +198,16 @@ public:
   ///
   /// \note Standard JSON does not have a suitable type for this. A derived class might turn this into an object or output it via WriteBinaryData().
   virtual void WriteUuid(const ezUuid& value) = 0;
+
+  /// \brief Writes an ezAngle to the JSON file. Can only be called between BeginVariable() / EndVariable() or BeginArray() / EndArray().
+  ///
+  /// \note Standard JSON does not have a suitable type for this. A derived class might turn this into an object or output it via WriteBinaryData().
+  virtual void WriteAngle(ezAngle value) = 0; // [tested]
+
+  /// \brief Writes an ezDataBuffer to the JSON file. Can only be called between BeginVariable() / EndVariable() or BeginArray() / EndArray().
+  ///
+  /// \note Standard JSON does not have a suitable type for this. A derived class might turn this into an object or output it via WriteBinaryData().
+  virtual void WriteDataBuffer(const ezDataBuffer& value) = 0; // [tested]
 
   /// \brief The default implementation dispatches all supported types to WriteBool, WriteInt32, etc. and asserts on the more complex types.
   ///
@@ -224,7 +272,7 @@ public:
   ~ezStandardJSONWriter(); // [tested]
 
   /// \brief All output is written to this binary stream.
-  void SetOutputStream(ezStreamWriterBase* pOutput); // [tested]
+  void SetOutputStream(ezStreamWriter* pOutput); // [tested]
 
   /// \brief \copydoc ezJSONWriter::WriteBool()
   virtual void WriteBool(bool value) override; // [tested]
@@ -259,6 +307,9 @@ public:
   /// \brief Outputs the value via WriteVec4().
   virtual void WriteColor(const ezColor& value) override; // [tested]
 
+  /// \brief Outputs the value via WriteVec4().
+  virtual void WriteColorGamma(const ezColorGammaUB& value) override; // [tested]
+
   /// \brief Outputs the value via WriteBinaryData().
   virtual void WriteVec2(const ezVec2& value) override; // [tested]
 
@@ -267,6 +318,15 @@ public:
 
   /// \brief Outputs the value via WriteBinaryData().
   virtual void WriteVec4(const ezVec4& value) override; // [tested]
+
+  /// \brief Outputs the value via WriteBinaryData().
+  virtual void WriteVec2I32(const ezVec2I32& value) override; // [tested]
+
+  /// \brief Outputs the value via WriteBinaryData().
+  virtual void WriteVec3I32(const ezVec3I32& value) override; // [tested]
+
+  /// \brief Outputs the value via WriteBinaryData().
+  virtual void WriteVec4I32(const ezVec4I32& value) override; // [tested]
 
   /// \brief Outputs the value via WriteBinaryData().
   virtual void WriteQuat(const ezQuat& value) override; // [tested]
@@ -279,6 +339,12 @@ public:
 
   /// \brief Outputs the value via WriteBinaryData().
   virtual void WriteUuid(const ezUuid& value) override; // [tested]
+
+  /// \brief \copydoc ezJSONWriter::WriteFloat()
+  virtual void WriteAngle(ezAngle value) override; // [tested]
+
+  /// \brief Outputs the value via WriteBinaryData().
+  virtual void WriteDataBuffer(const ezDataBuffer& value) override; // [tested]
 
   /// \brief Implements the MongoDB way of writing binary data. First writes a "$type" variable, then a "$binary" variable that represents the raw data (Hex encoded, little endian).
   virtual void WriteBinaryData(const char* szDataType, const void* pData, ezUInt32 uiBytes, const char* szValueString = nullptr) override; // [tested]
@@ -338,7 +404,7 @@ protected:
   void OutputIndentation();
 
   ezInt32 m_iIndentation;
-  ezStreamWriterBase* m_pOutput;
+  ezStreamWriter* m_pOutput;
 
   ezHybridArray<JSONState, 16> m_StateStack;
 };

@@ -3,12 +3,13 @@
 
 #include <RendererFoundation/Basics.h>
 #include <Foundation/Containers/IdTable.h>
-#include <Foundation/Containers/Map.h>
+#include <Foundation/Containers/HashTable.h>
 #include <Foundation/Memory/CommonAllocators.h>
 #include <RendererFoundation/Descriptors/Descriptors.h>
 #include <RendererFoundation/Device/DeviceCapabilities.h>
 
 class ezColor;
+class ezGPUStopwatch;
 
 /// \brief The ezRenderDevice class is the primary interface for interactions with rendering APIs
 /// It contains a set of (non-virtual) functions to set state, create resources etc. which rely on
@@ -18,14 +19,19 @@ class EZ_RENDERERFOUNDATION_DLL ezGALDevice
 {
 public:
 
+  ezEvent<const ezGALDeviceEvent&> m_Events;
+
+  //
   // Init & shutdown functions
+  //
 
   ezResult Init();
 
   ezResult Shutdown();
 
-
+  //
   // State creation functions
+  //
 
   ezGALBlendStateHandle CreateBlendState(const ezGALBlendStateCreationDescription& Description);
 
@@ -50,30 +56,42 @@ public:
 
   void DestroyShader(ezGALShaderHandle hShader);
 
-  ezGALBufferHandle CreateBuffer(const ezGALBufferCreationDescription& Description, const void* pInitialData);
+  ezGALBufferHandle CreateBuffer(const ezGALBufferCreationDescription& Description, ezArrayPtr<const ezUInt8> pInitialData = ezArrayPtr<const ezUInt8>());
 
   void DestroyBuffer(ezGALBufferHandle hBuffer);
 
 
   // Helper functions for buffers (for common, simple use cases)
-  ezGALBufferHandle CreateVertexBuffer(ezUInt32 uiVertexSize, ezUInt32 uiVertexCount, const void* pInitialData = nullptr);
+  ezGALBufferHandle CreateVertexBuffer(ezUInt32 uiVertexSize, ezUInt32 uiVertexCount, ezArrayPtr<const ezUInt8> pInitialData = ezArrayPtr<const ezUInt8>());
 
-  ezGALBufferHandle CreateIndexBuffer(ezGALIndexType::Enum IndexType, ezUInt32 uiIndexCount, const void* pInitialData = nullptr);
+  ezGALBufferHandle CreateIndexBuffer(ezGALIndexType::Enum IndexType, ezUInt32 uiIndexCount, ezArrayPtr<const ezUInt8> pInitialData = ezArrayPtr<const ezUInt8>());
 
   ezGALBufferHandle CreateConstantBuffer(ezUInt32 uiBufferSize);
 
 
-  ezGALTextureHandle CreateTexture(const ezGALTextureCreationDescription& Description, const ezArrayPtr<ezGALSystemMemoryDescription>* pInitialData = nullptr);
+  ezGALTextureHandle CreateTexture(const ezGALTextureCreationDescription& Description, ezArrayPtr<ezGALSystemMemoryDescription> pInitialData = ezArrayPtr<ezGALSystemMemoryDescription>());
 
   void DestroyTexture(ezGALTextureHandle hTexture);
+
+  // Resource views
+  ezGALResourceViewHandle GetDefaultResourceView(ezGALTextureHandle hTexture);
+  ezGALResourceViewHandle GetDefaultResourceView(ezGALBufferHandle hBuffer);
 
   ezGALResourceViewHandle CreateResourceView(const ezGALResourceViewCreationDescription& Description);
 
   void DestroyResourceView(ezGALResourceViewHandle hResourceView);
 
+  // Render target views
+  ezGALRenderTargetViewHandle GetDefaultRenderTargetView(ezGALTextureHandle hTexture);
+
   ezGALRenderTargetViewHandle CreateRenderTargetView(const ezGALRenderTargetViewCreationDescription& Description);
 
   void DestroyRenderTargetView(ezGALRenderTargetViewHandle hRenderTargetView);
+
+  // Unordered access views
+  ezGALUnorderedAccessViewHandle CreateUnorderedAccessView(const ezGALUnorderedAccessViewCreationDescription& Description);
+
+  void DestroyUnorderedAccessView(ezGALUnorderedAccessViewHandle hUnorderedAccessView);
 
 
   // Other rendering creation functions
@@ -95,18 +113,15 @@ public:
   void DestroyVertexDeclaration(ezGALVertexDeclarationHandle hVertexDeclaration);
 
 
-
-  // Get Query Data
-
-  void GetQueryData(ezGALQueryHandle hQuery, ezUInt64* puiRendererdPixels);
-
+  /// Gets or creates a GPU stopwatch whose livetime is managed by this context.
+  ezGPUStopwatch& GetOrCreateGPUStopwatch(const char* name);
 
 
   /// \todo Map functions to save on memcpys
 
   // Swap chain functions
 
-  void Present(ezGALSwapChainHandle hSwapChain);
+  void Present(ezGALSwapChainHandle hSwapChain, bool bVSync);
 
   ezGALTextureHandle GetBackBufferTextureFromSwapChain(ezGALSwapChainHandle hSwapChain);
 
@@ -117,11 +132,13 @@ public:
 
   void EndFrame();
 
-  void Flush();
-
-  void Finish();
-
   void SetPrimarySwapChain(ezGALSwapChainHandle hSwapChain);
+
+  /// Returns timestamp frequency in ticks per second.
+  ///
+  /// Returns 0 if acquiring the frequency failed (which can happen at any point).
+  /// Note that the frequency may change over time.
+  ezUInt64 GetTimestampTicksPerSecond();
 
   ezGALSwapChainHandle GetPrimarySwapChain() const;
 
@@ -141,10 +158,12 @@ public:
   const ezGALBlendState* GetBlendState(ezGALBlendStateHandle hBlendState) const;
   const ezGALRasterizerState* GetRasterizerState(ezGALRasterizerStateHandle hRasterizerState) const;
   const ezGALVertexDeclaration* GetVertexDeclaration(ezGALVertexDeclarationHandle hVertexDeclaration) const;
-  const ezGALQuery* GetQuery(ezGALQueryHandle hQuery) const;
   const ezGALSamplerState* GetSamplerState(ezGALSamplerStateHandle hSamplerState) const;
   const ezGALResourceView* GetResourceView(ezGALResourceViewHandle hResourceView) const;
   const ezGALRenderTargetView* GetRenderTargetView(ezGALRenderTargetViewHandle hRenderTargetView) const;
+  const ezGALUnorderedAccessView* GetUnorderedAccessView(ezGALUnorderedAccessViewHandle hUnorderedAccessView) const;
+  const ezGALFence* GetFence(ezGALFenceHandle hFence) const;
+  const ezGALQuery* GetQuery(ezGALQueryHandle hQuery) const;
 
   const ezGALDeviceCapabilities& GetCapabilities() const;
 
@@ -154,18 +173,33 @@ public:
   static void SetDefaultDevice(ezGALDevice* pDefaultDevice);
   static ezGALDevice* GetDefaultDevice();
 
+  // public in case someone external needs to lock multiple operations
+  mutable ezMutex m_Mutex;
+
 private:
   static ezGALDevice* s_pDefaultDevice;
 
 protected:
 
-  friend class ezGALContext;
-
-  template<typename IdTableType, typename ReturnType> ReturnType* Get(typename IdTableType::TypeOfId hHandle, const IdTableType& IdTable) const;
-
   ezGALDevice(const ezGALDeviceCreationDescription& Description);
 
   virtual ~ezGALDevice();
+
+  template<typename IdTableType, typename ReturnType>
+  ReturnType* Get(typename IdTableType::TypeOfId hHandle, const IdTableType& IdTable) const;
+
+  void DestroyViews(ezGALResourceBase* pResource);
+
+  template <typename HandleType>
+  void AddDeadObject(ezUInt32 uiType, HandleType handle);
+
+  template <typename HandleType>
+  void ReviveDeadObject(ezUInt32 uiType, HandleType handle);
+
+  void DestroyDeadObjects();
+
+  /// \brief Asserts that either this device supports multi-threaded resource creation, or that this function is executed on the main thread.
+  void VerifyMultithreadedAccess() const;
 
   ezProxyAllocator m_Allocator;
   ezLocalAllocatorWrapper m_AllocatorWrapper;
@@ -187,6 +221,8 @@ protected:
   typedef ezIdTable<ezGALSamplerStateHandle::IdType, ezGALSamplerState*, ezLocalAllocatorWrapper> SamplerStateTable;
 
   typedef ezIdTable<ezGALRenderTargetViewHandle::IdType, ezGALRenderTargetView*, ezLocalAllocatorWrapper> RenderTargetViewTable;
+
+  typedef ezIdTable<ezGALUnorderedAccessViewHandle::IdType, ezGALUnorderedAccessView*, ezLocalAllocatorWrapper> UnorderedAccessViewTable;
 
   typedef ezIdTable<ezGALSwapChainHandle::IdType, ezGALSwapChain*, ezLocalAllocatorWrapper> SwapChainTable;
 
@@ -214,6 +250,8 @@ protected:
 
   RenderTargetViewTable m_RenderTargetViews;
 
+  UnorderedAccessViewTable m_UnorderedAccessViews;
+
   SwapChainTable m_SwapChains;
 
   FenceTable m_Fences;
@@ -223,15 +261,22 @@ protected:
   VertexDeclarationTable m_VertexDeclarations;
 
 
-  // Hash maps used to prevent state object duplication
-  ezMap<ezUInt32, ezGALBlendStateHandle, ezCompareHelper<ezUInt32>, ezLocalAllocatorWrapper> m_BlendStateMap;
-  ezMap<ezUInt32, ezGALDepthStencilStateHandle, ezCompareHelper<ezUInt32>, ezLocalAllocatorWrapper> m_DepthStencilStateMap;
-  ezMap<ezUInt32, ezGALRasterizerStateHandle, ezCompareHelper<ezUInt32>, ezLocalAllocatorWrapper> m_RasterizerStateMap;
-  ezMap<ezUInt32, ezGALResourceViewHandle, ezCompareHelper<ezUInt32>, ezLocalAllocatorWrapper> m_ResourceViewMap;
-  ezMap<ezUInt32, ezGALSamplerStateHandle, ezCompareHelper<ezUInt32>, ezLocalAllocatorWrapper> m_SamplerStateMap;
-  ezMap<ezUInt32, ezGALRenderTargetViewHandle, ezCompareHelper<ezUInt32>, ezLocalAllocatorWrapper> m_RenderTargetViewMap;
-  ezMap<ezUInt32, ezGALVertexDeclarationHandle, ezCompareHelper<ezUInt32>, ezLocalAllocatorWrapper> m_VertexDeclarationMap;
+  // Hash tables used to prevent state object duplication
+  ezHashTable<ezUInt32, ezGALBlendStateHandle, ezHashHelper<ezUInt32>, ezLocalAllocatorWrapper> m_BlendStateTable;
+  ezHashTable<ezUInt32, ezGALDepthStencilStateHandle, ezHashHelper<ezUInt32>, ezLocalAllocatorWrapper> m_DepthStencilStateTable;
+  ezHashTable<ezUInt32, ezGALRasterizerStateHandle, ezHashHelper<ezUInt32>, ezLocalAllocatorWrapper> m_RasterizerStateTable;
+  ezHashTable<ezUInt32, ezGALSamplerStateHandle, ezHashHelper<ezUInt32>, ezLocalAllocatorWrapper> m_SamplerStateTable;
+  ezHashTable<ezUInt32, ezGALVertexDeclarationHandle, ezHashHelper<ezUInt32>, ezLocalAllocatorWrapper> m_VertexDeclarationTable;
 
+  struct DeadObject
+  {
+    EZ_DECLARE_POD_TYPE();
+
+    ezUInt32 m_uiType;
+    ezUInt32 m_uiHandle;
+  };
+
+  ezDynamicArray<DeadObject, ezLocalAllocatorWrapper> m_DeadObjects;
 
   ezGALDeviceCreationDescription m_Description;
 
@@ -281,22 +326,25 @@ protected:
 
   virtual void DestroyShaderPlatform(ezGALShader* pShader) = 0;
 
-  virtual ezGALBuffer* CreateBufferPlatform(const ezGALBufferCreationDescription& Description, const void* pInitialData) = 0;
+  virtual ezGALBuffer* CreateBufferPlatform(const ezGALBufferCreationDescription& Description, ezArrayPtr<const ezUInt8> pInitialData) = 0;
 
   virtual void DestroyBufferPlatform(ezGALBuffer* pBuffer) = 0;
 
-  virtual ezGALTexture* CreateTexturePlatform(const ezGALTextureCreationDescription& Description, const ezArrayPtr<ezGALSystemMemoryDescription>* pInitialData) = 0;
+  virtual ezGALTexture* CreateTexturePlatform(const ezGALTextureCreationDescription& Description, ezArrayPtr<ezGALSystemMemoryDescription> pInitialData) = 0;
 
   virtual void DestroyTexturePlatform(ezGALTexture* pTexture) = 0;
 
-  virtual ezGALResourceView* CreateResourceViewPlatform(const ezGALResourceViewCreationDescription& Description) = 0;
+  virtual ezGALResourceView* CreateResourceViewPlatform(ezGALResourceBase* pResource, const ezGALResourceViewCreationDescription& Description) = 0;
 
   virtual void DestroyResourceViewPlatform(ezGALResourceView* pResourceView) = 0;
 
-  virtual ezGALRenderTargetView* CreateRenderTargetViewPlatform(const ezGALRenderTargetViewCreationDescription& Description) = 0;
+  virtual ezGALRenderTargetView* CreateRenderTargetViewPlatform(ezGALTexture* pTexture, const ezGALRenderTargetViewCreationDescription& Description) = 0;
 
   virtual void DestroyRenderTargetViewPlatform(ezGALRenderTargetView* pRenderTargetView) = 0;
 
+  virtual ezGALUnorderedAccessView* CreateUnorderedAccessViewPlatform(ezGALResourceBase* pResource, const ezGALUnorderedAccessViewCreationDescription& Description) = 0;
+
+  virtual void DestroyUnorderedAccessViewPlatform(ezGALUnorderedAccessView* pRenderTargetView) = 0;
 
   // Other rendering creation functions
 
@@ -315,21 +363,11 @@ protected:
   virtual ezGALVertexDeclaration* CreateVertexDeclarationPlatform(const ezGALVertexDeclarationCreationDescription& Description) = 0;
 
   virtual void DestroyVertexDeclarationPlatform(ezGALVertexDeclaration* pVertexDeclaration) = 0;
-  
-  
-
-
-  // Get Query Data
-
-  virtual void GetQueryDataPlatform(ezGALQuery* pQuery, ezUInt64* puiRendererdPixels) = 0;
-
-
-
 
 
   // Swap chain functions
 
-  virtual void PresentPlatform(ezGALSwapChain* pSwapChain) = 0;
+  virtual void PresentPlatform(ezGALSwapChain* pSwapChain, bool bVSync) = 0;
 
   // Misc functions
 
@@ -337,18 +375,18 @@ protected:
 
   virtual void EndFramePlatform() = 0;
 
-  virtual void FlushPlatform() = 0;
-
-  virtual void FinishPlatform() = 0;
-
   virtual void SetPrimarySwapChainPlatform(ezGALSwapChain* pSwapChain) = 0;
 
   virtual void FillCapabilitiesPlatform() = 0;
+
+  virtual ezUInt64 GetTimestampTicksPerSecondPlatform() = 0;
 
   /// \endcond
 
 private:
   bool m_bFrameBeginCalled;
+  ezHashTable<ezString, ezGPUStopwatch*> m_namedStopwatches;
+
 };
 
 #include <RendererFoundation/Device/Implementation/Device_inl.h>

@@ -1,6 +1,5 @@
-
-#include <RendererDX11/PCH.h>
-#include <RendererDX11/Basics.h>
+﻿
+#include <PCH.h>
 #include <RendererDX11/Resources/TextureDX11.h>
 #include <RendererDX11/Device/DeviceDX11.h>
 
@@ -17,9 +16,19 @@ ezGALTextureDX11::~ezGALTextureDX11()
 
 }
 
+void ezGALTextureDX11::SetDebugName(const char* szName) const
+{
+  ezUInt32 uiLength = ezStringUtils::GetStringElementCount(szName);
+
+  if (m_pDXTexture != nullptr)
+  {
+    m_pDXTexture->SetPrivateData(WKPDID_D3DDebugObjectName, uiLength, szName);
+  }
+}
+
 EZ_DEFINE_AS_POD_TYPE(D3D11_SUBRESOURCE_DATA);
 
-ezResult ezGALTextureDX11::InitPlatform(ezGALDevice* pDevice, const ezArrayPtr<ezGALSystemMemoryDescription>* pInitialData)
+ezResult ezGALTextureDX11::InitPlatform(ezGALDevice* pDevice, ezArrayPtr<ezGALSystemMemoryDescription> pInitialData)
 {
   ezGALDeviceDX11* pDXDevice = static_cast<ezGALDeviceDX11*>(pDevice);
 
@@ -49,9 +58,8 @@ ezResult ezGALTextureDX11::InitPlatform(ezGALDevice* pDevice, const ezArrayPtr<e
         if(m_Description.m_bAllowUAV)
           Tex2DDesc.BindFlags |= D3D11_BIND_UNORDERED_ACCESS;
 
-        /// \todo Marc: Should this maybe use some kind of flags like "IsDepthFormat" ?
         if(m_Description.m_bCreateRenderTarget)
-          Tex2DDesc.BindFlags |= (m_Description.m_Format == ezGALResourceFormat::D24S8 || m_Description.m_Format == ezGALResourceFormat::DFloat ? D3D11_BIND_DEPTH_STENCIL : D3D11_BIND_RENDER_TARGET); /// \todo Get format info!
+          Tex2DDesc.BindFlags |= ezGALResourceFormat::IsDepthFormat(m_Description.m_Format) ? D3D11_BIND_DEPTH_STENCIL : D3D11_BIND_RENDER_TARGET;
 
         Tex2DDesc.CPUAccessFlags = 0; // We always use staging textures to update the data
         Tex2DDesc.Usage = m_Description.m_ResourceAccess.IsImmutable() ? D3D11_USAGE_IMMUTABLE : D3D11_USAGE_DEFAULT;
@@ -63,13 +71,13 @@ ezResult ezGALTextureDX11::InitPlatform(ezGALDevice* pDevice, const ezArrayPtr<e
 
         if(Tex2DDesc.Format == DXGI_FORMAT_UNKNOWN)
         {
-          ezLog::Error("No storage format available for given format: %d", m_Description.m_Format);
+          ezLog::Error("No storage format available for given format: {0}", m_Description.m_Format);
           return EZ_FAILURE;
         }
 
         Tex2DDesc.Width = m_Description.m_uiWidth;
         Tex2DDesc.Height = m_Description.m_uiHeight;
-        Tex2DDesc.MipLevels = m_Description.m_uiMipSliceCount;
+        Tex2DDesc.MipLevels = m_Description.m_uiMipLevelCount;
 
         Tex2DDesc.MiscFlags = 0;
 
@@ -83,22 +91,22 @@ ezResult ezGALTextureDX11::InitPlatform(ezGALDevice* pDevice, const ezArrayPtr<e
         Tex2DDesc.SampleDesc.Quality = 0;
 
         ezHybridArray<D3D11_SUBRESOURCE_DATA, 16> InitialData;
-        if(pInitialData != nullptr)
+        if (!pInitialData.IsEmpty())
         {
-          const ezUInt32 uiInitialDataCount = (m_Description.m_uiMipSliceCount * (m_Description.m_Type  == ezGALTextureType::Texture2D ? 1 : 6));
-          EZ_ASSERT_DEV(pInitialData->GetCount() == uiInitialDataCount, "The array of initial data values is not equal to the amount of mip levels!");
+          const ezUInt32 uiInitialDataCount = (m_Description.m_uiMipLevelCount * (m_Description.m_Type  == ezGALTextureType::Texture2D ? 1 : 6));
+          EZ_ASSERT_DEV(pInitialData.GetCount() == uiInitialDataCount, "The array of initial data values is not equal to the amount of mip levels!");
 
           InitialData.SetCountUninitialized(uiInitialDataCount);
 
           for(ezUInt32 i = 0; i < uiInitialDataCount; i++)
           {
-            InitialData[i].pSysMem = pInitialData->GetPtr()[i].m_pData;
-            InitialData[i].SysMemPitch = pInitialData->GetPtr()[i].m_uiRowPitch;
-            InitialData[i].SysMemSlicePitch = pInitialData->GetPtr()[i].m_uiSlicePitch;
+            InitialData[i].pSysMem = pInitialData[i].m_pData;
+            InitialData[i].SysMemPitch = pInitialData[i].m_uiRowPitch;
+            InitialData[i].SysMemSlicePitch = pInitialData[i].m_uiSlicePitch;
           }
         }
 
-        if(FAILED(pDXDevice->GetDXDevice()->CreateTexture2D(&Tex2DDesc, pInitialData != nullptr ? &InitialData[0] : nullptr, reinterpret_cast<ID3D11Texture2D**>(&m_pDXTexture))))
+        if(FAILED(pDXDevice->GetDXDevice()->CreateTexture2D(&Tex2DDesc, pInitialData.IsEmpty() ? nullptr : &InitialData[0], reinterpret_cast<ID3D11Texture2D**>(&m_pDXTexture))))
         {
           return EZ_FAILURE;
         }

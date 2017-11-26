@@ -1,30 +1,20 @@
 #pragma once
 
 #include <ToolsFoundation/Basics.h>
-#include <EditorFramework/Gizmos/GizmoHandle.h>
+#include <EditorEngineProcessFramework/Gizmos/GizmoHandle.h>
 #include <EditorFramework/Gizmos/GizmoBase.h>
 #include <QPoint>
 
-class EZ_EDITORFRAMEWORK_DLL ezTranslateGizmo : public ezGizmoBase
+class EZ_EDITORFRAMEWORK_DLL ezTranslateGizmo : public ezGizmo
 {
-  EZ_ADD_DYNAMIC_REFLECTION(ezTranslateGizmo);
+  EZ_ADD_DYNAMIC_REFLECTION(ezTranslateGizmo, ezGizmo);
 
 public:
   ezTranslateGizmo();
 
-  virtual void FocusLost() override;
-
-  virtual bool mousePressEvent(QMouseEvent* e) override;
-  virtual bool mouseReleaseEvent(QMouseEvent* e) override;
-  virtual bool mouseMoveEvent(QMouseEvent* e) override;
-
-  const ezVec3 GetTranslationResult() const { return GetTransformation().GetTranslationVector() - m_vStartPosition; }
+  const ezVec3 GetStartPosition() const { return m_vStartPosition; }
+  const ezVec3 GetTranslationResult() const { return GetTransformation().m_vPosition - m_vStartPosition; }
   const ezVec3 GetTranslationDiff() const { return m_vLastMoveDiff; }
-
-  /// \brief Sets the value to which to snap the scaling result to. Zero means no snapping is performed.
-  void SetSnappingValue(float fSnappingValue) { m_fSnappingValue = fSnappingValue; }
-
-  void SnapToGrid();
 
   enum class MovementMode
   {
@@ -32,33 +22,12 @@ public:
     MouseDiff
   };
 
-  void SetMovementMode(MovementMode mode);
-
-protected:
-  virtual void OnSetOwner(ezDocumentWindow3D* pOwnerWindow, ezEngineViewWidget* pOwnerView) override;
-  virtual void OnVisibleChanged(bool bVisible) override;
-  virtual void OnTransformationChanged(const ezMat4& transform) override;
-
-  ezResult GetPointOnAxis(ezInt32 iScreenPosX, ezInt32 iScreenPosY, ezVec3& out_Result) const;
-  ezResult GetPointOnPlane(ezInt32 iScreenPosX, ezInt32 iScreenPosY, ezVec3& out_Result) const;
-
-private:
-  void SetCursorToWindowCenter();
-
-  QPoint m_LastMousePos;
-  QPoint m_OriginalMousePos;
-
-  float m_fSnappingValue;
-  ezVec3 m_vLastMoveDiff;
-
-  MovementMode m_MovementMode;
-  ezGizmoHandle m_AxisX;
-  ezGizmoHandle m_AxisY;
-  ezGizmoHandle m_AxisZ;
-
-  ezGizmoHandle m_PlaneXY;
-  ezGizmoHandle m_PlaneXZ;
-  ezGizmoHandle m_PlaneYZ;
+  enum class PlaneInteraction
+  {
+    PlaneX,
+    PlaneY,
+    PlaneZ
+  };
 
   enum class TranslateMode
   {
@@ -67,9 +36,47 @@ private:
     Plane
   };
 
+  void SetMovementMode(MovementMode mode);
+  PlaneInteraction GetLastPlaneInteraction() const { return m_LastPlaneInteraction; }
+  TranslateMode GetTranslateMode() const { return m_Mode; }
+
+  /// \brief Used when CTRL+drag moves the object AND the camera
+  void SetCameraSpeed(float fSpeed);
+
+protected:
+  virtual void DoFocusLost(bool bCancel) override;
+
+  virtual ezEditorInput DoMousePressEvent(QMouseEvent* e) override;
+  virtual ezEditorInput DoMouseReleaseEvent(QMouseEvent* e) override;
+  virtual ezEditorInput DoMouseMoveEvent(QMouseEvent* e) override;
+
+  virtual void OnSetOwner(ezQtEngineDocumentWindow* pOwnerWindow, ezQtEngineViewWidget* pOwnerView) override;
+  virtual void OnVisibleChanged(bool bVisible) override;
+  virtual void OnTransformationChanged(const ezTransform& transform) override;
+
+  ezResult GetPointOnAxis(ezInt32 iScreenPosX, ezInt32 iScreenPosY, ezVec3& out_Result) const;
+  ezResult GetPointOnPlane(ezInt32 iScreenPosX, ezInt32 iScreenPosY, ezVec3& out_Result) const;
+
+private:
+  ezVec2I32 m_LastMousePos;
+  ezVec2 m_TotalMouseDiff;
+
+  ezVec3 m_vLastMoveDiff;
+
+  MovementMode m_MovementMode;
+  ezEngineGizmoHandle m_AxisX;
+  ezEngineGizmoHandle m_AxisY;
+  ezEngineGizmoHandle m_AxisZ;
+
+  ezEngineGizmoHandle m_PlaneXY;
+  ezEngineGizmoHandle m_PlaneXZ;
+  ezEngineGizmoHandle m_PlaneYZ;
+
   TranslateMode m_Mode;
+  PlaneInteraction m_LastPlaneInteraction;
 
   float m_fStartScale;
+  float m_fCameraSpeed;
 
   ezTime m_LastInteraction;
   ezVec3 m_vMoveAxis;

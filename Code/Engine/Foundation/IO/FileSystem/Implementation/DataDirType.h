@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <Foundation/Basics.h>
 #include <Foundation/Strings/String.h>
@@ -6,10 +6,11 @@
 class ezDataDirectoryReaderWriterBase;
 class ezDataDirectoryReader;
 class ezDataDirectoryWriter;
+struct ezFileStats;
 
 /// \brief The base class for all data directory types.
 ///
-/// There are different data directory types, such as a simple folder, a ZIP file or some kind of library 
+/// There are different data directory types, such as a simple folder, a ZIP file or some kind of library
 /// (e.g. image files from procedural data). Even a HTTP server that actually transmits files over a network
 /// can provided by implementing it as a data directory type.
 /// Data directories are added through ezFileSystem, which uses factories to decide which ezDataDirectoryType
@@ -25,6 +26,9 @@ public:
   /// \brief Returns the absolute path to the data directory.
   const ezString128& GetDataDirectoryPath() const { return m_sDataDirectoryPath; }
 
+  /// \brief By default this is the same as GetDataDirectoryPath(), but derived implementations may use a different location where they actually get the files from.
+  virtual const ezString128& GetRedirectedDataDirectoryPath() const { return GetDataDirectoryPath(); }
+
   /// \brief Some data directory types may use external configuration files (e.g. asset lookup tables)
   ///        that may get updated, while the directory is mounted. This function allows each directory type to implement
   ///        reloading and reapplying of configurations, without dismounting and remounting the data directory.
@@ -37,9 +41,17 @@ protected:
   ezResult InitializeDataDirectory(const char* szDataDirPath);
 
   /// \brief Must be implemented to create a ezDataDirectoryReader for accessing the given file. Returns nullptr if the file could not be opened.
-  virtual ezDataDirectoryReader* OpenFileToRead(const char* szFile) = 0;
+  ///
+  /// \param szFile is given as a path relative to the data directory's path.
+  /// So unless the data directory path is empty, this will never be an absolute path.
+  /// If a rooted path was given, the root name is also removed and only the relative part is passed along.
+  /// \param bSpecificallyThisDataDir This is true when the original path specified to open the file through exactly this data directory,
+  /// by using a rooted path.
+  /// If an absolute path is used, which incidentally matches the prefix of this data directory, bSpecificallyThisDataDir is NOT set to true,
+  /// as there might be other data directories that also match.
+  virtual ezDataDirectoryReader* OpenFileToRead(const char* szFile, bool bSpecificallyThisDataDir) = 0;
 
-  /// \brief Must be implemented to create a ezDataDirectoryWriter for accessing the given file. Returns nullptr if the file could not be opened. 
+  /// \brief Must be implemented to create a ezDataDirectoryWriter for accessing the given file. Returns nullptr if the file could not be opened.
   ///
   /// If it always returns nullptr (default) the data directory is read-only (at least through this type).
   virtual ezDataDirectoryWriter* OpenFileToWrite(const char* szFile) { return nullptr; }
@@ -54,11 +66,18 @@ protected:
 
   /// \brief This function checks whether the given file exists in this data directory.
   ///
-  /// The default implementation will simply try to open the file for reading.
+  /// The default implementation will simply calls ezOSFile::ExistsFile
   /// An optimized implementation might look this information up in some hash-map.
-  virtual bool ExistsFile(const char* szFile);
+  virtual bool ExistsFile(const char* szFile, bool bOneSpecificDataDir);
 
-private:
+  /// \brief Upon success returns the ezFileStats for a file in this data directory.
+  virtual ezResult GetFileStats(const char* szFileOrFolder, bool bOneSpecificDataDir, ezFileStats& out_Stats) = 0;
+
+  /// \brief If this data directory knows how to redirect the given path, it should do so and return true.
+  /// Called by ezFileSystem::ResolveAssetRedirection
+  virtual bool ResolveAssetRedirection(const char* szPathOrAssetGuid, ezStringBuilder& out_sRedirection) { return false; }
+
+protected:
   friend class ezDataDirectoryReaderWriterBase;
 
   /// \brief This is automatically called whenever a ezDataDirectoryReaderWriterBase that was opened by this type is being closed.
@@ -69,7 +88,7 @@ private:
 
   /// \brief This function should only be used by a Factory (which should be a static function in the respective ezDataDirectoryType).
   ///
-  /// It is used to initialize the data directory. If this ezDataDirectoryType cannot handle the given type, 
+  /// It is used to initialize the data directory. If this ezDataDirectoryType cannot handle the given type,
   /// it must return EZ_FAILURE and the Factory needs to clean it up properly.
   virtual ezResult InternalInitializeDataDirectory(const char* szDirectory) = 0;
 
@@ -110,7 +129,7 @@ public:
   /// \brief Returns the current total size of the file.
   virtual ezUInt64 GetFileSize() const = 0;
 
-private:
+protected:
   /// \brief This function must be implemented by the derived class.
   virtual ezResult InternalOpen() = 0;
 

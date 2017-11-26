@@ -1,0 +1,140 @@
+ezMaterialResourceSlot;Material Slot
+ezSurfaceResourceSlot;Surface Slot
+Cap;Cap;Whether to put a cap polygon at the end
+Cap 2;Cap Bottom;Whether to put a cap polygon at the other end
+Prim.Sphere.Detail1;Sphere Segments;Number of segments in the sphere
+Prim.Sphere.Detail2;Sphere Stacks;Number of stacks in the sphere
+Prim.Torus.Detail1;Segments;Number of segments in the sphere
+Prim.Torus.Detail2;Ring Detail;Number of polygons in each segment
+Prim.Torus.Radius1;Inner Radius
+Prim.Torus.Radius2;Outer Radius
+Prim.GeoSphere.Detail;Subdivisions;How often to subdivide the sphere, adding more and more detail. Should be between 1 and 3.
+Prim.Cylinder.Detail;Detail;How detailed to make the rounding
+Prim.Cylinder.Radius1;Radius Top
+Prim.Cylinder.Radius2;Radius Bottom
+Prim.Cylinder.Angle;Angle;How much of the cylinder to use. 360 is the full cylinder, 180 is only half of it.
+Prim.Cylinder.Cap1;Cap Top;Whether to cap the top
+Prim.Cylinder.Cap2;Cap Bottom;Whether to cap the bottom
+ezTexture2DChannelMappingEnum::R1;Red - Single Input
+ezTexture2DChannelMappingEnum::RG1;Red Green - Single Input
+ezTexture2DChannelMappingEnum::R1_G2;RG - Input1.r, Input2.r
+ezTexture2DChannelMappingEnum::RGB1;RGB - Single Input
+ezTexture2DChannelMappingEnum::R1_G2_B3;RGB - Input1.r, Input2.r, Input3.r
+ezTexture2DChannelMappingEnum::RGBA1;RGBA - Single Input
+ezTexture2DChannelMappingEnum::RGB1_A2;RGBA - Input1.rgb, Input2.r
+ezTexture2DChannelMappingEnum::R1_G2_B3_A4;RGBA - Input1.r, Input2.r, Input3.r, Input4.r
+ezTexture2DChannelMappingEnum::RGB1_ABLACK;RGBA - Input1.rgb, Alpha = Black
+ezTextureCubeChannelMappingEnum::RGB1;Cubemap: RGB - Single Input
+ezTextureCubeChannelMappingEnum::RGBA1;Cubemap: RGBA - Single Input
+ezTextureCubeChannelMappingEnum::RGB1TO6;Cubemap: RGB - 6 Inputs
+ezTextureCubeChannelMappingEnum::RGBA1TO6;Cubemap: RGBA - 6 Inputs
+ezTexture2DAddressMode::Wrap;Wrap
+ezTexture2DAddressMode::Mirror;Mirror
+ezTexture2DAddressMode::Clamp;Clamp
+Color CPs;Color Control Points
+Alpha CPs;Alpha Control Points
+Intensity CPs;Intensity Control Points
+ezColorControlPoint;Color
+ezAlphaControlPoint;Alpha
+ezIntensityControlPoint;Intensity
+ezPropertyAnimComponent;Property Animation
+Curves;Curves
+ezCurve1DData;Curve Data
+Control Points;Control Points
+ezCurve1DControlPoint;Control Point
+Animations;Animations
+ezPropertyAnimEntry;Animation
+ezPropertyAnimMode::Once;Once
+ezPropertyAnimMode::Loop;Loop
+ezPropertyAnimMode::BackAndForth;Back and Forth
+ezPropertyAnimTarget::Number;Number
+ezPropertyAnimTarget::VectorX;Vector X
+ezPropertyAnimTarget::VectorY;Vector Y
+ezPropertyAnimTarget::VectorZ;Vector Z
+ezPropertyAnimTarget::VectorW;Vector W
+ezPropertyAnimTarget::Color;Color
+ShaderProperties;Shader Properties
+Input 1;Input 1
+Input 2;Input 2
+Input 3;Input 3
+Input 4;Input 4
+Input 5;Input 5
+Input 6;Input 6
+Right (+X);Right (+X)
+Left (-X);Left (-X)
+Top (+Y);Top (+Y)
+Bottom (-Y);Bottom (-Y)
+Front (+Z);Front (+Z)
+Back (-Z);Back (-Z)
+ezMaterialShaderMode::File;From File
+ezMaterialShaderMode::Custom;Visual Shader
+ezMaterialShaderMode::BaseMaterial;From Base Material
+Project.SceneImport;Import Scene
+VisualShader.CleanGraph;Clean Visual Shader Graph
+TextureAsset.ChannelMode;
+ezTextureChannelMode::RGB;Display Channel: RGB
+ezTextureChannelMode::Red;Display Channel: Red
+ezTextureChannelMode::Green;Display Channel: Green
+ezTextureChannelMode::Blue;Display Channel: Blue
+ezTextureChannelMode::Alpha;Display Channel: Alpha
+ezTextureFilterSetting::FixedNearest;Fixed: Nearest
+ezTextureFilterSetting::FixedBilinear;Fixed: Bilinear
+ezTextureFilterSetting::FixedTrilinear;Fixed: Trilinear
+ezTextureFilterSetting::FixedAnisotropic2x;Fixed: Anisotropic 2x
+ezTextureFilterSetting::FixedAnisotropic4x;Fixed: Anisotropic 4x
+ezTextureFilterSetting::FixedAnisotropic8x;Fixed: Anisotropic 8x
+ezTextureFilterSetting::FixedAnisotropic16x;Fixed: Anisotropic 16x
+ezTextureFilterSetting::LowestQuality;Lowest Quality
+ezTextureFilterSetting::LowQuality;Low Quality
+ezTextureFilterSetting::DefaultQuality;Default Quality
+ezTextureFilterSetting::HighQuality;High Quality
+ezTextureFilterSetting::HighestQuality;Highest Quality
+TextureAsset.LodSlider;Mipmap
+ezTexture2DUsageEnum::Unknown;Unknown
+ezTexture2DUsageEnum::Diffuse;Diffuse
+ezTexture2DUsageEnum::NormalMap;Normal Map
+ezTexture2DUsageEnum::Height;Height
+ezTexture2DUsageEnum::Mask;Mask
+ezTexture2DUsageEnum::LookupTable;Lookup Table
+ezTexture2DUsageEnum::EmissiveColor;Emissive (Color)
+ezTexture2DUsageEnum::EmissiveMask;Emissive (Mask)
+ezTexture2DUsageEnum::Other_sRGB;Other sRGB
+ezTexture2DUsageEnum::Other_Linear;Other Linear
+ezTexture2DUsageEnum::HDR;HDR
+ezTextureCubeUsageEnum::Unknown;Unknown
+ezTextureCubeUsageEnum::Skybox;Skybox
+ezTextureCubeUsageEnum::LookupTable;Lookup Table
+ezTextureCubeUsageEnum::SkyboxHDR;Skybox HDR
+ezTextureCubeUsageEnum::Other_sRGB;Other sRGB
+ezTextureCubeUsageEnum::Other_Linear;Other Linear
+ezMeshPrimitive::File;From File
+ezMeshPrimitive::Box;Box
+ezMeshPrimitive::Rect;Rectangle
+ezMeshPrimitive::Cylinder;Cylinder
+ezMeshPrimitive::Cone;Cone
+ezMeshPrimitive::Pyramid;Pyramid
+ezMeshPrimitive::Sphere;Sphere
+ezMeshPrimitive::HalfSphere;Half Sphere
+ezMeshPrimitive::GeodesicSphere;Geodesic Sphere
+ezMeshPrimitive::Capsule;Capsule
+ezMeshPrimitive::Torus;Torus
+VisScript.PickDebugTarget;Pick Debug Target
+ezMaterialAnimComponent;Material Animation
+ezCollectionAssetEntry;Collection Asset Entry
+Entries;Entries
+ControlPoints;Control Points
+TextureCubeAsset.LodSlider;Level of Detail
+TextureImport.Diffuse;Diffuse Texture
+TextureImport.Normal;Normal Map
+TextureImport.HDR;HDR Texture
+TextureImport.Linear;Linear Texture
+ezDecalMode::All;All
+ezDecalMode::BaseColor;Base Color
+ezDecalMode::BaseColorRoughness;Base Color, Roughness
+ezDecalMode::NormalRoughnessOcclusion;Normal, Roughness, Occlusion
+ezDecalMode::Emissive;Emissive
+MeshImport.WithMaterials;Mesh and Materials
+MeshImport.NoMaterials;Mesh only
+DecalImport.All;Decal
+CubemapImport.Skybox;Skybox
+CubemapImport.SkyboxHDR;HDR Skybox

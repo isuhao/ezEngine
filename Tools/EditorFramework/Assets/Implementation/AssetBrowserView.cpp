@@ -1,44 +1,46 @@
-#include <PCH.h>
+﻿#include <PCH.h>
 #include <EditorFramework/Assets/AssetBrowserView.moc.h>
-#include <Foundation/Math/Math.h>
-#include <Foundation/Logging/Log.h>
+#include <EditorFramework/Assets/AssetBrowserModel.moc.h>
+#include <GuiFoundation/UIServices/UIServices.moc.h>
+#include <EditorFramework/Assets/AssetCurator.h>
 
-#include <QWheelEvent>
-#include <QApplication>
 #include <QPainter>
 
-ezAssetBrowserView::ezAssetBrowserView(QWidget* parent) : QListView(parent)
+ezQtAssetBrowserView::ezQtAssetBrowserView(QWidget* parent) : ezQtItemView<QListView>(parent)
 {
   m_iIconSizePercentage = 100;
+  m_pDelegate = new ezQtIconViewDelegate(this);
+
   SetDialogMode(false);
 
   setSelectionBehavior(QAbstractItemView::SelectionBehavior::SelectItems);
   setViewMode(QListView::ViewMode::IconMode);
   setUniformItemSizes(true);
   setResizeMode(QListView::ResizeMode::Adjust);
-  
-  m_pDelegate = new QtIconViewDelegate(this);
+
   setItemDelegate(m_pDelegate);
   SetIconScale(m_iIconSizePercentage);
 }
 
-void ezAssetBrowserView::SetDialogMode(bool bDialogMode)
+void ezQtAssetBrowserView::SetDialogMode(bool bDialogMode)
 {
   m_bDialogMode = bDialogMode;
 
   if (m_bDialogMode)
   {
+    m_pDelegate->SetDrawTransformState(false);
     setDragDropMode(QAbstractItemView::DragDropMode::NoDragDrop);
     setSelectionMode(QAbstractItemView::SelectionMode::SingleSelection);
   }
   else
   {
+    m_pDelegate->SetDrawTransformState(true);
     setDragDropMode(QAbstractItemView::DragOnly);
     setSelectionMode(QAbstractItemView::SelectionMode::ExtendedSelection);
   }
 }
 
-void ezAssetBrowserView::SetIconMode(bool bIconMode)
+void ezQtAssetBrowserView::SetIconMode(bool bIconMode)
 {
   if (bIconMode)
   {
@@ -52,7 +54,7 @@ void ezAssetBrowserView::SetIconMode(bool bIconMode)
   }
 }
 
-void ezAssetBrowserView::SetIconScale(ezInt32 iIconSizePercentage)
+void ezQtAssetBrowserView::SetIconScale(ezInt32 iIconSizePercentage)
 {
   m_iIconSizePercentage = ezMath::Clamp(iIconSizePercentage, 10, 100);
   m_pDelegate->SetIconScale(m_iIconSizePercentage);
@@ -63,13 +65,13 @@ void ezAssetBrowserView::SetIconScale(ezInt32 iIconSizePercentage)
   setGridSize(m_pDelegate->sizeHint(QStyleOptionViewItem(), QModelIndex()));
 }
 
-ezInt32 ezAssetBrowserView::GetIconScale() const
+ezInt32 ezQtAssetBrowserView::GetIconScale() const
 {
   return m_iIconSizePercentage;
 }
 
 
-void ezAssetBrowserView::wheelEvent(QWheelEvent* pEvent)
+void ezQtAssetBrowserView::wheelEvent(QWheelEvent* pEvent)
 {
   if(pEvent->modifiers() == Qt::CTRL)
   {
@@ -82,22 +84,63 @@ void ezAssetBrowserView::wheelEvent(QWheelEvent* pEvent)
   QListView::wheelEvent(pEvent);
 }
 
-QtIconViewDelegate::QtIconViewDelegate(ezAssetBrowserView* pParent) : QItemDelegate(pParent)
+ezQtIconViewDelegate::ezQtIconViewDelegate(ezQtAssetBrowserView* pParent) : ezQtItemDelegate(pParent)
 {
+  m_bDrawTransformState = true;
   m_iIconSizePercentage = 100;
   m_pView = pParent;
 }
 
-void QtIconViewDelegate::SetIconScale(ezInt32 iIconSizePercentage)
+void ezQtIconViewDelegate::SetIconScale(ezInt32 iIconSizePercentage)
 {
   m_iIconSizePercentage = iIconSizePercentage;
 }
 
-void QtIconViewDelegate::paint(QPainter* painter, const QStyleOptionViewItem& opt, const QModelIndex& index) const
+bool ezQtIconViewDelegate::mousePressEvent(QMouseEvent* event, const QStyleOptionViewItem& opt, const QModelIndex& index)
+{
+  const ezUInt32 uiThumbnailSize = ThumbnailSize();
+  QRect thumbnailRect = opt.rect.adjusted(ItemSideMargin + uiThumbnailSize - 16 + 2, ItemSideMargin + uiThumbnailSize - 16 + 2, 0, 0);
+  thumbnailRect.setSize(QSize(16, 16));
+  if (thumbnailRect.contains(event->localPos().toPoint()))
+  {
+    event->accept();
+    return true;
+  }
+  return false;
+}
+
+bool ezQtIconViewDelegate::mouseReleaseEvent(QMouseEvent* event, const QStyleOptionViewItem& opt, const QModelIndex& index)
+{
+  const ezUInt32 uiThumbnailSize = ThumbnailSize();
+  QRect thumbnailRect = opt.rect.adjusted(ItemSideMargin + uiThumbnailSize - 16 + 2, ItemSideMargin + uiThumbnailSize - 16 + 2, 0, 0);
+  thumbnailRect.setSize(QSize(16, 16));
+  if (thumbnailRect.contains(event->localPos().toPoint()))
+  {
+    ezUuid guid = index.data(ezQtAssetBrowserModel::UserRoles::AssetGuid).value<ezUuid>();
+    
+    auto ret = ezAssetCurator::GetSingleton()->TransformAsset(guid, false);
+
+    if (ret.m_Result.Failed())
+    {
+      QString path = index.data(ezQtAssetBrowserModel::UserRoles::RelativePath).toString();
+      ezLog::Error("Transform failed: '{0}' ({1})", ret.m_sMessage, path.toUtf8().data());
+    }
+    else
+    {
+      ezAssetCurator::GetSingleton()->WriteAssetTables();
+    }
+
+    event->accept();
+    return true;
+  }
+  return false;
+}
+
+void ezQtIconViewDelegate::paint(QPainter* painter, const QStyleOptionViewItem& opt, const QModelIndex& index) const
 {
   if (!IsInIconMode())
   {
-    QItemDelegate::paint(painter, opt, index);
+    ezQtItemDelegate::paint(painter, opt, index);
     return;
   }
 
@@ -118,18 +161,18 @@ void QtIconViewDelegate::paint(QPainter* painter, const QStyleOptionViewItem& op
     highlightRect.setHeight(uiThumbnailSize + 2 * HighlightBorderWidth);
     highlightRect.setWidth(uiThumbnailSize + 2 * HighlightBorderWidth);
 
-    if ((opt.state & QStyle::State_Selected)) 
+    if ((opt.state & QStyle::State_Selected))
     {
       QPalette::ColorGroup cg = opt.state & QStyle::State_Enabled ? QPalette::Normal : QPalette::Disabled;
       if (cg == QPalette::Normal && !(opt.state & QStyle::State_Active))
         cg = QPalette::Inactive;
 
       painter->fillRect(highlightRect, opt.palette.brush(cg, QPalette::Highlight));
-    } 
-    else 
+    }
+    else
     {
       QVariant value = index.data(Qt::BackgroundRole);
-      if (value.canConvert<QBrush>()) 
+      if (value.canConvert<QBrush>())
       {
         QPointF oldBO = painter->brushOrigin();
         painter->setBrushOrigin(highlightRect.topLeft());
@@ -147,6 +190,48 @@ void QtIconViewDelegate::paint(QPainter* painter, const QStyleOptionViewItem& op
     painter->drawPixmap(thumbnailRect, pixmap);
   }
 
+  // Draw icon.
+  {
+    QRect thumbnailRect = opt.rect.adjusted(ItemSideMargin - 2, ItemSideMargin + uiThumbnailSize - 16 + 2, 0, 0);
+    thumbnailRect.setSize(QSize(16, 16));
+    QPixmap pixmap = qvariant_cast<QPixmap>(index.data(ezQtAssetBrowserModel::UserRoles::AssetIconPath));
+    painter->drawPixmap(thumbnailRect, pixmap);
+  }
+
+  // Draw Transform State Icon
+  if (m_bDrawTransformState)
+  {
+    QRect thumbnailRect = opt.rect.adjusted(ItemSideMargin + uiThumbnailSize - 16 + 2, ItemSideMargin + uiThumbnailSize - 16 + 2, 0, 0);
+    thumbnailRect.setSize(QSize(16, 16));
+
+    ezAssetInfo::TransformState state = (ezAssetInfo::TransformState)index.data(ezQtAssetBrowserModel::UserRoles::TransformState).toInt();
+
+    switch (state)
+    {
+    case ezAssetInfo::TransformState::Unknown:
+      ezQtUiServices::GetSingleton()->GetCachedIconResource(":/EditorFramework/Icons/AssetUnknown16.png").paint(painter, thumbnailRect);
+      break;
+    case ezAssetInfo::TransformState::NeedsThumbnail:
+      ezQtUiServices::GetSingleton()->GetCachedIconResource(":/EditorFramework/Icons/AssetNeedsThumbnail16.png").paint(painter, thumbnailRect);
+      break;
+    case ezAssetInfo::TransformState::NeedsTransform:
+      ezQtUiServices::GetSingleton()->GetCachedIconResource(":/EditorFramework/Icons/AssetNeedsTransform16.png").paint(painter, thumbnailRect);
+      break;
+    case ezAssetInfo::TransformState::UpToDate:
+      ezQtUiServices::GetSingleton()->GetCachedIconResource(":/EditorFramework/Icons/AssetOk16.png").paint(painter, thumbnailRect);
+      break;
+    case ezAssetInfo::TransformState::MissingDependency:
+      ezQtUiServices::GetSingleton()->GetCachedIconResource(":/EditorFramework/Icons/AssetMissingDependency16.png").paint(painter, thumbnailRect);
+      break;
+    case ezAssetInfo::TransformState::MissingReference:
+      ezQtUiServices::GetSingleton()->GetCachedIconResource(":/EditorFramework/Icons/AssetMissingReference16.png").paint(painter, thumbnailRect);
+      break;
+    case ezAssetInfo::TransformState::TransformError:
+      ezQtUiServices::GetSingleton()->GetCachedIconResource(":/EditorFramework/Icons/AssetFailedTransform16.png").paint(painter, thumbnailRect);
+      break;
+    }
+  }
+
   // Draw caption.
   {
     painter->setFont(GetFont());
@@ -157,10 +242,11 @@ void QtIconViewDelegate::paint(QPainter* painter, const QStyleOptionViewItem& op
     painter->drawText(textRect, Qt::AlignHCenter | Qt::AlignTop | Qt::TextWrapAnywhere, caption);
   }
 
+
   painter->restore();
 }
 
-QSize	QtIconViewDelegate::sizeHint(const QStyleOptionViewItem& opt, const QModelIndex& index) const
+QSize	ezQtIconViewDelegate::sizeHint(const QStyleOptionViewItem& opt, const QModelIndex& index) const
 {
   if (IsInIconMode())
   {
@@ -168,11 +254,11 @@ QSize	QtIconViewDelegate::sizeHint(const QStyleOptionViewItem& opt, const QModel
   }
   else
   {
-    return QItemDelegate::sizeHint(opt, index);
+    return ezQtItemDelegate::sizeHint(opt, index);
   }
 }
 
-QSize QtIconViewDelegate::ItemSize() const
+QSize ezQtIconViewDelegate::ItemSize() const
 {
   QFont font = GetFont();
   QFontMetrics fm(font);
@@ -184,7 +270,7 @@ QSize QtIconViewDelegate::ItemSize() const
   return QSize(iItemWidth, iItemHeight);
 }
 
-QFont QtIconViewDelegate::GetFont() const
+QFont ezQtIconViewDelegate::GetFont() const
 {
   QFont font = QApplication::font();
 
@@ -194,12 +280,12 @@ QFont QtIconViewDelegate::GetFont() const
   return font;
 }
 
-ezUInt32 QtIconViewDelegate::ThumbnailSize() const
+ezUInt32 ezQtIconViewDelegate::ThumbnailSize() const
 {
   return MaxSize * (float)m_iIconSizePercentage / 100.0f;
 }
 
-bool QtIconViewDelegate::IsInIconMode() const
+bool ezQtIconViewDelegate::IsInIconMode() const
 {
   return m_pView->viewMode() == QListView::ViewMode::IconMode;
 }

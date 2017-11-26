@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <Foundation/IO/DirectoryWatcher.h>
 #include <Foundation/Containers/DynamicArray.h>
@@ -16,13 +16,17 @@ struct ezDirectoryWatcherImpl
 };
 
 ezDirectoryWatcher::ezDirectoryWatcher()
-  : m_bDirectoryOpen(false)
-  , m_pImpl(EZ_DEFAULT_NEW(ezDirectoryWatcherImpl))
+  : m_pImpl(EZ_DEFAULT_NEW(ezDirectoryWatcherImpl))
 {
+  m_pImpl->m_buffer.SetCountUninitialized(4096);
 }
 
-ezResult ezDirectoryWatcher::OpenDirectory(const ezString& path, ezBitflags<Watch> whatToWatch)
+ezResult ezDirectoryWatcher::OpenDirectory(const ezString& absolutePath, ezBitflags<Watch> whatToWatch)
 {
+  EZ_ASSERT_DEV(m_sDirectoryPath.IsEmpty(), "Directory already open, call CloseDirectory first!");
+  ezStringBuilder sPath(absolutePath);
+  sPath.MakeCleanPath();
+
   m_pImpl->m_watchSubdirs = whatToWatch.IsSet(Watch::Subdirectories);
   m_pImpl->m_filter = 0;
   if (whatToWatch.IsSet(Watch::Reads))
@@ -35,7 +39,7 @@ ezResult ezDirectoryWatcher::OpenDirectory(const ezString& path, ezBitflags<Watc
     m_pImpl->m_filter |= FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_DIR_NAME;
 
   m_pImpl->m_directoryHandle = CreateFileW(
-    ezStringWChar(path).GetData(),
+    ezStringWChar(sPath).GetData(),
     FILE_LIST_DIRECTORY,
     FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
     nullptr,
@@ -54,19 +58,19 @@ ezResult ezDirectoryWatcher::OpenDirectory(const ezString& path, ezBitflags<Watc
   }
 
   m_pImpl->DoRead();
-  m_bDirectoryOpen = true;
+  m_sDirectoryPath = sPath;
 
   return EZ_SUCCESS;
 }
 
 void ezDirectoryWatcher::CloseDirectory()
 {
-  if (m_bDirectoryOpen)
+  if (!m_sDirectoryPath.IsEmpty())
   {
     CancelIo(m_pImpl->m_directoryHandle);
     CloseHandle(m_pImpl->m_completionPort);
     CloseHandle(m_pImpl->m_directoryHandle);
-    m_bDirectoryOpen = false;
+    m_sDirectoryPath.Clear();
   }
 }
 
@@ -79,22 +83,25 @@ ezDirectoryWatcher::~ezDirectoryWatcher()
 void ezDirectoryWatcherImpl::DoRead()
 {
   memset(&m_overlapped, 0, sizeof(m_overlapped));
-  ReadDirectoryChangesW(m_directoryHandle, m_buffer.GetData(), m_buffer.GetCount(), m_watchSubdirs,
+  BOOL success = ReadDirectoryChangesW(m_directoryHandle, m_buffer.GetData(), m_buffer.GetCount(), m_watchSubdirs,
     m_filter, nullptr, &m_overlapped, nullptr);
+  EZ_ASSERT_DEV(success, "ReadDirectoryChangesW failed.");
 }
 
-void ezDirectoryWatcher::EnumerateChanges(ezDelegate<void(const char* filename, Action action)> func)
+void ezDirectoryWatcher::EnumerateChanges(ezDelegate<void(const char* filename, ezDirectoryWatcherAction action)> func)
 {
-  EZ_ASSERT_DEV(m_bDirectoryOpen, "No directory opened!");
+  EZ_ASSERT_DEV(!m_sDirectoryPath.IsEmpty(), "No directory opened!");
   OVERLAPPED* lpOverlapped;
   DWORD numberOfBytes;
   ULONG_PTR completionKey;
   while (GetQueuedCompletionStatus(m_pImpl->m_completionPort, &numberOfBytes, &completionKey, &lpOverlapped, 0) != 0)
   {
     //Copy the buffer
-    EZ_ASSERT_DEBUG(numberOfBytes > 0, "GetQueuedCompletionStatus failed");
+    if (numberOfBytes == 0)
+      continue;
+
     ezHybridArray<ezUInt8, 4096> buffer;
-    buffer.SetCount(numberOfBytes);
+    buffer.SetCountUninitialized(numberOfBytes);
     buffer.GetArrayPtr().CopyFrom(m_pImpl->m_buffer.GetArrayPtr().GetSubArray(0, numberOfBytes));
 
     //Reissue the read request
@@ -109,25 +116,26 @@ void ezDirectoryWatcher::EnumerateChanges(ezDelegate<void(const char* filename, 
       if (bytesNeeded > 0)
       {
         ezHybridArray<char, 1024> dir;
-        dir.SetCount(bytesNeeded);
+        dir.SetCountUninitialized(bytesNeeded+1);
         WideCharToMultiByte(CP_UTF8, 0, directory.GetPtr(), directory.GetCount(), dir.GetData(), dir.GetCount(), nullptr, nullptr);
-        Action action;
+        dir[bytesNeeded] = '\0';
+        ezDirectoryWatcherAction action;
         switch (info->Action)
         {
           case FILE_ACTION_ADDED:
-            action = Action::Added;
+            action = ezDirectoryWatcherAction::Added;
             break;
           case FILE_ACTION_REMOVED:
-            action = Action::Removed;
+            action = ezDirectoryWatcherAction::Removed;
             break;
           case FILE_ACTION_MODIFIED:
-            action = Action::Modified;
+            action = ezDirectoryWatcherAction::Modified;
             break;
           case FILE_ACTION_RENAMED_OLD_NAME:
-            action = Action::RenamedOldName;
+            action = ezDirectoryWatcherAction::RenamedOldName;
             break;
           case FILE_ACTION_RENAMED_NEW_NAME:
-            action = Action::RenamedNewName;
+            action = ezDirectoryWatcherAction::RenamedNewName;
             break;
         }
         func(dir.GetData(), action);
@@ -139,3 +147,4 @@ void ezDirectoryWatcher::EnumerateChanges(ezDelegate<void(const char* filename, 
     }
   }
 }
+

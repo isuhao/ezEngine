@@ -1,4 +1,4 @@
-#include <Foundation/PCH.h>
+#include <PCH.h>
 #include <Foundation/Communication/Telemetry.h>
 #include <Foundation/Threading/Thread.h>
 
@@ -15,7 +15,7 @@ public:
 private:
   virtual ezUInt32 Run()
   {
-    static ezTime LastPing;
+    ezTime LastPing;
 
     while (m_bKeepRunning)
     {
@@ -34,7 +34,7 @@ private:
         }
       }
 
-      ezThreadUtils::Sleep(10);
+      ezThreadUtils::Sleep(ezTime::Milliseconds(10));
     }
 
     return 0;

@@ -15,23 +15,23 @@ public:
   static ezActionDescriptorHandle s_hAssetCategory;
   static ezActionDescriptorHandle s_hTransformAsset;
   static ezActionDescriptorHandle s_hTransformAllAssets;
+  static ezActionDescriptorHandle s_hResaveAllAssets;
   static ezActionDescriptorHandle s_hCheckFileSystem;
   static ezActionDescriptorHandle s_hWriteLookupTable;
-  static ezActionDescriptorHandle s_hRetrieveAssetInfo;
 };
 
 ///
 class EZ_EDITORFRAMEWORK_DLL ezAssetAction : public ezButtonAction
 {
-  EZ_ADD_DYNAMIC_REFLECTION(ezAssetAction);
+  EZ_ADD_DYNAMIC_REFLECTION(ezAssetAction, ezButtonAction);
 public:
   enum class ButtonType
   {
     TransformAsset,
     TransformAllAssets,
+    ResaveAllAssets,
     CheckFileSystem,
     WriteLookupTable,
-    RetrieveAssetInfo,
   };
 
   ezAssetAction(const ezActionContext& context, const char* szName, ButtonType button);

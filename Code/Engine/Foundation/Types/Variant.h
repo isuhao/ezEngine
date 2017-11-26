@@ -1,9 +1,10 @@
-#pragma once
+﻿#pragma once
 
 #include <Foundation/Containers/DynamicArray.h>
 #include <Foundation/Containers/HashTable.h>
 #include <Foundation/Threading/AtomicInteger.h>
 #include <Foundation/Utilities/ConversionUtils.h>
+#include <Foundation/Algorithm/Hashing.h>
 
 class ezReflectedClass;
 
@@ -21,9 +22,14 @@ public:
   {
     typedef ezUInt8 StorageType;
     /// \brief This enum describes the type of data that is currently stored inside the variant.
+    /// Note that changes to this enum require an increase of the reflection version and either
+    /// patches to the serializer or a re-export of binary data that contains ezVariants.
     enum Enum
     {
-      Invalid,            ///< The variant stores no (valid) data at the moment.
+      Invalid = 0,        ///< The variant stores no (valid) data at the moment.
+
+/// *** Types that are flagged as 'StandardTypes' (see DetermineTypeFlags) ***
+      FirstStandardType = 1,
       Bool,               ///< The variant stores a bool.
       Int8,               ///< The variant stores an ezInt8.
       UInt8,              ///< The variant stores an ezUInt8.
@@ -39,17 +45,34 @@ public:
       Vector2,            ///< The variant stores an ezVec2.
       Vector3,            ///< The variant stores an ezVec3.
       Vector4,            ///< The variant stores an ezVec4.
+      Vector2I,           ///< The variant stores an ezVec2I32.
+      Vector3I,           ///< The variant stores an ezVec3I32.
+      Vector4I,           ///< The variant stores an ezVec4I32.
+      Vector2U,           ///< The variant stores an ezVec2U32.
+      Vector3U,           ///< The variant stores an ezVec3U32.
+      Vector4U,           ///< The variant stores an ezVec4U32.
       Quaternion,         ///< The variant stores an ezQuat.
       Matrix3,            ///< The variant stores an ezMat3. A heap allocation is required to store this data type.
       Matrix4,            ///< The variant stores an ezMat4. A heap allocation is required to store this data type.
+      Transform,          ///< The variant stores an ezTransform. A heap allocation is required to store this data type.
       String,             ///< The variant stores a string. A heap allocation is required to store this data type.
+      StringView,         ///< The variant stores an ezStringView.
+      DataBuffer,         ///< The variant stores an ezDataBuffer, a typedef to DynamicArray<ezUInt8>. A heap allocation is required to store this data type.
       Time,               ///< The variant stores an ezTime value.
       Uuid,               ///< The variant stores an ezUuid value.
+      Angle,              ///< The variant stores an ezAngle value.
+      ColorGamma,         ///< The variant stores an ezColorGammaUB value.
+      LastStandardType,
+/// *** Types that are flagged as 'StandardTypes' (see DetermineTypeFlags) ***
+
+      FirstExtendedType = 64,
       VariantArray,       ///< The variant stores an array of ezVariant's. A heap allocation is required to store this data type.
       VariantDictionary,  ///< The variant stores a dictionary (hashmap) of ezVariant's. A heap allocation is required to store this data type.
       ReflectedPointer,   ///< The variant stores a pointer to a dynamically reflected object.
       VoidPointer,        ///< The variant stores a void pointer.
-      ENUM_COUNT,         ///< Number of values for ezVariant::Type.
+      LastExtendedType,         ///< Number of values for ezVariant::Type.
+
+      MAX_ENUM_VALUE = LastExtendedType,
       Default = Invalid   ///< Default value used by ezEnum.
     };
   };
@@ -67,7 +90,7 @@ public:
 
     typedef T StorageType;
   };
-  
+
   /// \brief Initializes the variant to be 'Invalid'
   ezVariant(); // [tested]
 
@@ -112,7 +135,7 @@ public:
 
   /// \brief Same as operator== (with a twist!)
   bool operator!=(const ezVariant& other) const; // [tested]
-  
+
   /// \brief See non-templated operator==
   template <typename T>
   bool operator==(const T& other) const; // [tested]
@@ -209,7 +232,7 @@ private:
   {
     void* m_Ptr;
     ezAtomicInteger32 m_uiRef;
-    EZ_FORCE_INLINE SharedData(void* ptr) : m_Ptr(ptr), m_uiRef(1) { }
+    EZ_ALWAYS_INLINE SharedData(void* ptr) : m_Ptr(ptr), m_uiRef(1) { }
     virtual ~SharedData() { }
   };
 
@@ -219,7 +242,7 @@ private:
   private:
     T m_t;
   public:
-    EZ_FORCE_INLINE TypedSharedData(const T& value) : SharedData(&m_t), m_t(value) { }
+    EZ_ALWAYS_INLINE TypedSharedData(const T& value) : SharedData(&m_t), m_t(value) { }
   };
 
   union Data
@@ -260,6 +283,7 @@ private:
 typedef ezDynamicArray<ezVariant> ezVariantArray;
 typedef ezHashTable<ezString, ezVariant> ezVariantDictionary;
 typedef ezVariant::Type ezVariantType;
+typedef ezDynamicArray<ezUInt8> ezDataBuffer;
 
 #include <Foundation/Types/Implementation/VariantTypeDeduction_inl.h>
 #include <Foundation/Types/Implementation/VariantHelper_inl.h>

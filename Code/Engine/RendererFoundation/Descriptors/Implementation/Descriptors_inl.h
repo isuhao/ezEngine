@@ -1,20 +1,16 @@
 
-ezGALSwapChainCreationDescription::ezGALSwapChainCreationDescription()
+inline ezGALSwapChainCreationDescription::ezGALSwapChainCreationDescription()
   : ezHashableStruct(),
     m_pWindow(nullptr),
     m_SampleCount(ezGALMSAASampleCount::None),
     m_BackBufferFormat(ezGALResourceFormat::RGBAUByteNormalizedsRGB),
-    m_DepthStencilBufferFormat(ezGALResourceFormat::D24S8),
     m_bDoubleBuffered(true),
-    m_bVerticalSynchronization(false),
-    m_bCreateDepthStencilBuffer(true),
-    m_bFullscreen(false),
     m_bAllowScreenshots(false)
 {
 }
 
 
-ezGALDeviceCreationDescription::ezGALDeviceCreationDescription()
+inline ezGALDeviceCreationDescription::ezGALDeviceCreationDescription()
   : m_PrimarySwapChainDescription(),
     m_bDebugDevice(false),
     m_bCreatePrimarySwapChain(true)
@@ -22,12 +18,12 @@ ezGALDeviceCreationDescription::ezGALDeviceCreationDescription()
 }
 
 
-ezGALShaderCreationDescription::ezGALShaderCreationDescription()
+inline ezGALShaderCreationDescription::ezGALShaderCreationDescription()
   : ezHashableStruct()
 {
 }
 
-ezGALShaderCreationDescription::~ezGALShaderCreationDescription()
+inline ezGALShaderCreationDescription::~ezGALShaderCreationDescription()
 {
   for (ezUInt32 i = 0; i < ezGALShaderStage::ENUM_COUNT; ++i)
   {
@@ -41,12 +37,12 @@ ezGALShaderCreationDescription::~ezGALShaderCreationDescription()
   }
 }
 
-bool ezGALShaderCreationDescription::HasByteCodeForStage(ezGALShaderStage::Enum Stage) const
+inline bool ezGALShaderCreationDescription::HasByteCodeForStage(ezGALShaderStage::Enum Stage) const
 {
   return m_ByteCodes[Stage] != nullptr && m_ByteCodes[Stage]->IsValid();
 }
 
-ezGALRenderTargetBlendDescription::ezGALRenderTargetBlendDescription()
+inline ezGALRenderTargetBlendDescription::ezGALRenderTargetBlendDescription()
   : m_SourceBlend(ezGALBlend::One),
     m_DestBlend(ezGALBlend::One),
     m_BlendOp(ezGALBlendOp::Add),
@@ -58,28 +54,28 @@ ezGALRenderTargetBlendDescription::ezGALRenderTargetBlendDescription()
 {
 }
 
-ezGALBlendStateCreationDescription::ezGALBlendStateCreationDescription()
+inline ezGALBlendStateCreationDescription::ezGALBlendStateCreationDescription()
   : m_bAlphaToCoverage(false),
     m_bIndependentBlend(false)
 {
 }
 
-ezGALResourceAccess::ezGALResourceAccess()
+EZ_FORCE_INLINE ezGALResourceAccess::ezGALResourceAccess()
   : m_bReadBack(false), m_bImmutable(true)
 {
 }
 
-bool ezGALResourceAccess::IsImmutable() const
+EZ_ALWAYS_INLINE bool ezGALResourceAccess::IsImmutable() const
 {
   return m_bImmutable;
 }
 
 
-ezGALBufferCreationDescription::ezGALBufferCreationDescription()
+inline ezGALBufferCreationDescription::ezGALBufferCreationDescription()
   : ezHashableStruct(),
     m_uiStructSize(0),
     m_uiTotalSize(0),
-    m_BufferType(ezGALBufferType::Storage),
+    m_BufferType(ezGALBufferType::Generic),
     m_bUseForIndirectArguments(false),
     m_bUseAsStructuredBuffer(false),
     m_bAllowRawViews(false),
@@ -91,12 +87,12 @@ ezGALBufferCreationDescription::ezGALBufferCreationDescription()
 }
 
 
-ezGALTextureCreationDescription::ezGALTextureCreationDescription()
+inline ezGALTextureCreationDescription::ezGALTextureCreationDescription()
   : ezHashableStruct(),
     m_uiWidth(0),
     m_uiHeight(0),
     m_uiDepth(1),
-    m_uiMipSliceCount(1),
+    m_uiMipLevelCount(1),
     m_uiArraySize(1),
     m_SampleCount(ezGALMSAASampleCount::None),
     m_Format(ezGALResourceFormat::Invalid),
@@ -110,8 +106,28 @@ ezGALTextureCreationDescription::ezGALTextureCreationDescription()
 {
 }
 
+inline void ezGALTextureCreationDescription::SetAsRenderTarget(ezUInt32 uiWidth, ezUInt32 uiHeight, ezGALResourceFormat::Enum format,
+  ezGALMSAASampleCount::Enum sampleCount /*= ezGALMSAASampleCount::None*/)
+{
+  m_uiWidth = uiWidth;
+  m_uiHeight = uiHeight;
+  m_uiDepth = 1;
+  m_uiMipLevelCount = 1;
+  m_uiArraySize = 1;
+  m_SampleCount = sampleCount;
+  m_Format = format;
+  m_Type = ezGALTextureType::Texture2D;
+  m_bAllowShaderResourceView = true;
+  m_bAllowUAV = false;
+  m_bCreateRenderTarget = true;
+  m_bAllowDynamicMipGeneration = false;
+  m_ResourceAccess.m_bReadBack = false;
+  m_ResourceAccess.m_bImmutable = true;
+  m_pExisitingNativeObject = nullptr;
+}
 
-ezGALResourceViewCreationDescription::ezGALResourceViewCreationDescription()
+
+inline ezGALResourceViewCreationDescription::ezGALResourceViewCreationDescription()
   : m_hTexture(),
     m_hBuffer(),
     m_OverrideViewFormat(ezGALResourceFormat::Invalid),
@@ -126,20 +142,18 @@ ezGALResourceViewCreationDescription::ezGALResourceViewCreationDescription()
 }
 
 
-ezGALRenderTargetViewCreationDescription::ezGALRenderTargetViewCreationDescription()
+inline ezGALRenderTargetViewCreationDescription::ezGALRenderTargetViewCreationDescription()
   : ezHashableStruct(),
     m_hTexture(),
-    m_hBuffer(),
-    m_RenderTargetType(ezGALRenderTargetType::Color),
     m_OverrideViewFormat(ezGALResourceFormat::Invalid),
-    m_uiMipSlice(0),
+    m_uiMipLevel(0),
     m_uiFirstSlice(0),
     m_uiSliceCount(1),
     m_bReadOnly(false)
 {
 }
 
-ezGALVertexAttribute::ezGALVertexAttribute()
+EZ_FORCE_INLINE ezGALVertexAttribute::ezGALVertexAttribute()
   : m_eSemantic(ezGALVertexAttributeSemantic::Position),
   m_eFormat(ezGALResourceFormat::XYZFloat),
   m_uiOffset(0),
@@ -148,7 +162,7 @@ ezGALVertexAttribute::ezGALVertexAttribute()
 {
 }
 
-ezGALVertexAttribute::ezGALVertexAttribute(ezGALVertexAttributeSemantic::Enum eSemantic, ezGALResourceFormat::Enum eFormat, ezUInt16 uiOffset, ezUInt8 uiVertexBufferSlot, bool bInstanceData)
+EZ_FORCE_INLINE ezGALVertexAttribute::ezGALVertexAttribute(ezGALVertexAttributeSemantic::Enum eSemantic, ezGALResourceFormat::Enum eFormat, ezUInt16 uiOffset, ezUInt8 uiVertexBufferSlot, bool bInstanceData)
   : m_eSemantic(eSemantic),
     m_eFormat(eFormat),
     m_uiOffset(uiOffset),
@@ -157,21 +171,18 @@ ezGALVertexAttribute::ezGALVertexAttribute(ezGALVertexAttributeSemantic::Enum eS
 {
 }
 
-ezGALRasterizerStateCreationDescription::ezGALRasterizerStateCreationDescription()
+inline ezGALRasterizerStateCreationDescription::ezGALRasterizerStateCreationDescription()
   : m_CullMode(ezGALCullMode::Back),
     m_iDepthBias(0),
     m_fDepthBiasClamp(0.0f),
     m_fSlopeScaledDepthBias(0.0f),
     m_bWireFrame(false),
     m_bFrontCounterClockwise(false),
-    m_bDepthClip(true),
-    m_bScissorTest(false),
-    m_bMSAA(false),
-    m_bLineAA(false)
+    m_bScissorTest(false)
 {
 }
 
-ezGALStencilOpDescription::ezGALStencilOpDescription()
+inline ezGALStencilOpDescription::ezGALStencilOpDescription()
   : m_FailOp(ezGALStencilOp::Keep),
     m_DepthFailOp(ezGALStencilOp::Keep),
     m_PassOp(ezGALStencilOp::Keep),
@@ -179,7 +190,7 @@ ezGALStencilOpDescription::ezGALStencilOpDescription()
 {
 }
 
-ezGALDepthStencilStateCreationDescription::ezGALDepthStencilStateCreationDescription()
+inline ezGALDepthStencilStateCreationDescription::ezGALDepthStencilStateCreationDescription()
   : m_DepthTestFunc(ezGALCompareFunc::Less),
     m_bSeparateFrontAndBack(false),
     m_bDepthTest(true),
@@ -190,7 +201,7 @@ ezGALDepthStencilStateCreationDescription::ezGALDepthStencilStateCreationDescrip
 {
 }
 
-ezGALSamplerStateCreationDescription::ezGALSamplerStateCreationDescription()
+inline ezGALSamplerStateCreationDescription::ezGALSamplerStateCreationDescription()
   : m_MinFilter(ezGALTextureFilterMode::Linear),
     m_MagFilter(ezGALTextureFilterMode::Linear),
     m_MipFilter(ezGALTextureFilterMode::Linear),
@@ -202,6 +213,26 @@ ezGALSamplerStateCreationDescription::ezGALSamplerStateCreationDescription()
     m_fMipLodBias(0),
     m_fMinMip(-1.0f),
     m_fMaxMip(42000.0f),
-    m_uiMaxAnisotropy(16)
+    m_uiMaxAnisotropy(4)
+{
+}
+
+inline ezGALUnorderedAccessViewCreationDescription::ezGALUnorderedAccessViewCreationDescription()
+  : m_hTexture()
+  , m_hBuffer()
+  , m_OverrideViewFormat(ezGALResourceFormat::Invalid)
+  , m_uiMipLevelToUse(0)
+  , m_uiFirstArraySlice(0)
+  , m_uiArraySize(1)
+  , m_uiFirstElement(0)
+  , m_uiNumElements(0)
+  , m_bRawView(false)
+  , m_bAppend(false)
+{
+}
+
+inline ezGALQueryCreationDescription::ezGALQueryCreationDescription() :
+  m_type(ezGALQueryType::Timestamp),
+  m_bDrawIfUnknown(true)
 {
 }

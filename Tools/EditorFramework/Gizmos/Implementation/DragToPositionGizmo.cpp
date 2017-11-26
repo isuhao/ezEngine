@@ -1,37 +1,42 @@
-#include <PCH.h>
+﻿#include <PCH.h>
 #include <EditorFramework/Gizmos/DragToPositionGizmo.h>
-#include <EditorFramework/DocumentWindow3D/DocumentWindow3D.moc.h>
+#include <EditorFramework/DocumentWindow/EngineDocumentWindow.moc.h>
 #include <Foundation/Logging/Log.h>
 #include <QMouseEvent>
-#include <CoreUtils/Graphics/Camera.h>
+#include <Core/Graphics/Camera.h>
 #include <Foundation/Utilities/GraphicsUtils.h>
+#include <EditorFramework/Gizmos/SnapProvider.h>
+#include <EditorFramework/DocumentWindow/EngineViewWidget.moc.h>
+#include <EditorFramework/Assets/AssetDocument.h>
 
-EZ_BEGIN_DYNAMIC_REFLECTED_TYPE(ezDragToPositionGizmo, ezGizmoBase, 1, ezRTTINoAllocator);
-EZ_END_DYNAMIC_REFLECTED_TYPE();
+EZ_BEGIN_DYNAMIC_REFLECTED_TYPE(ezDragToPositionGizmo, 1, ezRTTINoAllocator);
+EZ_END_DYNAMIC_REFLECTED_TYPE
 
 ezDragToPositionGizmo::ezDragToPositionGizmo()
 {
-  m_Bobble.Configure(this, ezGizmoHandleType::Box, ezColor::DodgerBlue);
-  m_AlignPX.Configure(this, ezGizmoHandleType::HalfPiston, ezColor::SteelBlue);
-  m_AlignNX.Configure(this, ezGizmoHandleType::HalfPiston, ezColor::SteelBlue);
-  m_AlignPY.Configure(this, ezGizmoHandleType::HalfPiston, ezColor::SteelBlue);
-  m_AlignNY.Configure(this, ezGizmoHandleType::HalfPiston, ezColor::SteelBlue);
-  m_AlignPZ.Configure(this, ezGizmoHandleType::HalfPiston, ezColor::SteelBlue);
-  m_AlignNZ.Configure(this, ezGizmoHandleType::HalfPiston, ezColor::SteelBlue);
+  m_bModifiesRotation = false;
+
+  m_Bobble.Configure(this, ezEngineGizmoHandleType::Box, ezColor::DodgerBlue);
+  m_AlignPX.Configure(this, ezEngineGizmoHandleType::HalfPiston, ezColor::SteelBlue);
+  m_AlignNX.Configure(this, ezEngineGizmoHandleType::HalfPiston, ezColor::SteelBlue);
+  m_AlignPY.Configure(this, ezEngineGizmoHandleType::HalfPiston, ezColor::SteelBlue);
+  m_AlignNY.Configure(this, ezEngineGizmoHandleType::HalfPiston, ezColor::SteelBlue);
+  m_AlignPZ.Configure(this, ezEngineGizmoHandleType::HalfPiston, ezColor::SteelBlue);
+  m_AlignNZ.Configure(this, ezEngineGizmoHandleType::HalfPiston, ezColor::SteelBlue);
 
   SetVisible(false);
-  SetTransformation(ezMat4::IdentityMatrix());
+  SetTransformation(ezTransform::Identity());
 }
 
-void ezDragToPositionGizmo::OnSetOwner(ezDocumentWindow3D* pOwnerWindow, ezEngineViewWidget* pOwnerView)
+void ezDragToPositionGizmo::OnSetOwner(ezQtEngineDocumentWindow* pOwnerWindow, ezQtEngineViewWidget* pOwnerView)
 {
-  m_Bobble.SetOwner(pOwnerWindow);
-  m_AlignPX.SetOwner(pOwnerWindow);
-  m_AlignNX.SetOwner(pOwnerWindow);
-  m_AlignPY.SetOwner(pOwnerWindow);
-  m_AlignNY.SetOwner(pOwnerWindow);
-  m_AlignPZ.SetOwner(pOwnerWindow);
-  m_AlignNZ.SetOwner(pOwnerWindow);
+  pOwnerWindow->GetDocument()->AddSyncObject(&m_Bobble);
+  pOwnerWindow->GetDocument()->AddSyncObject(&m_AlignPX);
+  pOwnerWindow->GetDocument()->AddSyncObject(&m_AlignNX);
+  pOwnerWindow->GetDocument()->AddSyncObject(&m_AlignPY);
+  pOwnerWindow->GetDocument()->AddSyncObject(&m_AlignNY);
+  pOwnerWindow->GetDocument()->AddSyncObject(&m_AlignPZ);
+  pOwnerWindow->GetDocument()->AddSyncObject(&m_AlignNZ);
 }
 
 void ezDragToPositionGizmo::OnVisibleChanged(bool bVisible)
@@ -45,38 +50,40 @@ void ezDragToPositionGizmo::OnVisibleChanged(bool bVisible)
   m_AlignNZ.SetVisible(bVisible);
 }
 
-void ezDragToPositionGizmo::OnTransformationChanged(const ezMat4& transform)
+void ezDragToPositionGizmo::OnTransformationChanged(const ezTransform& transform)
 {
-  m_Bobble.SetTransformation(transform);
+  ezTransform m;
+  m.SetIdentity();
 
-  ezMat4 m;
+  m.m_vScale = ezVec3(0.2f);
+  m_Bobble.SetTransformation(transform * m);
 
   m.SetIdentity();
   m_AlignPX.SetTransformation(transform * m);
-  m.SetRotationMatrixY(ezAngle::Degree(180));
+  m.m_qRotation.SetFromAxisAndAngle(ezVec3(0, 1, 0), ezAngle::Degree(180));
   m_AlignNX.SetTransformation(transform * m);
 
-  m.SetRotationMatrixZ(ezAngle::Degree(+90));
+  m.m_qRotation.SetFromAxisAndAngle(ezVec3(0, 0, 1), ezAngle::Degree(+90));
   m_AlignPY.SetTransformation(transform * m);
-  m.SetRotationMatrixZ(ezAngle::Degree(-90));
+  m.m_qRotation.SetFromAxisAndAngle(ezVec3(0, 0, 1), ezAngle::Degree(-90));
   m_AlignNY.SetTransformation(transform * m);
 
-  m.SetRotationMatrixY(ezAngle::Degree(-90));
+  m.m_qRotation.SetFromAxisAndAngle(ezVec3(0, 1, 0), ezAngle::Degree(-90));
   m_AlignPZ.SetTransformation(transform * m);
-  m.SetRotationMatrixY(ezAngle::Degree(+90));
+  m.m_qRotation.SetFromAxisAndAngle(ezVec3(0, 1, 0), ezAngle::Degree(+90));
   m_AlignNZ.SetTransformation(transform * m);
 
 }
 
-void ezDragToPositionGizmo::FocusLost()
+void ezDragToPositionGizmo::DoFocusLost(bool bCancel)
 {
-  BaseEvent ev;
+  ezGizmoEvent ev;
   ev.m_pGizmo = this;
-  ev.m_Type = BaseEvent::Type::EndInteractions;
-  m_BaseEvents.Broadcast(ev);
+  ev.m_Type = bCancel ? ezGizmoEvent::Type::CancelInteractions : ezGizmoEvent::Type::EndInteractions;
+  m_GizmoEvents.Broadcast(ev);
 
   ezViewHighlightMsgToEngine msg;
-  msg.SendHighlightObjectMessage(GetOwnerWindow()->GetEditorEngineConnection());
+  GetOwnerWindow()->GetEditorEngineConnection()->SendHighlightObjectMessage(&msg);
 
   m_Bobble.SetVisible(true);
   m_AlignPX.SetVisible(true);
@@ -87,53 +94,55 @@ void ezDragToPositionGizmo::FocusLost()
   m_AlignNZ.SetVisible(true);
 }
 
-bool ezDragToPositionGizmo::mousePressEvent(QMouseEvent* e)
+ezEditorInput ezDragToPositionGizmo::DoMousePressEvent(QMouseEvent* e)
 {
   if (IsActiveInputContext())
-    return true;
+    return ezEditorInput::WasExclusivelyHandled;
 
   if (e->button() != Qt::MouseButton::LeftButton)
-    return false;
+    return ezEditorInput::MayBeHandledByOthers;
 
   ezViewHighlightMsgToEngine msg;
   msg.m_HighlightObject = m_pInteractionGizmoHandle->GetGuid();
-  msg.SendHighlightObjectMessage(GetOwnerWindow()->GetEditorEngineConnection());
+  GetOwnerWindow()->GetEditorEngineConnection()->SendHighlightObjectMessage(&msg);
 
-  m_Bobble.SetVisible(false);
-  m_AlignPX.SetVisible(false);
-  m_AlignNX.SetVisible(false);
-  m_AlignPY.SetVisible(false);
-  m_AlignNY.SetVisible(false);
-  m_AlignPZ.SetVisible(false);
-  m_AlignNZ.SetVisible(false);
-  m_pInteractionGizmoHandle->SetVisible(true);
+  // The gizmo is actually "hidden" somewhere else during dragging,
+  // because it musn't be rendered into the picking buffer, to avoid picking against the gizmo
+  //m_Bobble.SetVisible(false);
+  //m_AlignPX.SetVisible(false);
+  //m_AlignNX.SetVisible(false);
+  //m_AlignPY.SetVisible(false);
+  //m_AlignNY.SetVisible(false);
+  //m_AlignPZ.SetVisible(false);
+  //m_AlignNZ.SetVisible(false);
+  //m_pInteractionGizmoHandle->SetVisible(true);
 
-  m_vStartPosition = GetTransformation().GetTranslationVector();
+  m_vStartPosition = GetTransformation().m_vPosition;
 
   m_LastInteraction = ezTime::Now();
 
   SetActiveInputContext(this);
 
-  BaseEvent ev;
+  ezGizmoEvent ev;
   ev.m_pGizmo = this;
-  ev.m_Type = BaseEvent::Type::BeginInteractions;
-  m_BaseEvents.Broadcast(ev);
+  ev.m_Type = ezGizmoEvent::Type::BeginInteractions;
+  m_GizmoEvents.Broadcast(ev);
 
-  return true;
+  return ezEditorInput::WasExclusivelyHandled;
 }
 
-bool ezDragToPositionGizmo::mouseReleaseEvent(QMouseEvent* e)
+ezEditorInput ezDragToPositionGizmo::DoMouseReleaseEvent(QMouseEvent* e)
 {
   if (!IsActiveInputContext())
-    return false;
+    return ezEditorInput::MayBeHandledByOthers;
 
   if (e->button() != Qt::MouseButton::LeftButton)
-    return true;
+    return ezEditorInput::WasExclusivelyHandled;
 
-  FocusLost();
+  FocusLost(false);
 
   SetActiveInputContext(nullptr);
-  return true;
+  return ezEditorInput::WasExclusivelyHandled;
 }
 
 static const ezVec3 GetOrthogonalVector(const ezVec3& vDir)
@@ -144,33 +153,40 @@ static const ezVec3 GetOrthogonalVector(const ezVec3& vDir)
   return -vDir.Cross(ezVec3(1, 0, 0));
 }
 
-bool ezDragToPositionGizmo::mouseMoveEvent(QMouseEvent* e)
+ezEditorInput ezDragToPositionGizmo::DoMouseMoveEvent(QMouseEvent* e)
 {
   if (!IsActiveInputContext())
-    return false;
+    return ezEditorInput::MayBeHandledByOthers;
 
   const ezTime tNow = ezTime::Now();
 
   if (tNow - m_LastInteraction < ezTime::Seconds(1.0 / 25.0))
-    return true;
+    return ezEditorInput::WasExclusivelyHandled;
 
   m_LastInteraction = tNow;
 
-  const ezObjectPickingResult& res = GetOwnerWindow()->PickObject(e->pos().x(), e->pos().y());
+  const ezObjectPickingResult& res = GetOwnerView()->PickObject(e->pos().x(), e->pos().y());
 
   if (!res.m_PickedObject.IsValid())
-    return true;
+    return ezEditorInput::WasExclusivelyHandled;
 
   if (res.m_vPickedPosition.IsNaN() || res.m_vPickedNormal.IsNaN() || res.m_vPickedNormal.IsZero())
-    return true;
+    return ezEditorInput::WasExclusivelyHandled;
 
   const ezVec3 vTangent = GetOrthogonalVector(res.m_vPickedNormal).GetNormalized();
   const ezVec3 vBiTangent = res.m_vPickedNormal.Cross(vTangent).GetNormalized();
 
-  ezMat3 mRot;
-  ezMat4 mTrans = GetTransformation();
-  mTrans.SetTranslationVector(res.m_vPickedPosition);
+  ezVec3 vSnappedPosition = res.m_vPickedPosition;
 
+  // disable snapping when ALT is pressed
+  if (!e->modifiers().testFlag(Qt::AltModifier))
+    ezSnapProvider::SnapTranslation(vSnappedPosition);
+
+  ezMat3 mRot;
+  ezTransform mTrans = GetTransformation();
+  mTrans.m_vPosition = vSnappedPosition;
+
+  m_bModifiesRotation = true;
 
   if (m_pInteractionGizmoHandle == &m_AlignPX)
   {
@@ -209,16 +225,19 @@ bool ezDragToPositionGizmo::mouseMoveEvent(QMouseEvent* e)
     mRot.SetColumn(2, -res.m_vPickedNormal);
   }
   else
+  {
+    m_bModifiesRotation = false;
     mRot.SetIdentity();
+  }
 
-  mTrans.SetRotationalPart(mRot);
+  mTrans.m_qRotation.SetFromMat3(mRot);
   SetTransformation(mTrans);
 
-  BaseEvent ev;
+  ezGizmoEvent ev;
   ev.m_pGizmo = this;
-  ev.m_Type = BaseEvent::Type::Interaction;
-  m_BaseEvents.Broadcast(ev);
+  ev.m_Type = ezGizmoEvent::Type::Interaction;
+  m_GizmoEvents.Broadcast(ev);
 
-  return true;
+  return ezEditorInput::WasExclusivelyHandled;
 }
 

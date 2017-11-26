@@ -27,37 +27,51 @@ public:
   static ezActionDescriptorHandle s_hCloseProject;
 
   static ezActionDescriptorHandle s_hSettingsCategory;
-  static ezActionDescriptorHandle s_hProjectSettings;
+  static ezActionDescriptorHandle s_hEditorSettingsMenu;
+  static ezActionDescriptorHandle s_hProjectSettingsMenu;
+  static ezActionDescriptorHandle s_hShortcutEditor;
+  static ezActionDescriptorHandle s_hEditorPlugins;
+  static ezActionDescriptorHandle s_hEnginePlugins;
+  static ezActionDescriptorHandle s_hDataDirectories;
+  static ezActionDescriptorHandle s_hWindowConfig;
+  static ezActionDescriptorHandle s_hInputConfig;
+  static ezActionDescriptorHandle s_hPreferencesDlg;
+  static ezActionDescriptorHandle s_hTagsDlg;
+  static ezActionDescriptorHandle s_hEditorTests;
 
   static ezActionDescriptorHandle s_hToolsMenu;
-  static ezActionDescriptorHandle s_hEngineCategory;
+  static ezActionDescriptorHandle s_hToolsCategory;
   static ezActionDescriptorHandle s_hReloadResources;
+  static ezActionDescriptorHandle s_hReloadEngine;
+  static ezActionDescriptorHandle s_hLaunchFileserve;
+  static ezActionDescriptorHandle s_hSaveProfiling;
+  static ezActionDescriptorHandle s_hImportAsset;
 };
 
 ///
-class EZ_EDITORFRAMEWORK_DLL ezRecentDocumentsMenuAction : public ezLRUMenuAction
+class EZ_EDITORFRAMEWORK_DLL ezRecentDocumentsMenuAction : public ezDynamicMenuAction
 {
-  EZ_ADD_DYNAMIC_REFLECTION(ezRecentDocumentsMenuAction);
+  EZ_ADD_DYNAMIC_REFLECTION(ezRecentDocumentsMenuAction, ezDynamicMenuAction);
 public:
-  ezRecentDocumentsMenuAction(const ezActionContext& context, const char* szName, const char* szIconPath) : ezLRUMenuAction(context, szName, szIconPath) {}
-  virtual void GetEntries(ezHybridArray<ezLRUMenuAction::Item, 16>& out_Entries) override;
+  ezRecentDocumentsMenuAction(const ezActionContext& context, const char* szName, const char* szIconPath) : ezDynamicMenuAction(context, szName, szIconPath) {}
+  virtual void GetEntries(ezHybridArray<ezDynamicMenuAction::Item, 16>& out_Entries) override;
   virtual void Execute(const ezVariant& value) override;
 };
 
 ///
-class EZ_EDITORFRAMEWORK_DLL ezRecentProjectsMenuAction : public ezLRUMenuAction
+class EZ_EDITORFRAMEWORK_DLL ezRecentProjectsMenuAction : public ezDynamicMenuAction
 {
-  EZ_ADD_DYNAMIC_REFLECTION(ezRecentProjectsMenuAction);
+  EZ_ADD_DYNAMIC_REFLECTION(ezRecentProjectsMenuAction, ezDynamicMenuAction);
 public:
-  ezRecentProjectsMenuAction(const ezActionContext& context, const char* szName, const char* szIconPath) : ezLRUMenuAction(context, szName, szIconPath) {}
-  virtual void GetEntries(ezHybridArray<ezLRUMenuAction::Item, 16>& out_Entries) override;
+  ezRecentProjectsMenuAction(const ezActionContext& context, const char* szName, const char* szIconPath) : ezDynamicMenuAction(context, szName, szIconPath) {}
+  virtual void GetEntries(ezHybridArray<ezDynamicMenuAction::Item, 16>& out_Entries) override;
   virtual void Execute(const ezVariant& value) override;
 };
 
 ///
 class EZ_EDITORFRAMEWORK_DLL ezProjectAction : public ezButtonAction
 {
-  EZ_ADD_DYNAMIC_REFLECTION(ezProjectAction);
+  EZ_ADD_DYNAMIC_REFLECTION(ezProjectAction, ezButtonAction);
 public:
   enum class ButtonType
   {
@@ -66,8 +80,20 @@ public:
     CreateProject,
     OpenProject,
     CloseProject,
-    ProjectSettings,
-    ReloadResources
+    ReloadResources,
+    ReloadEngine,
+    LaunchFileserve,
+    SaveProfiling,
+    Shortcuts,
+    EditorPlugins,
+    DataDirectories,
+    WindowConfig,
+    InputConfig,
+    PreferencesDialog,
+    TagsDialog,
+    EnginePlugins,
+    EditorTests,
+    ImportAsset,
   };
 
   ezProjectAction(const ezActionContext& context, const char* szName, ButtonType button);
@@ -76,7 +102,7 @@ public:
   virtual void Execute(const ezVariant& value) override;
 
 private:
-  void ProjectEventHandler(const ezToolsProject::Event& e);
+  void ProjectEventHandler(const ezToolsProjectEvent& e);
 
   ButtonType m_ButtonType;
 };

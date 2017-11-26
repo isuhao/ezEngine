@@ -1,11 +1,9 @@
-#include <Foundation/PCH.h>
-#include <Foundation/IO/FileSystem/FileSystem.h>
+#include <PCH.h>
 #include <Foundation/IO/FileSystem/FileReader.h>
-#include <Foundation/Math/Math.h>
 
 ezResult ezFileReader::Open(const char* szFile, ezUInt32 uiCacheSize, bool bAllowFileEvents)
 {
-  EZ_ASSERT_DEV(m_pDataDirReader == nullptr, "The file reader is already open. (File: '%s')", szFile);
+  EZ_ASSERT_DEV(m_pDataDirReader == nullptr, "The file reader is already open. (File: '{0}')", szFile);
 
   uiCacheSize = ezMath::Clamp<ezUInt32>(uiCacheSize, 1024, 1024 * 1024 * 32);
 
@@ -14,7 +12,7 @@ ezResult ezFileReader::Open(const char* szFile, ezUInt32 uiCacheSize, bool bAllo
   if (!m_pDataDirReader)
     return EZ_FAILURE;
 
-  m_Cache.SetCount(uiCacheSize);
+  m_Cache.SetCountUninitialized(uiCacheSize);
 
   m_uiCacheReadPosition = 0;
   m_uiBytesCached = m_pDataDirReader->Read(&m_Cache[0], m_Cache.GetCount());

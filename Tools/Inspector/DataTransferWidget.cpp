@@ -1,4 +1,4 @@
-#include <PCH.h>
+﻿#include <PCH.h>
 #include <Inspector/DataTransferWidget.moc.h>
 #include <Foundation/Communication/Telemetry.h>
 #include <MainWindow.moc.h>
@@ -10,9 +10,9 @@
 #include <qdesktopservices.h>
 #include <QUrl>
 
-ezDataWidget* ezDataWidget::s_pWidget = nullptr;
+ezQtDataWidget* ezQtDataWidget::s_pWidget = nullptr;
 
-ezDataWidget::ezDataWidget(QWidget* parent) : QDockWidget(parent)
+ezQtDataWidget::ezQtDataWidget(QWidget* parent) : QDockWidget(parent)
 {
   /// \todo Improve Data Transfer UI
 
@@ -23,23 +23,23 @@ ezDataWidget::ezDataWidget(QWidget* parent) : QDockWidget(parent)
   ResetStats();
 }
 
-void ezDataWidget::ResetStats()
+void ezQtDataWidget::ResetStats()
 {
   m_Transfers.Clear();
   ComboTransfers->clear();
   ComboItems->clear();
 }
 
-void ezDataWidget::ProcessTelemetry(void* pUnuseed)
+void ezQtDataWidget::ProcessTelemetry(void* pUnuseed)
 {
   if (!s_pWidget)
     return;
 
   ezTelemetryMessage msg;
-  
+
   while (ezTelemetry::RetrieveMessage('TRAN', msg) == EZ_SUCCESS)
   {
-    if (msg.GetMessageID() == 'CLR')
+    if (msg.GetMessageID() == ' CLR')
     {
       s_pWidget->ResetStats();
     }
@@ -48,8 +48,6 @@ void ezDataWidget::ProcessTelemetry(void* pUnuseed)
     {
       ezString sName;
       msg.GetReader() >> sName;
-
-      TransferData& td = s_pWidget->m_Transfers[sName];
 
       s_pWidget->ComboTransfers->addItem(sName.GetData());
     }
@@ -107,7 +105,7 @@ void ezDataWidget::ProcessTelemetry(void* pUnuseed)
   }
 }
 
-void ezDataWidget::on_ButtonRefresh_clicked()
+void ezQtDataWidget::on_ButtonRefresh_clicked()
 {
   if (ComboTransfers->currentIndex() < 0)
     return;
@@ -125,7 +123,7 @@ void ezDataWidget::on_ButtonRefresh_clicked()
   ezTelemetry::SendToServer(msg);
 }
 
-void ezDataWidget::on_ComboTransfers_currentIndexChanged(int index)
+void ezQtDataWidget::on_ComboTransfers_currentIndexChanged(int index)
 {
   ComboItems->clear();
 
@@ -148,11 +146,11 @@ void ezDataWidget::on_ComboTransfers_currentIndexChanged(int index)
 
   ComboItems->setCurrentIndex(0);
   ComboItems->blockSignals(false);
-  
+
   on_ComboItems_currentIndexChanged(ComboItems->currentIndex());
 }
 
-ezDataWidget::TransferDataObject* ezDataWidget::GetCurrentItem()
+ezQtDataWidget::TransferDataObject* ezQtDataWidget::GetCurrentItem()
 {
   auto Transfer = GetCurrentTransfer();
 
@@ -168,7 +166,7 @@ ezDataWidget::TransferDataObject* ezDataWidget::GetCurrentItem()
   return &itItem.Value();
 }
 
-ezDataWidget::TransferData* ezDataWidget::GetCurrentTransfer()
+ezQtDataWidget::TransferData* ezQtDataWidget::GetCurrentTransfer()
 {
   ezString sTransfer = ComboTransfers->currentText().toUtf8().data();
 
@@ -179,7 +177,7 @@ ezDataWidget::TransferData* ezDataWidget::GetCurrentTransfer()
   return &itTransfer.Value();
 }
 
-void ezDataWidget::on_ComboItems_currentIndexChanged(int index)
+void ezQtDataWidget::on_ComboItems_currentIndexChanged(int index)
 {
   if (index < 0)
     return;
@@ -201,7 +199,7 @@ void ezDataWidget::on_ComboItems_currentIndexChanged(int index)
     Reader >> uiHeight;
 
     ezDynamicArray<ezUInt8> Image;
-    Image.SetCount(uiWidth * uiHeight * 4);
+    Image.SetCountUninitialized(uiWidth * uiHeight * 4);
 
     Reader.ReadBytes(&Image[0], Image.GetCount());
 
@@ -212,7 +210,7 @@ void ezDataWidget::on_ComboItems_currentIndexChanged(int index)
   else if (sMime == "text/xml")
   {
     ezHybridArray<ezUInt8, 1024> Temp;
-    Temp.SetCount(Reader.GetByteCount() + 1);
+    Temp.SetCountUninitialized(Reader.GetByteCount() + 1);
 
     Reader.ReadBytes(&Temp[0], Reader.GetByteCount());
     Temp[Reader.GetByteCount()] = '\0';
@@ -222,13 +220,13 @@ void ezDataWidget::on_ComboItems_currentIndexChanged(int index)
   else
   {
     ezStringBuilder sText;
-    sText.Format("Unknown Mime-Type '%s'", sMime.GetData());
+    sText.Format("Unknown Mime-Type '{0}'", sMime);
 
     LabelImage->setText(sText.GetData());
   }
 }
 
-bool ezDataWidget::SaveToFile(TransferDataObject& item, const char* szFile)
+bool ezQtDataWidget::SaveToFile(TransferDataObject& item, const char* szFile)
 {
   auto& Stream = item.m_Storage;
   ezMemoryStreamReader Reader(&Stream);
@@ -241,7 +239,7 @@ bool ezDataWidget::SaveToFile(TransferDataObject& item, const char* szFile)
   }
 
   ezHybridArray<ezUInt8, 1024> Temp;
-  Temp.SetCount(Reader.GetByteCount());
+  Temp.SetCountUninitialized(Reader.GetByteCount());
 
   Reader.ReadBytes(&Temp[0], Reader.GetByteCount());
 
@@ -252,7 +250,7 @@ bool ezDataWidget::SaveToFile(TransferDataObject& item, const char* szFile)
   return true;
 }
 
-void ezDataWidget::on_ButtonSave_clicked()
+void ezQtDataWidget::on_ButtonSave_clicked()
 {
   auto pItem = GetCurrentItem();
 
@@ -263,7 +261,7 @@ void ezDataWidget::on_ButtonSave_clicked()
   }
 
   QString sFilter;
-  
+
   if (!pItem->m_sExtension.IsEmpty())
   {
     sFilter = "Default (*.";
@@ -283,7 +281,7 @@ void ezDataWidget::on_ButtonSave_clicked()
   SaveToFile(*pItem, pItem->m_sFileName.GetData());
 }
 
-void ezDataWidget::on_ButtonOpen_clicked()
+void ezQtDataWidget::on_ButtonOpen_clicked()
 {
   auto pItem = GetCurrentItem();
 

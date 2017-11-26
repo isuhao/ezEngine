@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <Foundation/Math/Vec2.h>
 #include <Foundation/Math/Vec3.h>
@@ -57,7 +57,7 @@ EZ_FORCE_INLINE const ezVec4Template<Type> ezVec3Template<Type>::GetAsDirectionV
 // *****************
 
 template<typename Type>
-EZ_FORCE_INLINE ezVec4Template<Type>::ezVec4Template()
+EZ_ALWAYS_INLINE ezVec4Template<Type>::ezVec4Template()
 {
 #if EZ_ENABLED(EZ_COMPILE_FOR_DEBUG)
   // Initialize all data to NaN in debug mode to find problems with uninitialized data easier.
@@ -70,12 +70,12 @@ EZ_FORCE_INLINE ezVec4Template<Type>::ezVec4Template()
 }
 
 template<typename Type>
-EZ_FORCE_INLINE ezVec4Template<Type>::ezVec4Template(Type X, Type Y, Type Z, Type W) : x (X), y (Y), z (Z), w (W)
+EZ_ALWAYS_INLINE ezVec4Template<Type>::ezVec4Template(Type X, Type Y, Type Z, Type W) : x (X), y (Y), z (Z), w (W)
 {
 }
 
 template<typename Type>
-EZ_FORCE_INLINE ezVec4Template<Type>::ezVec4Template(Type V) : x (V), y (V), z (V), w (V)
+EZ_ALWAYS_INLINE ezVec4Template<Type>::ezVec4Template(Type V) : x (V), y (V), z (V), w (V)
 {
 }
 
@@ -96,16 +96,16 @@ EZ_FORCE_INLINE const ezVec3Template<Type> ezVec4Template<Type>::GetAsVec3() con
 }
 
 template<typename Type>
-EZ_FORCE_INLINE void ezVec4Template<Type>::Set(Type xyzw)
+EZ_ALWAYS_INLINE void ezVec4Template<Type>::Set(Type xyzw)
 {
   x = xyzw;
-  y = xyzw; 
-  z = xyzw; 
+  y = xyzw;
+  z = xyzw;
   w = xyzw;
 }
 
 template<typename Type>
-EZ_FORCE_INLINE void ezVec4Template<Type>::Set(Type X, Type Y, Type Z, Type W)
+EZ_ALWAYS_INLINE void ezVec4Template<Type>::Set(Type X, Type Y, Type Z, Type W)
 {
   x = X;
   y = Y;
@@ -116,11 +116,11 @@ EZ_FORCE_INLINE void ezVec4Template<Type>::Set(Type X, Type Y, Type Z, Type W)
 template<typename Type>
 inline void ezVec4Template<Type>::SetZero()
 {
-  x = y = z = w = 0.0f;
+  x = y = z = w = 0;
 }
 
 template<typename Type>
-EZ_FORCE_INLINE Type ezVec4Template<Type>::GetLength() const
+EZ_ALWAYS_INLINE Type ezVec4Template<Type>::GetLength() const
 {
   return (ezMath::Sqrt(GetLengthSquared()));
 }
@@ -151,7 +151,7 @@ EZ_FORCE_INLINE const ezVec4Template<Type> ezVec4Template<Type>::GetNormalized()
 }
 
 template<typename Type>
-EZ_FORCE_INLINE void ezVec4Template<Type>::Normalize()
+EZ_ALWAYS_INLINE void ezVec4Template<Type>::Normalize()
 {
   *this /= GetLength ();
 }
@@ -314,7 +314,7 @@ inline const ezVec4Template<Type> ezVec4Template<Type>::CompMax(const ezVec4Temp
 }
 
 template<typename Type>
-inline const ezVec4Template<Type> ezVec4Template<Type>::CompMult(const ezVec4Template<Type>& rhs) const
+inline const ezVec4Template<Type> ezVec4Template<Type>::CompMul(const ezVec4Template<Type>& rhs) const
 {
   EZ_NAN_ASSERT(this);
   EZ_NAN_ASSERT(&rhs);
@@ -390,20 +390,20 @@ inline bool ezVec4Template<Type>::IsEqual(const ezVec4Template<Type>& rhs, Type 
   EZ_NAN_ASSERT(this);
   EZ_NAN_ASSERT(&rhs);
 
-  return (ezMath::IsEqual(x, rhs.x, fEpsilon) && 
-          ezMath::IsEqual(y, rhs.y, fEpsilon) && 
+  return (ezMath::IsEqual(x, rhs.x, fEpsilon) &&
+          ezMath::IsEqual(y, rhs.y, fEpsilon) &&
           ezMath::IsEqual(z, rhs.z, fEpsilon) &&
           ezMath::IsEqual(w, rhs.w, fEpsilon));
 }
 
 template<typename Type>
-EZ_FORCE_INLINE bool operator== (const ezVec4Template<Type>& v1, const ezVec4Template<Type>& v2)
+EZ_ALWAYS_INLINE bool operator== (const ezVec4Template<Type>& v1, const ezVec4Template<Type>& v2)
 {
   return v1.IsIdentical(v2);
 }
 
 template<typename Type>
-EZ_FORCE_INLINE bool operator!= (const ezVec4Template<Type>& v1, const ezVec4Template<Type>& v2)
+EZ_ALWAYS_INLINE bool operator!= (const ezVec4Template<Type>& v1, const ezVec4Template<Type>& v2)
 {
   return !v1.IsIdentical(v2);
 }

@@ -5,7 +5,9 @@
 #if EZ_ENABLED(EZ_PLATFORM_WINDOWS)
   inline void SetConsoleColorInl (WORD ui)
   {
-    SetConsoleTextAttribute (GetStdHandle (STD_OUTPUT_HANDLE), ui);
+#if EZ_DISABLED(EZ_PLATFORM_WINDOWS_UWP)
+    SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), ui);
+#endif
   }
 #else
   inline void SetConsoleColorInl (ezUInt8 ui) { }
@@ -57,5 +59,15 @@ inline void OutputToConsole (ezTestOutput::Enum Type, const char* szMsg)
 
   printf ("%*s%s\n", iIndentation, "", szMsg);
   SetConsoleColorInl (0x07);
+
+#if EZ_ENABLED(EZ_PLATFORM_WINDOWS)
+  char sz[4096];
+  ezStringUtils::snprintf(sz, 1024, "%*s%s\n", iIndentation, "", szMsg);
+  OutputDebugStringW(ezStringWChar(sz).GetData());
+#endif
+  if (Type >= ezTestOutput::Error)
+  {
+    fflush(stdout);
+  }
 }
 

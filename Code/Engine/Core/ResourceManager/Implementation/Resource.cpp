@@ -1,11 +1,9 @@
-#include <Core/PCH.h>
+#include <PCH.h>
 #include <Core/ResourceManager/Resource.h>
-#include <Core/ResourceManager/ResourceTypeLoader.h>
-#include <Core/ResourceManager/ResourceManager.h>
 
-EZ_BEGIN_DYNAMIC_REFLECTED_TYPE(ezResourceBase, ezReflectedClass, 1, ezRTTINoAllocator);
+EZ_BEGIN_DYNAMIC_REFLECTED_TYPE(ezResourceBase, 1, ezRTTINoAllocator);
 
-EZ_END_DYNAMIC_REFLECTED_TYPE();
+EZ_END_DYNAMIC_REFLECTED_TYPE
 
 EZ_CORE_DLL void IncreaseResourceRefCount(ezResourceBase* pResource)
 {
@@ -21,7 +19,9 @@ ezResourceBase::ezResourceBase(DoUpdate ResourceUpdateThread, ezUInt8 uiQualityL
 {
   m_Flags.AddOrRemove(ezResourceFlags::UpdateOnMainThread, ResourceUpdateThread == DoUpdate::OnMainThread);
 
+  m_uiUniqueIDHash = 0;
   m_iReferenceCount = 0;
+  m_uiResourceChangeCounter = 0;
   m_LoadingState = ezResourceState::Unloaded;
   m_uiQualityLevelsLoadable = uiQualityLevelsLoadable;
   m_uiQualityLevelsDiscardable = 0;
@@ -40,9 +40,9 @@ void ezResourceBase::SetDueDate(ezTime date /* = ezTime::Seconds(60.0 * 60.0 * 2
   {
     m_DueDate = date;
 
-    ezResourceManager::ResourceEvent e;
+    ezResourceEvent e;
     e.m_pResource = this;
-    e.m_EventType = ezResourceManager::ResourceEventType::ResourceDueDateChanged;
+    e.m_EventType = ezResourceEventType::ResourceDueDateChanged;
     ezResourceManager::BroadcastResourceEvent(e);
   }
 }
@@ -51,26 +51,32 @@ void ezResourceBase::SetPriority(ezResourcePriority priority)
 {
   m_Priority = priority;
 
-  ezResourceManager::ResourceEvent e;
+  ezResourceEvent e;
   e.m_pResource = this;
-  e.m_EventType = ezResourceManager::ResourceEventType::ResourcePriorityChanged;
+  e.m_EventType = ezResourceEventType::ResourcePriorityChanged;
   ezResourceManager::BroadcastResourceEvent(e);
 }
 
 void ezResourceBase::SetUniqueID(const char* szUniqueID, bool bIsReloadable)
 {
   m_UniqueID = szUniqueID;
+  m_uiUniqueIDHash = ezHashing::MurmurHash(szUniqueID);
   SetIsReloadable(bIsReloadable);
 
-  ezResourceManager::ResourceEvent e;
+  ezResourceEvent e;
   e.m_pResource = this;
-  e.m_EventType = ezResourceManager::ResourceEventType::ResourceCreated;
+  e.m_EventType = ezResourceEventType::ResourceCreated;
   ezResourceManager::BroadcastResourceEvent(e);
 }
 
 void ezResourceBase::CallUnloadData(Unload WhatToUnload)
 {
   EZ_LOG_BLOCK("ezResource::UnloadData", GetResourceID().GetData());
+
+  ezResourceEvent e;
+  e.m_pResource = this;
+  e.m_EventType = ezResourceEventType::ResourceContentUnloading;
+  ezResourceManager::BroadcastResourceEvent(e);
 
   ezResourceLoadDesc ld = UnloadData(WhatToUnload);
 
@@ -81,14 +87,9 @@ void ezResourceBase::CallUnloadData(Unload WhatToUnload)
   m_LoadingState = ld.m_State;
   m_uiQualityLevelsDiscardable = ld.m_uiQualityLevelsDiscardable;
   m_uiQualityLevelsLoadable = ld.m_uiQualityLevelsLoadable;
-
-  ezResourceManager::ResourceEvent e;
-  e.m_pResource = this;
-  e.m_EventType = ezResourceManager::ResourceEventType::ResourceContentUnloaded;
-  ezResourceManager::BroadcastResourceEvent(e);
 }
 
-void ezResourceBase::CallUpdateContent(ezStreamReaderBase* Stream)
+void ezResourceBase::CallUpdateContent(ezStreamReader* Stream)
 {
   EZ_LOG_BLOCK("ezResource::UpdateContent", GetResourceID().GetData());
 
@@ -99,16 +100,22 @@ void ezResourceBase::CallUpdateContent(ezStreamReaderBase* Stream)
   EZ_ASSERT_DEV(ld.m_uiQualityLevelsLoadable != 0xFF, "UpdateContent() did not fill out m_uiQualityLevelsLoadable correctly");
 
   if (ld.m_State == ezResourceState::LoadedResourceMissing)
-    ezLog::Error("Missing Resource: '%s'", GetResourceID().GetData());
+  {
+    ReportResourceIsMissing();
+  }
+
+  IncResourceChangeCounter();
 
   m_LoadingState = ld.m_State;
   m_uiQualityLevelsDiscardable = ld.m_uiQualityLevelsDiscardable;
   m_uiQualityLevelsLoadable = ld.m_uiQualityLevelsLoadable;
 
-  ezResourceManager::ResourceEvent e;
+  ezResourceEvent e;
   e.m_pResource = this;
-  e.m_EventType = ezResourceManager::ResourceEventType::ResourceContentUpdated;
+  e.m_EventType = ezResourceEventType::ResourceContentUpdated;
   ezResourceManager::BroadcastResourceEvent(e);
+
+  ezLog::Debug("Updated {0} - '{1}'({2}, {3}) ", GetDynamicRTTI()->GetTypeName(), GetResourceDescription(), (int)GetPriority(), GetLoadingDeadline(ezTime::Now()).GetSeconds());
 }
 
 ezTime ezResourceBase::GetLoadingDeadline(ezTime tNow) const
@@ -144,6 +151,11 @@ ezTime ezResourceBase::GetLoadingDeadline(ezTime tNow) const
 ezResourceTypeLoader* ezResourceBase::GetDefaultResourceTypeLoader() const
 {
   return ezResourceManager::GetDefaultResourceLoader();
+}
+
+void ezResourceBase::ReportResourceIsMissing()
+{
+  ezLog::Error("Missing Resource of Type '{2}': '{0}' ('{1}')", GetResourceID(), m_sResourceDescription, GetDynamicRTTI()->GetTypeName());
 }
 
 EZ_STATICLINK_FILE(Core, Core_ResourceManager_Implementation_Resource);

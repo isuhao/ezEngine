@@ -7,6 +7,7 @@
 #include <Foundation/Strings/Implementation/StringBase.h>
 #include <Foundation/Strings/StringView.h>
 #include <Foundation/Strings/PathUtils.h>
+#include <Foundation/Strings/FormatString.h>
 
 template <ezUInt16 Size>
 class ezHybridStringBase;
@@ -14,7 +15,8 @@ class ezHybridStringBase;
 template <ezUInt16 Size, typename AllocatorWrapper>
 class ezHybridString;
 
-class ezStreamReaderBase;
+class ezStreamReader;
+class ezFormatString;
 
 /// \brief ezStringBuilder is a class that is meant for creating and modifying strings.
 ///
@@ -27,8 +29,6 @@ class ezStreamReaderBase;
 /// That makes it difficult to modify individual characters. Instead you should prefer high-level functions
 /// such as 'ReplaceSubString'. If individual characters must be modified, it might make more sense to create
 /// a second ezStringBuilder, and iterate over the first while rebuilding the desired result in the second.
-/// For very convenient string creation, printf functionality is also available via the 'Format', 'AppendFormat' 
-/// and 'PrependFormat' functions.
 /// Once a string is built and should only be stored for read access, it should be stored in an ezString instance.
 class EZ_FOUNDATION_DLL ezStringBuilder : public ezStringBase<ezStringBuilder>
 {
@@ -45,19 +45,28 @@ public:
 
   /// \brief Copies the given string into this one.
   template <ezUInt16 Size>
-  ezStringBuilder(const ezHybridStringBase<Size>& rhs);
+  ezStringBuilder(const ezHybridStringBase<Size>& rhs) : m_uiCharacterCount(rhs.m_uiCharacterCount), m_Data(rhs.m_Data)
+  {
+  }
 
   /// \brief Copies the given string into this one.
   template <ezUInt16 Size, typename A>
-  ezStringBuilder(const ezHybridString<Size, A>& rhs);
+  ezStringBuilder(const ezHybridString<Size, A>& rhs) : m_uiCharacterCount(rhs.m_uiCharacterCount), m_Data(rhs.m_Data)
+  {
+  }
+
 
   /// \brief Moves the given string into this one.
   template <ezUInt16 Size>
-  ezStringBuilder(ezHybridStringBase<Size>&& rhs);
+  ezStringBuilder(ezHybridStringBase<Size>&& rhs) : m_uiCharacterCount(rhs.m_uiCharacterCount), m_Data(std::move(rhs.m_Data))
+  {
+  }
 
   /// \brief Moves the given string into this one.
   template <ezUInt16 Size, typename A>
-  ezStringBuilder(ezHybridString<Size, A>&& rhs);
+  ezStringBuilder(ezHybridString<Size, A>&& rhs) : m_uiCharacterCount(rhs.m_uiCharacterCount), m_Data(std::move(rhs.m_Data))
+  {
+  }
 
   /// \brief Constructor that appends all the given strings.
   ezStringBuilder(const char* pData1, const char* pData2, const char* pData3 = nullptr, const char* pData4 = nullptr, const char* pData5 = nullptr, const char* pData6 = nullptr); // [tested]
@@ -88,19 +97,35 @@ public:
 
   /// \brief Copies the given string into this one.
   template <ezUInt16 Size>
-  void operator=(const ezHybridStringBase<Size>& rhs);
+  void operator=(const ezHybridStringBase<Size>& rhs)
+  {
+    m_uiCharacterCount = rhs.m_uiCharacterCount;
+    m_Data = rhs.m_Data;
+  }
 
   /// \brief Copies the given string into this one.
   template <ezUInt16 Size, typename A>
-  void operator=(const ezHybridString<Size, A>& rhs);
+  void operator=(const ezHybridString<Size, A>& rhs)
+  {
+    m_uiCharacterCount = rhs.m_uiCharacterCount;
+    m_Data = rhs.m_Data;
+  }
 
   /// \brief Moves the given string into this one.
   template <ezUInt16 Size>
-  void operator=(ezHybridStringBase<Size>&& rhs);
+  void operator=(ezHybridStringBase<Size>&& rhs)
+  {
+    m_uiCharacterCount = rhs.m_uiCharacterCount;
+    m_Data = std::move(rhs.m_Data);
+  }
 
   /// \brief Moves the given string into this one.
   template <ezUInt16 Size, typename A>
-  void operator=(ezHybridString<Size, A>&& rhs);
+  void operator=(ezHybridString<Size, A>&& rhs)
+  {
+    m_uiCharacterCount = rhs.m_uiCharacterCount;
+    m_Data = std::move(rhs.m_Data);
+  }
 
   /// \brief Returns the allocator that is used by this object.
   ezAllocatorBase* GetAllocator() const;
@@ -109,7 +134,7 @@ public:
   operator ezStringView() const; // [tested]
 
   /// \brief Returns a pointer to the internal Utf8 string.
-  operator const char*() const { return GetData(); }
+  EZ_ALWAYS_INLINE operator const char*() const { return GetData(); }
 
   /// \brief Resets this string to be empty. Does not deallocate any previously allocated data, as it might be reused later again.
   void Clear(); // [tested]
@@ -163,11 +188,8 @@ public:
   /// \brief Appends all the given strings at the back of this string in one operation.
   void Append(const char* pData1, const char* pData2 = nullptr, const char* pData3 = nullptr, const char* pData4 = nullptr, const char* pData5 = nullptr, const char* pData6 = nullptr); // [tested]
 
-  /// \brief Appends the formatted string.
-  void AppendFormat(const char* szUtf8Format, ...); // [tested]
-
-  /// \brief Appends the formatted string.
-  void AppendFormatArgs(const char* szUtf8Format, va_list args); // [tested]
+  /// \brief Appends the given string at the back of this string.
+  void Append(const ezStringView& view);
 
   /// \brief Prepends a single Utf32 character.
   void Prepend(ezUInt32 uiChar); // [tested]
@@ -178,17 +200,41 @@ public:
   /// \brief Prepends all the given strings to the front of this string in one operation.
   void Prepend(const char* pData1, const char* pData2 = nullptr, const char* pData3 = nullptr, const char* pData4 = nullptr, const char* pData5 = nullptr, const char* pData6 = nullptr); // [tested]
 
-  /// \brief Prepends the formatted string.
-  void PrependFormat(const char* szUtf8Format, ...); // [tested]
-
-  /// \brief Prepends the formatted string.
-  void PrependFormatArgs(const char* szUtf8Format, va_list args); // [tested]
+  /// \brief Sets this string to the formatted string.
+  void Printf(const char* szUtf8Format, ...); // [tested]
 
   /// \brief Sets this string to the formatted string.
-  void Format(const char* szUtf8Format, ...); // [tested]
+  void PrintfArgs(const char* szUtf8Format, va_list args); // [tested]
 
-  /// \brief Sets this string to the formatted string.
-  void FormatArgs(const char* szUtf8Format, va_list args); // [tested]
+  /// \brief A type safe version of sprintf, see ezFormatString for details
+  void Format(const ezFormatString& string);
+
+  /// \brief A type safe version of sprintf, see ezFormatString for details
+  template<typename ... ARGS>
+  void Format(const char* szFormat, ARGS&&... args)
+  {
+    Format(ezFormatStringImpl<ARGS...>(szFormat, std::forward<ARGS>(args)...));
+  }
+
+  /// \brief A type safe version of sprintf, see ezFormatString for details
+  void AppendFormat(const ezFormatString& string);
+
+  /// \brief A type safe version of sprintf, see ezFormatString for details
+  template<typename ... ARGS>
+  void AppendFormat(const char* szFormat, ARGS&&... args)
+  {
+    AppendFormat(ezFormatStringImpl<ARGS...>(szFormat, std::forward<ARGS>(args)...));
+  }
+
+  /// \brief A type safe version of sprintf, see ezFormatString for details
+  void PrependFormat(const ezFormatString& string);
+
+  /// \brief A type safe version of sprintf, see ezFormatString for details
+  template<typename ... ARGS>
+  void PrependFormat(const char* szFormat, ARGS&&... args)
+  {
+    PrependFormat(ezFormatStringImpl<ARGS...>(szFormat, std::forward<ARGS>(args)...));
+  }
 
   /// \brief Removes the first n and last m characters from this string.
   ///
@@ -196,7 +242,7 @@ public:
   /// Removing characters at the back is very cheap.
   /// Removing characters at the front needs to move data around, so can be quite costly.
   void Shrink(ezUInt32 uiShrinkCharsFront, ezUInt32 uiShrinkCharsBack); // [tested]
-  
+
   /// \brief Reserves uiNumElements bytes.
   void Reserve(ezUInt32 uiNumElements); // [tested]
 
@@ -253,7 +299,7 @@ public:
   void Split(bool bReturnEmptyStrings, Container& Output, const char* szSeparator1, const char* szSeparator2 = nullptr, const char* szSeparator3 = nullptr, const char* szSeparator4 = nullptr, const char* szSeparator5 = nullptr, const char* szSeparator6 = nullptr) const; // [tested]
 
   /// \brief Replaces the current string with the content from the stream. Reads the stream to its end.
-  void ReadAll(ezStreamReaderBase& Stream);
+  void ReadAll(ezStreamReader& Stream);
 
   // ******* Path Functions ********
 
@@ -291,15 +337,24 @@ public:
   /// \brief Returns true, if the given path represents a relative path on the current OS.
   bool IsRelativePath() const; // [tested]
 
+  /// \brief Returns true, if the given path represents a 'rooted' path. See ezFileSystem for details.
+  bool IsRootedPath() const; // [tested]
 
-
+  /// \brief Extracts the root name from a rooted path
+  ///
+  /// ":MyRoot" -> "MyRoot"
+  /// ":MyRoot\folder" -> "MyRoot"
+  /// ":\MyRoot\folder" -> "MyRoot"
+  /// ":/MyRoot\folder" -> "MyRoot"
+  /// Returns an empty string, if the path is not rooted.
+  ezStringView GetRootedPathRootName() const; // [tested]
 
   /// \brief Removes "../" where possible, replaces all path separators with /, removes double slashes.
   ///
   /// All paths use slashes on all platforms. If you need to convert a path to the OS specific representation, use 'MakePathSeparatorsNative'
   /// 'MakeCleanPath' will in rare circumstances grow the string by one character. That means it is quite safe to assume that
   /// it will not waste time on memory allocations.
-  /// If it is repeatedly called on the same string, it has a minor overhead for computing the same string over and over, 
+  /// If it is repeatedly called on the same string, it has a minor overhead for computing the same string over and over,
   /// but no memory allocations will be done (everything is in-place).
   ///
   /// Removes all double path separators (slashes and backslashes) in a path, except if the path starts with two (back-)slashes, those are kept, as they might indicate a UNC path.

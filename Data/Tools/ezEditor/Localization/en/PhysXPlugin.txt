@@ -1,0 +1,29 @@
+PhysX.Settings.Project;PhysX Project Settings
+Physics;Physics
+Joints;Joints
+Shapes;Shapes
+ezPxCenterOfMassComponent;Center of Mass
+ezPxCharacterControllerComponent;Character Controller
+ezPxCharacterProxyComponent;Character Proxy
+ezPxDynamicActorComponent;Dynamic Actor
+ezPxStaticActorComponent;Static Actor
+ezPxDistanceJointComponent;Distance Joint
+ezPxFixedJointComponent;Fixed Joint
+ezPxShapeBoxComponent;Box Shape
+ezPxShapeSphereComponent;Sphere Shape
+ezPxShapeCapsuleComponent;Capsule Shape
+ezPxShapeConvexComponent;Convex Mesh Shape
+ezPxSettingsComponent;PhysX Settings
+ezPhysXComponent;PhysX Component
+ezPxActorComponent;PhysX Actor
+ezCollisionMeshType::ConvexHull;Convex Hull
+ezCollisionMeshType::TriangleMesh;Triangle Mesh
+ezCollisionMeshType::Cylinder;Cylinder
+ezPxSteppingMode::Variable;Variable
+ezPxSteppingMode::Fixed;Fixed
+ezPxSteppingMode::SemiFixed;SemiFixed
+ezPxTriggerComponent;Trigger
+ezPxRaycastInteractComponent;Raycast Interaction
+ezPxVisColMeshComponent;Collision Mesh Visualization
+CollisionMeshImport.TriangleMesh;Triangle Collision Mesh
+CollisionMeshImport.ConvexMesh;Convex Collision Mesh

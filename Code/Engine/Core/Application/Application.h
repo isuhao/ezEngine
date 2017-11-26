@@ -12,7 +12,16 @@ class ezApplication;
 /// \brief Platform independent run function for main loop based systems (e.g. Win32, ..)
 ///
 /// This is automatically called by EZ_APPLICATION_ENTRY_POINT() and EZ_CONSOLEAPP_ENTRY_POINT().
+///
+/// ezRun simply calls ezRun_Startup(), ezRun_MainLoop() and ezRun_Shutdown().
 EZ_CORE_DLL void ezRun(ezApplication* pApplicationInstance);
+
+/// \brief [internal] Called by ezRun()
+EZ_CORE_DLL void ezRun_Startup(ezApplication* pApplicationInstance);
+/// \brief [internal] Called by ezRun()
+EZ_CORE_DLL void ezRun_MainLoop(ezApplication* pApplicationInstance);
+/// \brief [internal] Called by ezRun()
+EZ_CORE_DLL void ezRun_Shutdown(ezApplication* pApplicationInstance);
 
 /// \brief Base class to be used by applications based on ezEngine.
 ///
@@ -29,26 +38,26 @@ EZ_CORE_DLL void ezRun(ezApplication* pApplicationInstance);
 ///   class ezSampleApp : public ezApplication
 ///   {
 ///   public:
-///   
-///     virtual void AfterEngineInit() override
+///
+///     virtual void AfterCoreStartup() override
 ///     {
 ///       // Setup Filesystem, Logging, etc.
 ///     }
-///   
-///     virtual void BeforeEngineShutdown() override
+///
+///     virtual void BeforeCoreShutdown() override
 ///     {
 ///       // Close log file, etc.
 ///     }
-///   
+///
 ///     virtual ezApplication::ApplicationExecution Run() override
 ///     {
 ///       // Either run a one-time application (e.g. console script) and return ezApplication::Quit
 ///       // Or run one update (frame) of your game loop and return ezApplication::Continue
-///   
+///
 ///       return ezApplication::Quit;
 ///     }
 ///   };
-///   
+///
 ///   EZ_APPLICATION_ENTRY_POINT(ezSampleApp);
 /// \endcode
 class EZ_CORE_DLL ezApplication
@@ -63,34 +72,24 @@ public:
   };
 
   /// \brief Constructor.
-  ezApplication() : 
-    m_iReturnCode(0), 
-    m_uiArgumentCount(0), 
-    m_ppArguments(nullptr),
-    m_bReportMemoryLeaks(true)
-  {
-  }
+  ezApplication();
 
   /// \brief Virtual destructor.
-  virtual ~ezApplication()
-  {
-  }
+  virtual ~ezApplication();
 
   /// \brief This function is called before any kind of engine initialization is done.
   ///
   /// Override this function to be able to configure subsystems, before they are initialized.
   /// After this function returns, ezStartup::StartupCore() is automatically called.
   /// If you need to set up custom allocators, this is the place to do this.
-  virtual void BeforeEngineInit()
-  {
-  }
+  virtual void BeforeCoreStartup();
 
   /// \brief This function is called after basic engine initialization has been done.
   ///
   /// ezApplication will automatically call ezStartup::StartupCore() to initialize the application.
   /// This function can be overridden to do additional application specific initialization.
   /// To startup entire subsystems, you should however use the features provided by ezStartup and ezSubSystem.
-  virtual void AfterEngineInit()
+  virtual void AfterCoreStartup()
   {
   }
 
@@ -99,20 +98,20 @@ public:
   /// Override this function to do application specific deinitialization that still requires a running engine.
   /// After this function returns ezStartup::ShutdownBase() is called and thus everything, including allocators, is shut down.
   /// To shut down entire subsystems, you should however use the features provided by ezStartup and ezSubSystem.
-  virtual void BeforeEngineShutdown()
+  virtual void BeforeCoreShutdown()
   {
   }
 
   /// \brief This function is called after ezStartup::ShutdownBase() has been called.
   ///
   /// It is unlikely that there is any kind of deinitialization left, that can still be run at this point.
-  virtual void AfterEngineShutdown()
+  virtual void AfterCoreShutdown()
   {
   }
 
   /// \brief This function is called when an application is moved to the background.
   ///
-  /// On Windows that might simply mean that the main window lost the focus. 
+  /// On Windows that might simply mean that the main window lost the focus.
   /// On other devices this might mean that the application is not visible at all anymore and
   /// might even get shut down later. Override this function to be able to put the application
   /// into a proper sleep mode.
@@ -148,14 +147,12 @@ public:
     return m_iReturnCode;
   }
 
+  /// \brief If the return code is not zero, this function might be called to get a string to print the error code in human readable form.
+  virtual const char* TranslateReturnCode() const { return ""; }
+
   /// \brief Will set the command line arguments that were passed to the app by the OS.
   /// This is automatically called by EZ_APPLICATION_ENTRY_POINT() and EZ_CONSOLEAPP_ENTRY_POINT().
-  inline void SetCommandLineArguments(ezUInt32 uiArgumentCount, const char** ppArguments)
-  {
-    m_uiArgumentCount = uiArgumentCount;
-    m_ppArguments = ppArguments;
-    ezCommandLineUtils::GetInstance()->SetCommandLine(uiArgumentCount, ppArguments);
-  }
+  void SetCommandLineArguments(ezUInt32 uiArgumentCount, const char** ppArguments);
 
   /// \brief Returns the one instance of ezApplication that is available.
   static ezApplication* GetApplicationInstance()
@@ -172,12 +169,7 @@ public:
   }
 
   /// \brief Returns one of the command line arguments that was passed to the application.
-  const char* GetArgument(ezUInt32 uiArgument) const
-  {
-    EZ_ASSERT_DEV(uiArgument < m_uiArgumentCount, "There are only %i arguments, cannot access argument %i.", m_uiArgumentCount, uiArgument);
-
-    return m_ppArguments[uiArgument];
-  }
+  const char* GetArgument(ezUInt32 uiArgument) const;
 
   /// \brief Returns the complete array of command line arguments that were passed to the application.
   const char** GetArgumentsArray() const
@@ -188,6 +180,11 @@ public:
   void EnableMemoryLeakReporting(bool bEnable)
   {
     m_bReportMemoryLeaks = bEnable;
+  }
+
+  bool IsMemoryLeakReportingEnalbed() const
+  {
+    return m_bReportMemoryLeaks;
   }
 
 private:
@@ -203,5 +200,8 @@ private:
   static ezApplication* s_pApplicationInstance;
 
   friend EZ_CORE_DLL void ezRun(ezApplication* pApplicationInstance);
-  };
+  friend EZ_CORE_DLL void ezRun_Startup(ezApplication* pApplicationInstance);
+  friend EZ_CORE_DLL void ezRun_MainLoop(ezApplication* pApplicationInstance);
+  friend EZ_CORE_DLL void ezRun_Shutdown(ezApplication* pApplicationInstance);
+};
 

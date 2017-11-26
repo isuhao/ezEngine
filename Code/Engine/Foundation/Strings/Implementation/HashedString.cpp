@@ -1,4 +1,4 @@
-#include <Foundation/PCH.h>
+#include <PCH.h>
 #include <Foundation/Strings/HashedString.h>
 #include <Foundation/Threading/Mutex.h>
 #include <Foundation/Threading/Lock.h>
@@ -83,7 +83,16 @@ ezHashedString::ezHashedString()
   m_Data = g_hsEmpty;
 }
 
+bool ezHashedString::IsEmpty() const
+{
+  return m_Data == g_hsEmpty;
+}
 
+
+void ezHashedString::Clear()
+{
+  m_Data = g_hsEmpty;
+}
 
 EZ_STATICLINK_FILE(Foundation, Foundation_Strings_Implementation_HashedString);
 

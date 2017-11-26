@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <Foundation/Basics.h>
 
@@ -8,7 +8,7 @@ class ezUniquePtr
 {
 public:
   EZ_DECLARE_MEM_RELOCATABLE_TYPE();
-  
+
   /// \brief Creates an empty unique ptr.
   ezUniquePtr();
 
@@ -24,6 +24,9 @@ public:
   template <typename U>
   ezUniquePtr(ezUniquePtr<U>&& other);
 
+  /// \brief Initialization with nullptr to be able to return nullptr in functions that return unique ptr.
+  ezUniquePtr(std::nullptr_t);
+
   /// \brief Destroys the managed object using the stored allocator.
   ~ezUniquePtr();
 
@@ -35,8 +38,14 @@ public:
   template <typename U>
   void operator=(ezUniquePtr<U>&& other);
 
+  /// \brief Same as calling 'Reset()'
+  EZ_ALWAYS_INLINE void operator=(std::nullptr_t) { Reset(); }
+
   /// \brief Releases the managed object. The unique ptr will be empty afterwards.
   T* Release();
+
+  /// \brief Releases the managed object. The unique ptr will be empty afterwards.
+  T* Release(ezAllocatorBase*& out_pAllocator);
 
   /// \brief Borrows the managed object. The unique ptr stays unmodified.
   T* Borrow() const;
@@ -80,3 +89,4 @@ private:
 };
 
 #include <Foundation/Types/Implementation/UniquePtr_inl.h>
+

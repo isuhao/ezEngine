@@ -1,20 +1,20 @@
-#include <InputXBox360/PCH.h>
-#include <Foundation/Logging/Log.h>
-#include <Foundation/Strings/StringBuilder.h>
+#include <PCH.h>
 #include <InputXBox360/InputDeviceXBox.h>
-#include <Core/Input/InputManager.h>
-#include <Foundation/Time/Time.h>
 #include <Xinput.h>
 
 
-EZ_BEGIN_DYNAMIC_REFLECTED_TYPE(ezInputDeviceXBox360, ezInputDeviceController, 1, ezRTTINoAllocator);
+EZ_BEGIN_DYNAMIC_REFLECTED_TYPE(ezInputDeviceXBox360, 1, ezRTTINoAllocator);
   // no properties or message handlers
-EZ_END_DYNAMIC_REFLECTED_TYPE();
+EZ_END_DYNAMIC_REFLECTED_TYPE
 
 ezInputDeviceXBox360::ezInputDeviceXBox360()
 {
   for (ezInt32 i = 0; i < MaxControllers; ++i)
     m_bControllerConnected[i] = false;
+}
+
+ezInputDeviceXBox360::~ezInputDeviceXBox360()
+{
 }
 
 void ezInputDeviceXBox360::RegisterControllerButton(const char* szButton, const char* szName, ezBitflags<ezInputSlotFlags> SlotFlags)
@@ -23,8 +23,8 @@ void ezInputDeviceXBox360::RegisterControllerButton(const char* szButton, const 
 
   for (ezInt32 i = 0; i < MaxControllers; ++i)
   {
-    s.Format("controller%i_%s", i, szButton);
-    s2.Format("Cont %i: %s", i + 1, szName);
+    s.Format("controller{0}_{1}", i, szButton);
+    s2.Format("Cont {0}: {1}", i + 1, szName);
     RegisterInputSlot(s.GetData(), s2.GetData(), SlotFlags);
   }
 }
@@ -35,7 +35,7 @@ void ezInputDeviceXBox360::SetDeadZone(const char* szButton)
 
   for (ezInt32 i = 0; i < MaxControllers; ++i)
   {
-    s.Format("controller%i_%s", i, szButton);
+    s.Format("controller{0}_{1}", i, szButton);
     ezInputManager::SetInputSlotDeadZone(s.GetData(), 0.23f);
   }
 }
@@ -83,7 +83,7 @@ void ezInputDeviceXBox360::RegisterInputSlots()
   ezLog::Success("Initialized XBox 360 Controller.");
 }
 
-const char* szControllerName[] = 
+const char* szControllerName[] =
 {
   "controller0_",
   "controller1_",
@@ -138,10 +138,10 @@ void ezInputDeviceXBox360::UpdateInputSlotValues()
 
       if (m_bControllerConnected[iPhysical] != bIsAvailable[iPhysical])
       {
-        ezLog::Info("XBox Controller %i has been %s.", iPhysical, bIsAvailable ? "connected" : "disconnected");
+        ezLog::Info("XBox Controller {0} has been {1}.", iPhysical, bIsAvailable[iPhysical] ? "connected" : "disconnected");
 
         // this makes sure to reset all values below
-        if (!bIsAvailable)
+        if (!bIsAvailable[iPhysical])
           ezMemoryUtils::ZeroFill(&State[iPhysical]);
       }
     }
@@ -201,9 +201,9 @@ void ezInputDeviceXBox360::UpdateInputSlotValues()
 }
 
 bool ezInputDeviceXBox360::IsControllerConnected(ezUInt8 uiPhysical) const
-{ 
-  EZ_ASSERT_DEV(uiPhysical < MaxControllers, "Invalid Controller Index %i", uiPhysical);
-  
+{
+  EZ_ASSERT_DEV(uiPhysical < MaxControllers, "Invalid Controller Index {0}", uiPhysical);
+
   return m_bControllerConnected[uiPhysical];
 }
 

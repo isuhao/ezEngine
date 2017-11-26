@@ -1,93 +1,161 @@
 #pragma once
 
-#include <ToolsFoundation/Document/Document.h>
-#include <ToolsFoundation/Object/DocumentObjectManager.h>
-#include <EditorFramework/DocumentWindow3D/DocumentWindow3D.moc.h>
+#include <EditorFramework/Document/GameObjectDocument.h>
 
-enum class ActiveGizmo
+struct GameMode
 {
-  None,
-  Translate,
-  Rotate,
-  Scale,
-  DragToPosition,
+  enum Enum
+  {
+    Off,
+    Simulate,
+    Play,
+  };
 };
 
-class ezSceneDocument : public ezDocumentBase
+class ezSceneDocument : public ezGameObjectDocument
 {
-  EZ_ADD_DYNAMIC_REFLECTION(ezSceneDocument);
+  EZ_ADD_DYNAMIC_REFLECTION(ezSceneDocument, ezGameObjectDocument);
 
 public:
-  ezSceneDocument(const char* szDocumentPath);
+  ezSceneDocument(const char* szDocumentPath, bool bIsPrefab);
   ~ezSceneDocument();
 
-  virtual const char* GetDocumentTypeDisplayString() const override { return "Scene"; }
+  virtual const char* GetDocumentTypeDisplayString() const override;
 
-  virtual ezStatus InternalSaveDocument() override;
 
-  void SetActiveGizmo(ActiveGizmo gizmo);
-  ActiveGizmo GetActiveGizmo() const;
+  enum class ShowOrHide
+  {
+    Show,
+    Hide
+  };
 
-  void TriggerShowSelectionInScenegraph();
-  void TriggerFocusOnSelection();
-  void TriggerSnapPivotToGrid();
-  void TriggerSnapEachObjectToGrid();
+
   void GroupSelection();
-  void DuplicateSelection();
-  void TriggerHideSelectedObjects();
-  void TriggerHideUnselectedObjects();
-  void TriggerShowHiddenObjects();
-  void SetGizmoWorldSpace(bool bWorldSpace);
-  bool GetGizmoWorldSpace() const;
 
-  virtual bool Copy(ezAbstractObjectGraph& out_objectGraph) override;
-  virtual bool Paste(const ezArrayPtr<PasteInfo>& info) override;
-  bool Duplicate(const ezArrayPtr<PasteInfo>& info);
-  bool Copy(ezAbstractObjectGraph& graph, ezMap<ezUuid, ezUuid>* out_pParents);
+  /// \brief Opens the Duplicate Special dialog
+  void DuplicateSpecial();
+
+  /// \brief Opens the 'Delta Transform' dialog.
+  void DeltaTransform();
+
+
+  /// \brief Moves all selected objects to the editor camera position
+  void SnapObjectToCamera();
+
+
+  /// \brief Attaches all selected objects to the selected object
+  void AttachToObject();
+
+  /// \brief Detaches all selected objects from their current parent
+  void DetachFromParent();
+
+  /// \brief Creates a new empty object, either top-level (selection empty) or as a child of the selected item
+  ezStatus CreateEmptyObject(bool bAttachToParent, bool bAtPickedPosition);
+
+  void DuplicateSelection();
+  void ShowOrHideSelectedObjects(ShowOrHide action);
+  void ShowOrHideAllObjects(ShowOrHide action);
+  void HideUnselectedObjects();
+
+  /// \brief Whether this document represents a prefab or a scene
+  bool IsPrefab() const { return m_bIsPrefab; }
+
+  /// \brief Determines whether the given object is an editor prefab
+  bool IsObjectEditorPrefab(const ezUuid& object, ezUuid* out_PrefabAssetGuid = nullptr) const;
+
+  /// \brief Determines whether the given object is an engine prefab
+  bool IsObjectEnginePrefab(const ezUuid& object, ezUuid* out_PrefabAssetGuid = nullptr) const;
+
+  /// \brief Nested prefabs are not allowed
+  virtual bool ArePrefabsAllowed() const { return !IsPrefab(); }
+
+
+  virtual void GetSupportedMimeTypesForPasting(ezHybridArray<ezString, 4>& out_MimeTypes) const override;
+  virtual bool Copy(ezAbstractObjectGraph& out_objectGraph, ezStringBuilder& out_MimeType) const override;
+  virtual bool Paste(const ezArrayPtr<PasteInfo>& info, const ezAbstractObjectGraph& objectGraph, bool bAllowPickedPosition, const char* szMimeType) override;
+  bool Duplicate(const ezArrayPtr<PasteInfo>& info, const ezAbstractObjectGraph& objectGraph, bool bSetSelected);
+  bool Copy(ezAbstractObjectGraph& graph, ezMap<ezUuid, ezUuid>* out_pParents) const;
   bool PasteAt(const ezArrayPtr<PasteInfo>& info, const ezVec3& vPos);
   bool PasteAtOrignalPosition(const ezArrayPtr<PasteInfo>& info);
 
-  const ezTransform& GetGlobalTransform(const ezDocumentObjectBase* pObject);
-  void SetGlobalTransform(const ezDocumentObjectBase* pObject, const ezTransform& t);
+  virtual void UpdatePrefabs() override;
 
-  void SetPickingResult(const ezObjectPickingResult& res) { m_PickingResult = res; }
+  /// \brief Removes the link to the prefab template, making the editor prefab a simple object
+  virtual void UnlinkPrefabs(const ezDeque<const ezDocumentObject*>& Selection) override;
 
-  static ezTransform QueryLocalTransform(const ezDocumentObjectBase* pObject);
-  static ezTransform ComputeGlobalTransform(const ezDocumentObjectBase* pObject);
+  virtual ezUuid ReplaceByPrefab(const ezDocumentObject* pRootObject, const char* szPrefabFile, const ezUuid& PrefabAsset, const ezUuid& PrefabSeed) override;
 
-  struct SceneEvent
-  {
-    enum class Type
-    {
-      ActiveGizmoChanged,
-      ShowSelectionInScenegraph,
-      FocusOnSelection,
-      SnapSelectionPivotToGrid,
-      SnapEachSelectedObjectToGrid,
-      HideSelectedObjects,
-      HideUnselectedObjects,
-      ShowHiddenObjects,
-    };
+  /// \brief Reverts all selected editor prefabs to their original template state
+  virtual ezUuid RevertPrefab(const ezDocumentObject* pObject) override;
 
-    Type m_Type;
-  };
+  /// \brief Converts all objects in the selection that are engine prefabs to their respective editor prefab representation
+  virtual void ConvertToEditorPrefab(const ezDeque<const ezDocumentObject*>& Selection);
+  /// \brief Converts all objects in the selection that are editor prefabs to their respective engine prefab representation
+  virtual void ConvertToEnginePrefab(const ezDeque<const ezDocumentObject*>& Selection);
 
-  ezEvent<const SceneEvent&> m_SceneEvents;
+  GameMode::Enum GetGameMode() const { return m_GameMode; }
+
+  void StartSimulateWorld();
+  void TriggerGameModePlay();
+
+  /// Stops the world simulation, if it is running. Returns true, when the simulation needed to be stopped.
+  bool StopGameMode();
+
+  ezStatus ExportScene();
+
+  virtual void HandleEngineMessage(const ezEditorEngineDocumentMsg* pMsg) override;
+  void HandleGameModeMsg(const ezGameModeMsgToEditor* pMsg);
+  void HandleVisualScriptActivityMsg(const ezVisualScriptActivityMsgToEditor* pMsg);
+  void SendObjectMsg(const ezDocumentObject* pObj, ezObjectTagMsgToEngine* pMsg);
+  void SendObjectMsgRecursive(const ezDocumentObject* pObj, ezObjectTagMsgToEngine* pMsg);
 
 protected:
+  void SetGameMode(GameMode::Enum mode);
+
   virtual void InitializeAfterLoading() override;
 
-  virtual ezDocumentInfo* CreateDocumentInfo() override { return EZ_DEFAULT_NEW(ezDocumentInfo); }
+  template<typename Func>
+  void ApplyRecursive(const ezDocumentObject* pObject, Func f)
+  {
+    f(pObject);
+
+    for (auto pChild : pObject->GetChildren())
+    {
+      ApplyRecursive<Func>(pChild, f);
+    }
+  }
+
 
 private:
-  void ObjectPropertyEventHandler(const ezDocumentObjectPropertyEvent& e);
-  void ObjectStructureEventHandler(const ezDocumentObjectStructureEvent& e);
 
-  void InvalidateGlobalTransformValue(const ezDocumentObjectBase* pObject);
+  void DocumentObjectMetaDataEventHandler(const ezObjectMetaData<ezUuid, ezDocumentObjectMetaData>::EventData& e);
+  void EngineConnectionEventHandler(const ezEditorEngineProcessConnection::Event& e);
+  void ToolsProjectEventHandler(const ezToolsProjectEvent& e);
 
-  bool m_bGizmoWorldSpace; // whether the gizmo is in local/global space mode
-  ActiveGizmo m_ActiveGizmo;
-  ezObjectPickingResult m_PickingResult;
+  ezStatus RequestExportScene(const char* szTargetFile, const ezAssetFileHeader& header);
 
-  ezHashTable<const ezDocumentObjectBase*, ezTransform> m_GlobalTransforms;
+  virtual const char* QueryAssetType() const override;
+
+  virtual ezStatus InternalTransformAsset(const char* szTargetFile, const char* szOutputTag, const char* szPlatform, const ezAssetFileHeader& AssetHeader, bool bTriggeredManually) override;
+  virtual ezStatus InternalTransformAsset(ezStreamWriter& stream, const char* szOutputTag, const char* szPlatform, const ezAssetFileHeader& AssetHeader, bool bTriggeredManually) override;
+  ezStatus InternalCreateThumbnail(const ezAssetFileHeader& AssetHeader) override;
+
+  void SyncObjectHiddenState();
+  void SyncObjectHiddenState(ezDocumentObject* pObject);
+
+  /// \brief Finds all objects that are actively being 'debugged' (or visualized) by the editor and thus should get the debug visualization flag in the runtime.
+  void UpdateObjectDebugTargets();
+
+  bool m_bIsPrefab;
+
+  GameMode::Enum m_GameMode;
+
+  GameModeData m_GameModeData[3];
+
+
+  //////////////////////////////////////////////////////////////////////////
+  /// Communication with other document types
+  virtual void OnInterDocumentMessage(ezReflectedClass* pMessage, ezDocument* pSender) override;
+  void GatherObjectsOfType(ezDocumentObject* pRoot, ezGatherObjectsOfTypeMsgInterDoc* pMsg) const;
+
 };

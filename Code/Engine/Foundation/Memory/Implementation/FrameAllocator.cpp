@@ -1,7 +1,35 @@
-#include <Foundation/PCH.h>
+#include <PCH.h>
 #include <Foundation/Configuration/Startup.h>
 #include <Foundation/Memory/FrameAllocator.h>
 #include <Foundation/Profiling/Profiling.h>
+#include <Foundation/Strings/StringBuilder.h>
+
+ezDoubleBufferedStackAllocator::ezDoubleBufferedStackAllocator(ezAllocatorBase* pParent)
+{
+  m_pCurrentAllocator = EZ_DEFAULT_NEW(StackAllocatorType, "StackAllocator0", pParent);
+  m_pOtherAllocator = EZ_DEFAULT_NEW(StackAllocatorType, "StackAllocator1", pParent);
+}
+
+ezDoubleBufferedStackAllocator::~ezDoubleBufferedStackAllocator()
+{
+  EZ_DEFAULT_DELETE(m_pCurrentAllocator);
+  EZ_DEFAULT_DELETE(m_pOtherAllocator);
+}
+
+void ezDoubleBufferedStackAllocator::Swap()
+{
+  ezMath::Swap(m_pCurrentAllocator, m_pOtherAllocator);
+
+  m_pCurrentAllocator->Reset();
+}
+
+void ezDoubleBufferedStackAllocator::Reset()
+{
+  m_pCurrentAllocator->Reset();
+  m_pOtherAllocator->Reset();
+}
+
+
 
 EZ_BEGIN_SUBSYSTEM_DECLARATION(Foundation, FrameAllocator)
 
@@ -17,47 +45,33 @@ EZ_BEGIN_SUBSYSTEM_DECLARATION(Foundation, FrameAllocator)
 
 EZ_END_SUBSYSTEM_DECLARATION
 
-namespace
-{
-  ezFrameAllocator::StackAllocatorType* g_Allocators[2];
-  ezProfilingId g_SwapProfilingId = ezProfilingSystem::CreateId("FrameAllocator.Swap");
-}
+ezDoubleBufferedStackAllocator* ezFrameAllocator::s_pAllocator;
 
-ezFrameAllocator::StackAllocatorType* ezFrameAllocator::s_pCurrentAllocator;
-
-// static 
+// static
 void ezFrameAllocator::Swap()
 {
-  EZ_PROFILE(g_SwapProfilingId);
+  EZ_PROFILE("FrameAllocator.Swap");
 
-  s_pCurrentAllocator = (s_pCurrentAllocator == g_Allocators[0]) ? g_Allocators[1] : g_Allocators[0];
-  s_pCurrentAllocator->Reset();
+  s_pAllocator->Swap();
 }
 
-// static 
+// static
 void ezFrameAllocator::Reset()
 {
-  g_Allocators[0]->Reset();
-  g_Allocators[1]->Reset();
+  s_pAllocator->Reset();
 }
 
 // static
 void ezFrameAllocator::Startup()
 {
-  g_Allocators[0] = EZ_DEFAULT_NEW(StackAllocatorType, "FrameAllocator0", ezFoundation::GetDefaultAllocator());
-  g_Allocators[1] = EZ_DEFAULT_NEW(StackAllocatorType, "FrameAllocator1", ezFoundation::GetDefaultAllocator());
-
-  s_pCurrentAllocator = g_Allocators[0];
+  s_pAllocator = EZ_DEFAULT_NEW(ezDoubleBufferedStackAllocator, ezFoundation::GetAlignedAllocator());
 }
 
-// static 
+// static
 void ezFrameAllocator::Shutdown()
 {
-  g_Allocators[0]->Reset();
-  g_Allocators[1]->Reset();
-
-  EZ_DEFAULT_DELETE(g_Allocators[0]);
-  EZ_DEFAULT_DELETE(g_Allocators[1]);
-
-  s_pCurrentAllocator = nullptr;
+  EZ_DEFAULT_DELETE(s_pAllocator);
 }
+
+EZ_STATICLINK_FILE(Foundation, Foundation_Memory_Implementation_FrameAllocator);
+

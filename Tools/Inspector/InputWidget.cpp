@@ -3,10 +3,11 @@
 #include <qlistwidget.h>
 #include <Foundation/Communication/Telemetry.h>
 #include <MainWindow.moc.h>
+#include <GuiFoundation/UIServices/UIServices.moc.h>
 
-ezInputWidget* ezInputWidget::s_pWidget = nullptr;
+ezQtInputWidget* ezQtInputWidget::s_pWidget = nullptr;
 
-ezInputWidget::ezInputWidget(QWidget* parent) : QDockWidget (parent)
+ezQtInputWidget::ezQtInputWidget(QWidget* parent) : QDockWidget (parent)
 {
   s_pWidget = this;
 
@@ -15,13 +16,13 @@ ezInputWidget::ezInputWidget(QWidget* parent) : QDockWidget (parent)
   ResetStats();
 }
 
-void ezInputWidget::ResetStats()
+void ezQtInputWidget::ResetStats()
 {
   ClearSlots();
   ClearActions();
 }
 
-void ezInputWidget::ClearSlots()
+void ezQtInputWidget::ClearSlots()
 {
   m_InputSlots.Clear();
   TableInputSlots->clear();
@@ -42,7 +43,7 @@ void ezInputWidget::ClearSlots()
   }
 }
 
-void ezInputWidget::ClearActions()
+void ezQtInputWidget::ClearActions()
 {
   m_InputActions.Clear();
   TableInputActions->clear();
@@ -64,7 +65,7 @@ void ezInputWidget::ClearActions()
   }
 }
 
-void ezInputWidget::ProcessTelemetry(void* pUnuseed)
+void ezQtInputWidget::ProcessTelemetry(void* pUnuseed)
 {
   if (!s_pWidget)
     return;
@@ -146,7 +147,7 @@ void ezInputWidget::ProcessTelemetry(void* pUnuseed)
   if (bFillActionTable)
     s_pWidget->UpdateActionTable(false);}
 
-void ezInputWidget::UpdateSlotTable(bool bRecreate)
+void ezQtInputWidget::UpdateSlotTable(bool bRecreate)
 {
   TableInputSlots->blockSignals(true);
 
@@ -175,10 +176,10 @@ void ezInputWidget::UpdateSlotTable(bool bRecreate)
     {
       it.Value().m_iTableRow = iRow;
 
-      sTemp.Format("  %s  ", it.Key().GetData());
+      sTemp.Format("  {0}  ", it.Key());
 
       QLabel* pIcon = new QLabel();
-      pIcon->setPixmap(QPixmap(":/Icons/Icons/InputSlots.png"));
+      pIcon->setPixmap(ezQtUiServices::GetCachedPixmapResource(":/Icons/Icons/InputSlots.png"));
       pIcon->setAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
       TableInputSlots->setCellWidget(iRow, 0, pIcon);
 
@@ -193,7 +194,7 @@ void ezInputWidget::UpdateSlotTable(bool bRecreate)
       // Flags
       {
         ezStringBuilder sFlags;
-        sFlags.Format("  %16b  ", uiFlags);
+        sFlags.Printf("  %16b  ", uiFlags);
 
         QLabel* pFlags = (QLabel*) TableInputSlots->cellWidget(iRow, 5);
         pFlags->setAlignment(Qt::AlignRight);
@@ -207,18 +208,18 @@ void ezInputWidget::UpdateSlotTable(bool bRecreate)
         const char* szNo  = "no";
 
         ezStringBuilder tt("<p>");
-        tt.AppendFormat("ReportsRelativeValues: %s<br>",      (uiFlags & ezInputSlotFlags::ReportsRelativeValues)     ? szYes : szNo);
-        tt.AppendFormat("ValueBinaryZeroOrOne: %s<br>",       (uiFlags & ezInputSlotFlags::ValueBinaryZeroOrOne)      ? szYes : szNo);
-        tt.AppendFormat("ValueRangeZeroToOne: %s<br>",        (uiFlags & ezInputSlotFlags::ValueRangeZeroToOne)       ? szYes : szNo);
-        tt.AppendFormat("ValueRangeZeroToInf: %s<br>",        (uiFlags & ezInputSlotFlags::ValueRangeZeroToInf)       ? szYes : szNo);
-        tt.AppendFormat("Pressable: %s<br>",                  (uiFlags & ezInputSlotFlags::Pressable)                 ? szYes : szNo);
-        tt.AppendFormat("Holdable: %s<br>",                   (uiFlags & ezInputSlotFlags::Holdable)                  ? szYes : szNo);
-        tt.AppendFormat("HalfAxis: %s<br>",                   (uiFlags & ezInputSlotFlags::HalfAxis)                  ? szYes : szNo);
-        tt.AppendFormat("FullAxis: %s<br>",                   (uiFlags & ezInputSlotFlags::FullAxis)                  ? szYes : szNo);
-        tt.AppendFormat("RequiresDeadZone: %s<br>",           (uiFlags & ezInputSlotFlags::RequiresDeadZone)          ? szYes : szNo);
-        tt.AppendFormat("ValuesAreNonContinuous: %s<br>",     (uiFlags & ezInputSlotFlags::ValuesAreNonContinuous)    ? szYes : szNo);
-        tt.AppendFormat("ActivationDependsOnOthers: %s<br>",  (uiFlags & ezInputSlotFlags::ActivationDependsOnOthers) ? szYes : szNo);
-        tt.AppendFormat("NeverTimeScale: %s<br>",             (uiFlags & ezInputSlotFlags::NeverTimeScale)            ? szYes : szNo);
+        tt.AppendFormat("ReportsRelativeValues: {0}<br>",      (uiFlags & ezInputSlotFlags::ReportsRelativeValues)     ? szYes : szNo);
+        tt.AppendFormat("ValueBinaryZeroOrOne: {0}<br>",       (uiFlags & ezInputSlotFlags::ValueBinaryZeroOrOne)      ? szYes : szNo);
+        tt.AppendFormat("ValueRangeZeroToOne: {0}<br>",        (uiFlags & ezInputSlotFlags::ValueRangeZeroToOne)       ? szYes : szNo);
+        tt.AppendFormat("ValueRangeZeroToInf: {0}<br>",        (uiFlags & ezInputSlotFlags::ValueRangeZeroToInf)       ? szYes : szNo);
+        tt.AppendFormat("Pressable: {0}<br>",                  (uiFlags & ezInputSlotFlags::Pressable)                 ? szYes : szNo);
+        tt.AppendFormat("Holdable: {0}<br>",                   (uiFlags & ezInputSlotFlags::Holdable)                  ? szYes : szNo);
+        tt.AppendFormat("HalfAxis: {0}<br>",                   (uiFlags & ezInputSlotFlags::HalfAxis)                  ? szYes : szNo);
+        tt.AppendFormat("FullAxis: {0}<br>",                   (uiFlags & ezInputSlotFlags::FullAxis)                  ? szYes : szNo);
+        tt.AppendFormat("RequiresDeadZone: {0}<br>",           (uiFlags & ezInputSlotFlags::RequiresDeadZone)          ? szYes : szNo);
+        tt.AppendFormat("ValuesAreNonContinuous: {0}<br>",     (uiFlags & ezInputSlotFlags::ValuesAreNonContinuous)    ? szYes : szNo);
+        tt.AppendFormat("ActivationDependsOnOthers: {0}<br>",  (uiFlags & ezInputSlotFlags::ActivationDependsOnOthers) ? szYes : szNo);
+        tt.AppendFormat("NeverTimeScale: {0}<br>",             (uiFlags & ezInputSlotFlags::NeverTimeScale)            ? szYes : szNo);
         tt.Append("</p>");
 
         TableInputSlots->cellWidget(iRow, 5)->setToolTip(tt.GetData());
@@ -229,7 +230,7 @@ void ezInputWidget::UpdateSlotTable(bool bRecreate)
 
     TableInputSlots->resizeColumnsToContents();
   }
-  
+
   {
     ezStringBuilder sTemp;
 
@@ -264,7 +265,7 @@ void ezInputWidget::UpdateSlotTable(bool bRecreate)
           pValue->setText("");
         else
         {
-          sTemp.Format(" %.4f ", it.Value().m_fValue);
+          sTemp.Format(" {0} ", ezArgF(it.Value().m_fValue, 4));
           pValue->setText(sTemp.GetData());
         }
       }
@@ -287,7 +288,7 @@ void ezInputWidget::UpdateSlotTable(bool bRecreate)
   TableInputSlots->blockSignals(false);
 }
 
-void ezInputWidget::UpdateActionTable(bool bRecreate)
+void ezQtInputWidget::UpdateActionTable(bool bRecreate)
 {
   TableInputActions->blockSignals(true);
 
@@ -317,10 +318,10 @@ void ezInputWidget::UpdateActionTable(bool bRecreate)
     {
       it.Value().m_iTableRow = iRow;
 
-      sTemp.Format("  %s  ", it.Key().GetData());
+      sTemp.Format("  {0}  ", it.Key());
 
       QLabel* pIcon = new QLabel();
-      pIcon->setPixmap(QPixmap(":/Icons/Icons/InputActions.png"));
+      pIcon->setPixmap(ezQtUiServices::GetCachedPixmapResource(":/Icons/Icons/InputActions.png"));
       pIcon->setAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
       TableInputActions->setCellWidget(iRow, 0, pIcon);
 
@@ -338,7 +339,7 @@ void ezInputWidget::UpdateActionTable(bool bRecreate)
         if (it.Value().m_sTrigger[slot].IsEmpty())
           sTemp = "  ";
         else
-          sTemp.Format("  [Scale: %.2f] %s  ", it.Value().m_fTriggerScaling[slot], it.Value().m_sTrigger[slot].GetData());
+          sTemp.Format("  [Scale: {0}] {1}  ", ezArgF(it.Value().m_fTriggerScaling[slot], 2), it.Value().m_sTrigger[slot]);
 
         QLabel* pValue = (QLabel*) TableInputActions->cellWidget(iRow, 4 + slot);
         pValue->setText(sTemp.GetData());
@@ -349,7 +350,7 @@ void ezInputWidget::UpdateActionTable(bool bRecreate)
 
     TableInputActions->resizeColumnsToContents();
   }
-  
+
   {
     ezStringBuilder sTemp;
 
@@ -385,9 +386,9 @@ void ezInputWidget::UpdateActionTable(bool bRecreate)
         else
         {
           if (it.Value().m_bUseTimeScaling)
-            sTemp.Format(" %.4f (Time-Scaled) ", it.Value().m_fValue);
+            sTemp.Format(" {0} (Time-Scaled) ", ezArgF(it.Value().m_fValue, 4));
           else
-            sTemp.Format(" %.4f (Absolute) ", it.Value().m_fValue);
+            sTemp.Format(" {0} (Absolute) ", ezArgF(it.Value().m_fValue, 4));
 
           pValue->setText(sTemp.GetData());
         }
@@ -401,12 +402,12 @@ void ezInputWidget::UpdateActionTable(bool bRecreate)
   TableInputActions->blockSignals(false);
 }
 
-void ezInputWidget::on_ButtonClearSlots_clicked()
+void ezQtInputWidget::on_ButtonClearSlots_clicked()
 {
   ClearSlots();
 }
 
-void ezInputWidget::on_ButtonClearActions_clicked()
+void ezQtInputWidget::on_ButtonClearActions_clicked()
 {
   ClearActions();
 }

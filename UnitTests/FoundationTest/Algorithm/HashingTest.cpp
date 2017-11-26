@@ -1,22 +1,34 @@
 #include <PCH.h>
 
 #include <Foundation/Algorithm/HashableStruct.h>
+#include <Foundation/Algorithm/HashHelperString.h>
 #include <Foundation/Strings/HashedString.h>
 
 EZ_CREATE_SIMPLE_TEST_GROUP(Algorithm);
 
+// Warning for overflow in compile time executed static_assert(ezHashing::MurmurHash...)
+// Todo: Why is this not happening elsewhere?
+#pragma warning (disable:4307)
+
 EZ_CREATE_SIMPLE_TEST(Algorithm, Hashing)
 {
   // check whether compile time hashing gives the same value as runtime hashing
-  ezStringBuilder sb = "This is a test string. 1234";
+  const char* szString = "This is a test string. 1234";
+  const char* szStringLower = "this is a test string. 1234";
+  const char* szString2 = "THiS iS A TESt sTrInG. 1234";
+  ezStringBuilder sb = szString;
 
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "Hashfunction")
   {
     ezUInt32 uiHashRT = ezHashing::MurmurHash(sb.GetData());
     ezUInt32 uiHashCT = ezHashing::MurmurHash("This is a test string. 1234");
 
+
     EZ_TEST_INT(uiHashRT, 0xb999d6c4);
     EZ_TEST_INT(uiHashRT, uiHashCT);
+
+    // Static assert to ensure this is happening at compile time!
+    static_assert(ezHashing::MurmurHash("This is a test string. 1234") == static_cast<ezUInt32>(0xb999d6c4), "Error in compile time murmur hash calculation!");
 
     // check 64bit hashes
     ezUInt64 uiHash64 = ezHashing::MurmurHash64(sb.GetData(), sb.GetElementCount());
@@ -26,7 +38,7 @@ EZ_CREATE_SIMPLE_TEST(Algorithm, Hashing)
     ezUInt32 uiCrc = ezHashing::CRC32Hash(sb.GetData(), sb.GetElementCount());
     EZ_TEST_INT(uiCrc, 0x73b5e898);
   }
-  
+
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "HashHelper")
   {
     ezUInt32 uiHash = ezHashHelper<ezStringBuilder>::Hash(sb);
@@ -46,6 +58,39 @@ EZ_CREATE_SIMPLE_TEST(Algorithm, Hashing)
     uiHash = ezHashHelper<ezHashedString>::Hash(ths);
     EZ_TEST_INT(uiHash, 0xb999d6c4);
     EZ_TEST_BOOL(ezHashHelper<ezHashedString>::Equal(hs, ths));
+  }
+
+  EZ_TEST_BLOCK(ezTestBlock::Enabled, "HashHelperString_NoCase")
+  {
+    const ezUInt32 uiHash = ezHashHelper<const char*>::Hash(szStringLower);
+    EZ_TEST_INT(uiHash, 0x756cc03e);
+    EZ_TEST_INT(uiHash, ezHashHelperString_NoCase::Hash(szString));
+    EZ_TEST_INT(uiHash, ezHashHelperString_NoCase::Hash(szStringLower));
+    EZ_TEST_INT(uiHash, ezHashHelperString_NoCase::Hash(szString2));
+    EZ_TEST_INT(uiHash, ezHashHelperString_NoCase::Hash(sb));
+    ezStringBuilder sb2 = szString2;
+    EZ_TEST_INT(uiHash, ezHashHelperString_NoCase::Hash(sb2));
+    ezString sL = szStringLower;
+    ezString s1 = sb;
+    ezString s2 = sb2;
+    EZ_TEST_INT(uiHash, ezHashHelperString_NoCase::Hash(s1));
+    EZ_TEST_INT(uiHash, ezHashHelperString_NoCase::Hash(s2));
+    ezStringView svL = szStringLower;
+    ezStringView sv1 = szString;
+    ezStringView sv2 = szString2;
+    EZ_TEST_INT(uiHash, ezHashHelperString_NoCase::Hash(svL));
+    EZ_TEST_INT(uiHash, ezHashHelperString_NoCase::Hash(sv1));
+    EZ_TEST_INT(uiHash, ezHashHelperString_NoCase::Hash(sv2));
+
+    EZ_TEST_BOOL(ezHashHelperString_NoCase::Equal(sb, sb2));
+    EZ_TEST_BOOL(ezHashHelperString_NoCase::Equal(sb, szString2));
+    EZ_TEST_BOOL(ezHashHelperString_NoCase::Equal(sb, sv2));
+    EZ_TEST_BOOL(ezHashHelperString_NoCase::Equal(s1, sb2));
+    EZ_TEST_BOOL(ezHashHelperString_NoCase::Equal(s1, szString2));
+    EZ_TEST_BOOL(ezHashHelperString_NoCase::Equal(s1, sv2));
+    EZ_TEST_BOOL(ezHashHelperString_NoCase::Equal(sv1, sb2));
+    EZ_TEST_BOOL(ezHashHelperString_NoCase::Equal(sv1, szString2));
+    EZ_TEST_BOOL(ezHashHelperString_NoCase::Equal(sv1, sv2));
   }
 }
 

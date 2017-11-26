@@ -1,5 +1,4 @@
-#include <Foundation/PCH.h>
-#include <Foundation/Strings/PathUtils.h>
+#include <PCH.h>
 #include <Foundation/Strings/StringBuilder.h>
 
 const char* ezPathUtils::FindPreviousSeparator(const char* szPathStart, const char* szStartSearchAt)
@@ -163,10 +162,76 @@ bool ezPathUtils::IsRelativePath(const char* szPath)
   if (ezPathUtils::IsPathSeparator(szPath[0]))
     return false;
 
-  return !IsAbsolutePath(szPath);
+  return !IsAbsolutePath(szPath) && !IsRootedPath(szPath);
+}
+
+bool ezPathUtils::IsRootedPath(const char* szPath)
+{
+  return szPath != nullptr && szPath[0] == ':';
 }
 
 
+ezStringView ezPathUtils::GetRootedPathRootName(const char* szPath)
+{
+  if (!IsRootedPath(szPath))
+    return ezStringView();
+
+  const char* szStart = szPath;
+
+  do
+  {
+    ezUnicodeUtils::MoveToNextUtf8(szStart);
+
+    if (*szStart == '\0')
+      return ezStringView();
+  }
+  while (IsPathSeparator(*szStart));
+
+  const char* szEnd = szStart;
+  ezUnicodeUtils::MoveToNextUtf8(szEnd);
+
+  while (*szEnd != '\0' && !IsPathSeparator(*szEnd))
+    ezUnicodeUtils::MoveToNextUtf8(szEnd);
+
+  return ezStringView(szStart, szEnd);
+}
+
+bool ezPathUtils::IsValidFilenameChar(ezUInt32 character)
+{
+  // Windows: https://msdn.microsoft.com/en-us/library/windows/desktop/aa365247(v=vs.85).aspx
+  // Unix: https://en.wikipedia.org/wiki/Filename#Reserved_characters_and_words
+  // Details can be more complicated (there might be reserved names depending on the filesystem), but in general all platforms behave like this:
+  static const ezUInt32 forbiddenFilenameChars[] = { '<', '>', ':', '"', '|', '?', '*', '\\', '/', '\t', '\b', '\n', '\r', '\0' };
+
+  for (int i = 0; i < EZ_ARRAY_SIZE(forbiddenFilenameChars); ++i)
+  {
+    if (forbiddenFilenameChars[i] == character)
+      return false;
+  }
+
+  return true;
+}
+
+ezResult ezPathUtils::MakeValidFilename(const char* szFilename, ezUInt32 replacementCharacter, ezStringBuilder& outFilename)
+{
+  EZ_ASSERT_DEBUG(IsValidFilenameChar(replacementCharacter), "Given replacement character is not allowed for filenames.");
+
+  // Empty string
+  if (ezStringUtils::IsNullOrEmpty(szFilename))
+    return EZ_FAILURE;
+
+  do
+  {
+    ezUInt32 currentChar = ezUnicodeUtils::DecodeUtf8ToUtf32(szFilename); // moves pointer one char forward already.
+    if (IsValidFilenameChar(currentChar) == false)
+      outFilename.Append(replacementCharacter);
+    else
+      outFilename.Append(currentChar);
+
+  } while (*szFilename != '\0');
+
+  return EZ_SUCCESS;
+}
 
 EZ_STATICLINK_FILE(Foundation, Foundation_Strings_Implementation_PathUtils);
 

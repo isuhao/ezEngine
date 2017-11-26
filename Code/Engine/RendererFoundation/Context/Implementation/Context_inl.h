@@ -1,25 +1,30 @@
+﻿
+EZ_ALWAYS_INLINE ezGALDevice* ezGALContext::GetDevice() const
+{
+  return m_pDevice;
+}
 
-inline void ezGALContext::CountDrawCall()
+EZ_ALWAYS_INLINE void ezGALContext::CountDrawCall()
 {
   m_uiDrawCalls++;
 }
 
-inline void ezGALContext::CountDispatchCall()
+EZ_ALWAYS_INLINE void ezGALContext::CountDispatchCall()
 {
   m_uiDispatchCalls++;
 }
 
-inline void ezGALContext::CountStateChange()
+EZ_ALWAYS_INLINE void ezGALContext::CountStateChange()
 {
   m_uiStateChanges++;
 }
 
-inline void ezGALContext::CountRedundantStateChange()
+EZ_ALWAYS_INLINE void ezGALContext::CountRedundantStateChange()
 {
   m_uiRedundantStateChanges++;
 }
 
-inline void ezGALContext::AssertRenderingThread()
+EZ_ALWAYS_INLINE void ezGALContext::AssertRenderingThread()
 {
-  /// \todo
+  EZ_ASSERT_DEV(ezThreadUtils::IsMainThread(), "This function can only be executed on the main thread.");
 }

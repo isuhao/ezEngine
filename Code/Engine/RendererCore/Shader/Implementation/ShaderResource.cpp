@@ -1,11 +1,9 @@
-#include <RendererCore/PCH.h>
+﻿#include <PCH.h>
 #include <RendererCore/Shader/ShaderResource.h>
-#include <RendererCore/Shader/Implementation/Helper.h>
-#include <RendererCore/RenderContext/RenderContext.h>
-#include <Foundation/Logging/Log.h>
+#include <RendererCore/ShaderCompiler/ShaderParser.h>
 
-EZ_BEGIN_DYNAMIC_REFLECTED_TYPE(ezShaderResource, ezResourceBase, 1, ezRTTIDefaultAllocator<ezShaderResource>);
-EZ_END_DYNAMIC_REFLECTED_TYPE();
+EZ_BEGIN_DYNAMIC_REFLECTED_TYPE(ezShaderResource, 1, ezRTTIDefaultAllocator<ezShaderResource>);
+EZ_END_DYNAMIC_REFLECTED_TYPE
 
 ezShaderResource::ezShaderResource() : ezResource<ezShaderResource, ezShaderResourceDescriptor>(DoUpdate::OnAnyThread, 1)
 {
@@ -16,7 +14,7 @@ ezResourceLoadDesc ezShaderResource::UnloadData(Unload WhatToUnload)
 {
   m_bShaderResourceIsValid = false;
   m_PermutationVarsUsed.Clear();
-  
+
   ezResourceLoadDesc res;
   res.m_uiQualityLevelsDiscardable = 0;
   res.m_uiQualityLevelsLoadable = 0;
@@ -25,7 +23,7 @@ ezResourceLoadDesc ezShaderResource::UnloadData(Unload WhatToUnload)
   return res;
 }
 
-ezResourceLoadDesc ezShaderResource::UpdateContent(ezStreamReaderBase* Stream)
+ezResourceLoadDesc ezShaderResource::UpdateContent(ezStreamReader* stream)
 {
   ezResourceLoadDesc res;
   res.m_uiQualityLevelsDiscardable = 0;
@@ -33,7 +31,7 @@ ezResourceLoadDesc ezShaderResource::UpdateContent(ezStreamReaderBase* Stream)
 
   m_bShaderResourceIsValid = false;
 
-  if (Stream == nullptr)
+  if (stream == nullptr)
   {
     res.m_State = ezResourceState::LoadedResourceMissing;
     return res;
@@ -42,17 +40,11 @@ ezResourceLoadDesc ezShaderResource::UpdateContent(ezStreamReaderBase* Stream)
   // skip the absolute file path data that the standard file reader writes into the stream
   {
     ezString sAbsFilePath;
-    (*Stream) >> sAbsFilePath;
+    (*stream) >> sAbsFilePath;
   }
 
-  ezString sContent;
-  sContent.ReadAll(*Stream);
-
-  ezTextSectionizer Sections;
-  GetShaderSections(sContent.GetData(), Sections);
-
-  ezUInt32 uiFirstLine = 0;
-  m_PermutationVarsUsed = Sections.GetSectionContent(ezShaderSections::PERMUTATIONS, uiFirstLine);
+  ezHybridArray<ezPermutationVar, 16> fixedPermVars; // ignored here
+  ezShaderParser::ParsePermutationSection(*stream, m_PermutationVarsUsed, fixedPermVars);
 
   res.m_State = ezResourceState::Loaded;
   m_bShaderResourceIsValid = true;
@@ -68,5 +60,17 @@ void ezShaderResource::UpdateMemoryUsage(MemoryUsage& out_NewMemoryUsage)
 
 
 
-EZ_STATICLINK_FILE(RendererCore, RendererCore_Shader_ShaderResource);
+ezResourceLoadDesc ezShaderResource::CreateResource(const ezShaderResourceDescriptor& descriptor)
+{
+  ezResourceLoadDesc ret;
+  ret.m_State = ezResourceState::Loaded;
+  ret.m_uiQualityLevelsDiscardable = 0;
+  ret.m_uiQualityLevelsLoadable = 0;
+
+  m_bShaderResourceIsValid = false;
+
+  return ret;
+}
+
+EZ_STATICLINK_FILE(RendererCore, RendererCore_Shader_Implementation_ShaderResource);
 

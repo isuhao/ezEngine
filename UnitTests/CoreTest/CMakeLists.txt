@@ -1,4 +1,4 @@
-#cmake
+﻿#cmake
 
 #
 # Copy this file into the folder of an engine library to add it to the solution.
@@ -6,8 +6,6 @@
 #
 # *** Modify this file as required ***
 #
-
-BUILD_CONDITIONAL(EZ_BUILD_UNITTESTS)
 
 # Add all the preprocessor definitions that are needed to configure this library
 # add_definitions (-DMY_PREPROCESS_DEFINITION_1)
@@ -19,7 +17,7 @@ SET (LINK_LIBRARIES
   Foundation
   TestFramework
   Core
-  CoreUtils
+  Utilities
 )
 
 include (${CMAKE_SOURCE_DIR}/Code/BuildSystem/CMake/CMAKE_Application.txt)

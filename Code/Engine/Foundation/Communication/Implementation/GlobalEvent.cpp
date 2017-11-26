@@ -1,4 +1,4 @@
-#include <Foundation/PCH.h>
+#include <PCH.h>
 #include <Foundation/Communication/GlobalEvent.h>
 #include <Foundation/Logging/Log.h>
 
@@ -58,7 +58,7 @@ void ezGlobalEvent::UpdateGlobalEventStatistics()
   while (pHandler)
   {
     EventData& ed = s_KnownEvents[pHandler->m_szEventName];
-    
+
     if (pHandler->m_bOnlyOnce)
       ++ed.m_uiNumEventHandlersOnce;
     else
@@ -78,7 +78,7 @@ void ezGlobalEvent::PrintGlobalEventStatistics()
 
   while (it.IsValid())
   {
-    ezLog::Info("Event: '%s', Num Handlers Regular / Once: %i / %i, Num Times Fired: %i", it.Key().GetData(), it.Value().m_uiNumEventHandlersRegular, it.Value().m_uiNumEventHandlersOnce, it.Value().m_uiNumTimesFired);
+    ezLog::Info("Event: '{0}', Num Handlers Regular / Once: {1} / {2}, Num Times Fired: {3}", it.Key(), it.Value().m_uiNumEventHandlersRegular, it.Value().m_uiNumEventHandlersOnce, it.Value().m_uiNumTimesFired);
 
     ++it;
   }

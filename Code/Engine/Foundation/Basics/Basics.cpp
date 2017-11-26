@@ -1,11 +1,20 @@
-#include <Foundation/PCH.h>
+#include <PCH.h>
 #include <Foundation/Memory/CommonAllocators.h>
-#include <Foundation/Communication/GlobalEvent.h>
+
+#if EZ_ENABLED(EZ_USE_GUARDED_ALLOCATIONS)
+  typedef ezGuardedAllocator DefaultHeapType;
+  typedef ezGuardedAllocator DefaultAlignedHeapType;
+  typedef ezGuardedAllocator DefaultStaticHeapType;
+#else
+  typedef ezHeapAllocator DefaultHeapType;
+  typedef ezAlignedHeapAllocator DefaultAlignedHeapType;
+  typedef ezHeapAllocator DefaultStaticHeapType;  
+#endif
 
 enum 
 { 
-  HEAP_ALLOCATOR_BUFFER_SIZE = sizeof(ezHeapAllocator),
-  ALIGNED_ALLOCATOR_BUFFER_SIZE = sizeof(ezAlignedHeapAllocator)
+  HEAP_ALLOCATOR_BUFFER_SIZE = sizeof(DefaultHeapType),
+  ALIGNED_ALLOCATOR_BUFFER_SIZE = sizeof(DefaultAlignedHeapType)
 };
 
 static ezUInt8 s_DefaultAllocatorBuffer[HEAP_ALLOCATOR_BUFFER_SIZE];
@@ -28,12 +37,12 @@ void ezFoundation::Initialize()
    
   if (s_pDefaultAllocator == nullptr)
   {
-    s_pDefaultAllocator = new (s_DefaultAllocatorBuffer) ezHeapAllocator("DefaultHeap");
+    s_pDefaultAllocator = new (s_DefaultAllocatorBuffer) DefaultHeapType("DefaultHeap");
   }
 
   if (s_pAlignedAllocator == nullptr)
   {
-    s_pAlignedAllocator = new (s_AlignedAllocatorBuffer) ezAlignedHeapAllocator("AlignedHeap");
+    s_pAlignedAllocator = new (s_AlignedAllocatorBuffer) DefaultAlignedHeapType("AlignedHeap");
   }
 
   s_bIsInitialized = true;
@@ -73,7 +82,7 @@ ezAllocatorBase* ezFoundation::GetStaticAllocator()
 
 #endif
 
-    pStaticAllocator = new (s_StaticAllocatorBuffer) ezHeapAllocator(EZ_STATIC_ALLOCATOR_NAME);
+    pStaticAllocator = new (s_StaticAllocatorBuffer) DefaultStaticHeapType(EZ_STATIC_ALLOCATOR_NAME);
   }
 
   return pStaticAllocator;

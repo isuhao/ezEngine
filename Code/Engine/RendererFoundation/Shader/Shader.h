@@ -4,9 +4,10 @@
 #include <RendererFoundation/Basics.h>
 #include <RendererFoundation/Descriptors/Descriptors.h>
 
-class EZ_RENDERERFOUNDATION_DLL ezGALShader : public ezGALObjectBase<ezGALShaderCreationDescription>
+class EZ_RENDERERFOUNDATION_DLL ezGALShader : public ezGALObject<ezGALShaderCreationDescription>
 {
 public:
+  virtual void SetDebugName(const char* szName) const = 0;
 
 protected:
 

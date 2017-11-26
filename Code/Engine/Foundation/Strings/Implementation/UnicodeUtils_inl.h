@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 /*
 You can classify bytes in a UTF-8 stream as follows:
@@ -7,13 +7,24 @@ You can classify bytes in a UTF-8 stream as follows:
   Otherwise, it's the first byte of a multi-byte sequence and the number of leading 1 bits indicates how many bytes there are in total for this sequence (110... means two bytes, 1110... means three bytes, etc).
 */
 
-EZ_FORCE_INLINE bool ezUnicodeUtils::IsUtf8ContinuationByte(char uiByte)
+EZ_ALWAYS_INLINE bool ezUnicodeUtils::IsUtf8StartByte(char uiByte)
+{
+  // valid utf8 start bytes are 0x0-------, 0x110-----, 0x1110----, 0x11110---, etc
+  return
+    ((uiByte & 0x80) == 0) ||
+    ((uiByte & 0xE0) == 0xC0) ||
+    ((uiByte & 0xF0) == 0xE0) ||
+    ((uiByte & 0xF8) == 0xF0) ||
+    ((uiByte & 0xFC) == 0xF8);
+}
+
+EZ_ALWAYS_INLINE bool ezUnicodeUtils::IsUtf8ContinuationByte(char uiByte)
 {
   // check whether the two upper bits are set to '10'
   return (uiByte & 0xC0) == 0x80;
 }
 
-EZ_FORCE_INLINE bool ezUnicodeUtils::IsASCII(ezUInt32 uiChar)
+EZ_ALWAYS_INLINE bool ezUnicodeUtils::IsASCII(ezUInt32 uiChar)
 {
   return (uiChar <= 127);
 }
@@ -106,7 +117,7 @@ inline ezUInt32 ezUnicodeUtils::GetSizeForCharacterInUtf8(ezUInt32 uiCharacter)
   if (uiCharacter <= 0x0000007f)
     return 1;
 
-  if (uiCharacter <= 0x000007ff) 
+  if (uiCharacter <= 0x000007ff)
     return 2;
 
   if (uiCharacter <= 0x0000ffff)
@@ -116,7 +127,7 @@ inline ezUInt32 ezUnicodeUtils::GetSizeForCharacterInUtf8(ezUInt32 uiCharacter)
   // however some committee agreed that never more than 4 bytes are used (no need for more than 21 Bits)
   // this implementation assumes in several places, that the UTF-8 encoding never uses more than 4 bytes
 
-  EZ_ASSERT_DEV(uiCharacter <= 0x0010ffff, "Invalid Unicode Codepoint %u", uiCharacter);
+  EZ_ASSERT_DEV(uiCharacter <= 0x0010ffff, "Invalid Unicode Codepoint");
   return 4;
 }
 

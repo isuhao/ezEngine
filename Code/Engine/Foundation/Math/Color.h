@@ -3,9 +3,6 @@
 #include <Foundation/Math/Math.h>
 #include <Foundation/Math/Vec4.h>
 
-class ezColorLinearUB;
-class ezColorGammaUB;
-
 /// \brief ezColor represents and RGBA color in linear color space. Values are stored as float, allowing HDR values and full precision color modifications.
 ///
 /// ezColor is the central class to handle colors throughout the engine. With floating point precision it can handle any value, including HDR colors.
@@ -41,7 +38,7 @@ class ezColorGammaUB;
 ///
 ///
 ///
-/// The predefined colors can be seen at http://www.w3schools.com/cssref/css_colornames.asp
+/// The predefined colors can be seen at http://www.w3schools.com/colors/colors_names.asp
 class EZ_FOUNDATION_DLL ezColor
 {
 public:
@@ -75,6 +72,7 @@ public:
   static const ezColor DarkCyan;               ///< #008B8B
   static const ezColor DarkGoldenRod;          ///< #B8860B
   static const ezColor DarkGray;               ///< #A9A9A9
+  static const ezColor DarkGrey;               ///< #A9A9A9
   static const ezColor DarkGreen;              ///< #006400
   static const ezColor DarkKhaki;              ///< #BDB76B
   static const ezColor DarkMagenta;            ///< #8B008B
@@ -86,11 +84,13 @@ public:
   static const ezColor DarkSeaGreen;           ///< #8FBC8F
   static const ezColor DarkSlateBlue;          ///< #483D8B
   static const ezColor DarkSlateGray;          ///< #2F4F4F
+  static const ezColor DarkSlateGrey;          ///< #2F4F4F
   static const ezColor DarkTurquoise;          ///< #00CED1
   static const ezColor DarkViolet;             ///< #9400D3
   static const ezColor DeepPink;               ///< #FF1493
   static const ezColor DeepSkyBlue;            ///< #00BFFF
   static const ezColor DimGray;                ///< #696969
+  static const ezColor DimGrey;                ///< #696969
   static const ezColor DodgerBlue;             ///< #1E90FF
   static const ezColor FireBrick;              ///< #B22222
   static const ezColor FloralWhite;            ///< #FFFAF0
@@ -101,6 +101,7 @@ public:
   static const ezColor Gold;                   ///< #FFD700
   static const ezColor GoldenRod;              ///< #DAA520
   static const ezColor Gray;                   ///< #808080
+  static const ezColor Grey;                   ///< #808080
   static const ezColor Green;                  ///< #008000
   static const ezColor GreenYellow;            ///< #ADFF2F
   static const ezColor HoneyDew;               ///< #F0FFF0
@@ -118,12 +119,14 @@ public:
   static const ezColor LightCyan;              ///< #E0FFFF
   static const ezColor LightGoldenRodYellow;   ///< #FAFAD2
   static const ezColor LightGray;              ///< #D3D3D3
+  static const ezColor LightGrey;              ///< #D3D3D3
   static const ezColor LightGreen;             ///< #90EE90
   static const ezColor LightPink;              ///< #FFB6C1
   static const ezColor LightSalmon;            ///< #FFA07A
   static const ezColor LightSeaGreen;          ///< #20B2AA
   static const ezColor LightSkyBlue;           ///< #87CEFA
   static const ezColor LightSlateGray;         ///< #778899
+  static const ezColor LightSlateGrey;         ///< #778899
   static const ezColor LightSteelBlue;         ///< #B0C4DE
   static const ezColor LightYellow;            ///< #FFFFE0
   static const ezColor Lime;                   ///< #00FF00
@@ -177,6 +180,7 @@ public:
   static const ezColor SkyBlue;                ///< #87CEEB
   static const ezColor SlateBlue;              ///< #6A5ACD
   static const ezColor SlateGray;              ///< #708090
+  static const ezColor SlateGrey;              ///< #708090
   static const ezColor Snow;                   ///< #FFFAFA
   static const ezColor SpringGreen;            ///< #00FF7F
   static const ezColor SteelBlue;              ///< #4682B4
@@ -238,28 +242,15 @@ public:
   // *** Conversion Operators/Functions ***
 public:
 
-  /// \brief Sets this color from a color that is in linear color space and given in HSV format.
+  /// \brief Sets this color from a HSV (hue, saturation, value) format.
   ///
-  /// You should typically NOT use this functions, as most colors in HSV format are taken from some color picker,
-  /// which will return a color in Gamma space.
-  void FromLinearHSV(float hue, float sat, float val); // [tested]
+  /// \a hue is in range [0; 360], \a sat and \a val are in range [0; 1]
+  void SetHSV(float hue, float sat, float val); // [tested]
 
-  /// \brief Converts the color part to HSV format. The HSV color will be in linear space.
+  /// \brief Converts the color part to HSV format.
   ///
-  /// You should NOT use this functions when you want to display the HSV value in a UI element, as those should display colors in Gamma space.
-  /// You can use this function for procedural color modifications. E.g. GetComplementaryColor() is computed by rotating the hue value 180 degree.
-  /// In this case you also need to use FromLinearHSV() to convert the color back to RGB format.
-  void ToLinearHSV(float& hue, float& sat, float& val) const; // [tested]
-
-  /// \brief Sets this color from a color that is in gamma space and given in HSV format.
-  ///
-  /// This method should be used when a color was determined through a color picker.
-  void FromGammaHSV(float hue, float sat, float val); // [tested]
-
-  /// \brief Converts the color part to HSV format. The HSV color will be in gamma space.
-  ///
-  /// This should be used when you want to display the color as HSV in a color picker.
-  void ToGammaHSV(float& hue, float& sat, float& val) const; // [tested]
+  /// \a hue is in range [0; 360], \a sat and \a val are in range [0; 1]
+  void GetHSV(float& hue, float& sat, float& val) const; // [tested]
 
   /// \brief Conversion to const float*
   const float* GetData() const { return &r; }
@@ -267,9 +258,13 @@ public:
   /// \brief Conversion to float*
   float* GetData() { return &r; }
 
+  /// \brief Helper function to convert a float color value from gamma space to linear color space.
+  static float GammaToLinear(float gamma); // [tested]
+  /// \brief Helper function to convert a float color value from linear space to gamma color space.
+  static float LinearToGamma(float gamma); // [tested]
+
   /// \brief Helper function to convert a float RGB color value from gamma space to linear color space.
   static ezVec3 GammaToLinear(const ezVec3& gamma); // [tested]
-
   /// \brief Helper function to convert a float RGB color value from linear space to gamma color space.
   static ezVec3 LinearToGamma(const ezVec3& gamma); // [tested]
 
@@ -293,6 +288,25 @@ public:
 
   /// \brief Calculates the complementary color for this color (hue shifted by 180 degrees). The complementary color will have the same alpha.
   ezColor GetComplementaryColor() const; // [tested]
+
+  /// \brief Multiplies the given factor into red, green and blue, but not alpha.
+  void ScaleRGB(float factor);
+
+  /// \brief Returns 1 for an LDR color (all components < 1). Otherwise the value of the largest component.
+  float ComputeHdrMultiplier() const;
+
+  /// \brief Computes the next larger power-of-two multiplier. 1 for LDR colors, 2, 4, 8, etc. for HDR colors.
+  ezUInt32 ComputeHdrMultiplierPOT() const;
+
+  /// \brief Returns the base-2 logarithm of ComputeHdrMultiplierPOT().
+  /// 0 for LDR colors, +1, +2, etc. for HDR colors.
+  ezUInt32 ComputeHdrExposureValue() const;
+
+  /// \brief Raises 2 to the power \a ev and multiplies RGB with that factor.
+  void ApplyHdrExposureValue(ezUInt32 ev);
+
+  /// \brief If this is an HDR color, the largest component value is used to normalize RGB to LDR range. Alpha is unaffected.
+  void NormalizeToLdrRange();
 
   // *** Numeric properties ***
 public:
@@ -343,6 +357,9 @@ public:
 
   /// \brief Equality Check with epsilon. Compares all four components.
   bool IsEqualRGBA(const ezColor& rhs, float fEpsilon) const; // [tested]
+
+  /// \brief Returns the current color but with changes the alpha value to the given value.
+  ezColor WithAlpha(float alpha) const;
 };
 
 // *** Operators ***
@@ -375,6 +392,9 @@ bool operator== (const ezColor& c1, const ezColor& c2); // [tested]
 
 /// \brief Returns true, if both colors are not identical in all components.
 bool operator!= (const ezColor& c1, const ezColor& c2); // [tested]
+
+/// \brief Strict weak ordering. Useful for sorting colors into a map.
+bool operator< (const ezColor& c1, const ezColor& c2); // [tested]
 
 EZ_CHECK_AT_COMPILETIME(sizeof(ezColor) == 16);
 

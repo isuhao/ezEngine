@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <Foundation/Math/Math.h>
 #include <Foundation/Math/Vec2.h>
@@ -97,7 +97,7 @@ public:
 
   /// \brief Tries to normalize this vector. If the vector is too close to zero, EZ_FAILURE is returned and the vector is set to the given fallback value.
   ezResult NormalizeIfNotZero(const ezVec3Template& vFallback = ezVec3Template(1, 0, 0), Type fEpsilon = ezMath::BasicType<Type>::SmallEpsilon()); // [tested]
-    
+
   /// \brief Returns, whether this vector is (0, 0, 0).
   bool IsZero() const; // [tested]
 
@@ -120,11 +120,17 @@ public:
   /// \brief Returns the negation of this vector.
   const ezVec3Template operator- () const; // [tested]
 
-  /// \brief Adds cc component-wise to this vector
-  void operator+= (const ezVec3Template& cc); // [tested]
+  /// \brief Adds rhs component-wise to this vector
+  void operator+= (const ezVec3Template& rhs); // [tested]
 
-  /// \brief Subtracts cc component-wise from this vector
-  void operator-= (const ezVec3Template& cc); // [tested]
+  /// \brief Subtracts rhs component-wise from this vector
+  void operator-= (const ezVec3Template& rhs); // [tested]
+
+  /// \brief Multiplies rhs component-wise to this vector
+  void operator*= (const ezVec3Template& rhs);
+
+  /// \brief Divides this vector component-wise by rhs
+  void operator/= (const ezVec3Template& rhs);
 
   /// \brief Multiplies all components of this vector with f
   void operator*= (Type f); // [tested]
@@ -142,7 +148,8 @@ public:
 // *** Common vector operations ***
 public:
 
-  /// \brief Returns the positive angle between *this and rhs (in degree).
+  /// \brief Returns the positive angle between *this and rhs.
+  /// Both this and rhs must be normalized
   ezAngle GetAngleBetween(const ezVec3Template& rhs) const; // [tested]
 
   /// \brief Returns the Dot-product of the two vectors (commutative, order does not matter)
@@ -158,14 +165,14 @@ public:
   const ezVec3Template CompMax(const ezVec3Template& rhs) const; // [tested]
 
   /// \brief Returns the component-wise multiplication of *this and rhs
-  const ezVec3Template CompMult(const ezVec3Template& rhs) const; // [tested]
+  const ezVec3Template CompMul(const ezVec3Template& rhs) const; // [tested]
 
   /// \brief Returns the component-wise division of *this and rhs
   const ezVec3Template CompDiv(const ezVec3Template& rhs) const; // [tested]
 
 
 // *** Other common operations ***
-public:			
+public:
 
   /// \brief Calculates the normal of the triangle defined by the three vertices. Vertices are assumed to be ordered counter-clockwise.
   ezResult CalculateNormal(const ezVec3Template& v1, const ezVec3Template& v2, const ezVec3Template& v3); // [tested]
@@ -185,9 +192,30 @@ public:
   /// \brief Returns this vector, refracted at vNormal, using the refraction index of the current medium and the medium it enters.
   const ezVec3Template GetRefractedVector(const ezVec3Template& vNormal, Type fRefIndex1, Type fRefIndex2) const;
 
+  /// \brief Sets the vector to a random point inside a unit sphere (radius 1).
+  static ezVec3Template CreateRandomPointInSphere(ezRandom& rng); // [tested]
+
+  /// \brief Creates a random direction vector. The vector is normalized.
+  static ezVec3Template CreateRandomDirection(ezRandom& rng); // [tested]
+
+  /// \brief Creates a random vector around the x axis with a maximum deviation angle of \a maxDeviation. The vector is normalized.
+  /// The deviation angle must be larger than zero.
+  static ezVec3Template CreateRandomDeviationX(ezRandom& rng, const ezAngle& maxDeviation); // [tested]
+
+  /// \brief Creates a random vector around the y axis with a maximum deviation angle of \a maxDeviation. The vector is normalized.
+  /// The deviation angle must be larger than zero.
+  static ezVec3Template CreateRandomDeviationY(ezRandom& rng, const ezAngle& maxDeviation); // [tested]
+
+  /// \brief Creates a random vector around the z axis with a maximum deviation angle of \a maxDeviation. The vector is normalized.
+  /// The deviation angle must be larger than zero.
+  static ezVec3Template CreateRandomDeviationZ(ezRandom& rng, const ezAngle& maxDeviation); // [tested]
+
+  /// \brief Creates a random vector around the given normal with a maximum deviation.
+  /// \note If you are going to do this many times with the same axis, rather than calling this function, instead manually
+  /// do what this function does (see inline code) and only compute the quaternion once.
+  static ezVec3Template CreateRandomDeviation(ezRandom& rng, const ezAngle& maxDeviation, const ezVec3& vNormal); // [tested]
+
 };
-
-
 
 // *** Operators ***
 
@@ -220,7 +248,6 @@ template<typename Type>
 bool operator< (const ezVec3Template<Type>& v1, const ezVec3Template<Type>& v2); // [tested]
 
 #include <Foundation/Math/Implementation/Vec3_inl.h>
-
 
 
 

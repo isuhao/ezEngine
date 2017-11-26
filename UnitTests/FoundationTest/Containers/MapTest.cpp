@@ -1,9 +1,8 @@
-#include <PCH.h>
+﻿#include <PCH.h>
 #include <Foundation/Containers/Map.h>
+#include <Foundation/Strings/String.h>
 #include <algorithm>
 #include <iterator>
-
-typedef ezConstructionCounter st;
 
 EZ_CREATE_SIMPLE_TEST(Containers, Map)
 {
@@ -30,8 +29,8 @@ EZ_CREATE_SIMPLE_TEST(Containers, Map)
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "Constructor")
   {
     ezMap<ezUInt32, ezUInt32> m;
-    ezMap<st, ezUInt32> m2;
-    ezMap<st, st> m3;
+    ezMap<ezConstructionCounter, ezUInt32> m2;
+    ezMap<ezConstructionCounter, ezConstructionCounter> m3;
   }
 
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "IsEmpty")
@@ -69,38 +68,38 @@ EZ_CREATE_SIMPLE_TEST(Containers, Map)
 
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "Clear")
   {
-    EZ_TEST_BOOL(st::HasAllDestructed());
+    EZ_TEST_BOOL(ezConstructionCounter::HasAllDestructed());
 
     {
-      ezMap<ezUInt32, st> m1;
-      m1[0] = st(1);
-      EZ_TEST_BOOL(st::HasDone(3, 2)); // for inserting new elements 2 temporaries are created (and destroyed)
+      ezMap<ezUInt32, ezConstructionCounter> m1;
+      m1[0] = ezConstructionCounter(1);
+      EZ_TEST_BOOL(ezConstructionCounter::HasDone(3, 2)); // for inserting new elements 2 temporaries are created (and destroyed)
 
-      m1[1] = st(3);
-      EZ_TEST_BOOL(st::HasDone(3, 2)); // for inserting new elements 2 temporaries are created (and destroyed)
+      m1[1] = ezConstructionCounter(3);
+      EZ_TEST_BOOL(ezConstructionCounter::HasDone(3, 2)); // for inserting new elements 2 temporaries are created (and destroyed)
 
-      m1[0] = st(2);
-      EZ_TEST_BOOL(st::HasDone(1, 1)); // nothing new to create, so only the one temporary is used
+      m1[0] = ezConstructionCounter(2);
+      EZ_TEST_BOOL(ezConstructionCounter::HasDone(1, 1)); // nothing new to create, so only the one temporary is used
 
       m1.Clear();
-      EZ_TEST_BOOL(st::HasDone(0, 2));
-      EZ_TEST_BOOL(st::HasAllDestructed());
+      EZ_TEST_BOOL(ezConstructionCounter::HasDone(0, 2));
+      EZ_TEST_BOOL(ezConstructionCounter::HasAllDestructed());
     }
 
     {
-      ezMap<st, ezUInt32> m1;
-      m1[st(0)] = 1;
-      EZ_TEST_BOOL(st::HasDone(2, 1)); // one temporary
+      ezMap<ezConstructionCounter, ezUInt32> m1;
+      m1[ezConstructionCounter(0)] = 1;
+      EZ_TEST_BOOL(ezConstructionCounter::HasDone(2, 1)); // one temporary
 
-      m1[st(1)] = 3;
-      EZ_TEST_BOOL(st::HasDone(2, 1)); // one temporary
+      m1[ezConstructionCounter(1)] = 3;
+      EZ_TEST_BOOL(ezConstructionCounter::HasDone(2, 1)); // one temporary
 
-      m1[st(0)] = 2;
-      EZ_TEST_BOOL(st::HasDone(1, 1)); // nothing new to create, so only the one temporary is used
+      m1[ezConstructionCounter(0)] = 2;
+      EZ_TEST_BOOL(ezConstructionCounter::HasDone(1, 1)); // nothing new to create, so only the one temporary is used
 
       m1.Clear();
-      EZ_TEST_BOOL(st::HasDone(0, 2));
-      EZ_TEST_BOOL(st::HasAllDestructed());
+      EZ_TEST_BOOL(ezConstructionCounter::HasDone(0, 2));
+      EZ_TEST_BOOL(ezConstructionCounter::HasAllDestructed());
     }
   }
 
@@ -153,6 +152,47 @@ EZ_CREATE_SIMPLE_TEST(Containers, Map)
 
     for (ezInt32 i = 1000 - 1; i >= 0; --i)
       EZ_TEST_INT(m.Find(i).Value(), i * 10);
+  }
+
+  EZ_TEST_BLOCK(ezTestBlock::Enabled, "GetValue")
+  {
+    ezMap<ezUInt32, ezUInt32> m;
+
+    for (ezInt32 i = 0; i < 100; ++i)
+      m[i] = i * 10;
+
+    for (ezInt32 i = 100 - 1; i >= 0; --i)
+      EZ_TEST_INT(*m.GetValue(i), i * 10);
+
+    EZ_TEST_BOOL(m.GetValue(101) == nullptr);
+  }
+
+  EZ_TEST_BLOCK(ezTestBlock::Enabled, "GetValue (const)")
+  {
+    ezMap<ezUInt32, ezUInt32> m;
+
+    for (ezInt32 i = 0; i < 100; ++i)
+      m[i] = i * 10;
+
+    const ezMap<ezUInt32, ezUInt32>& mConst = m;
+
+    for (ezInt32 i = 100 - 1; i >= 0; --i)
+      EZ_TEST_INT(*mConst.GetValue(i), i * 10);
+
+    EZ_TEST_BOOL(mConst.GetValue(101) == nullptr);
+  }
+
+  EZ_TEST_BLOCK(ezTestBlock::Enabled, "GetValueOrDefault")
+  {
+    ezMap<ezUInt32, ezUInt32> m;
+
+    for (ezInt32 i = 0; i < 100; ++i)
+      m[i] = i * 10;
+
+    for (ezInt32 i = 100 - 1; i >= 0; --i)
+      EZ_TEST_INT(m.GetValueOrDefault(i, 999), i * 10);
+
+    EZ_TEST_BOOL(m.GetValueOrDefault(101, 999) == 999);
   }
 
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "Contains")
@@ -446,6 +486,35 @@ EZ_CREATE_SIMPLE_TEST(Containers, Map)
     m2 = m;
 
     EZ_TEST_BOOL(m == m2);
+  }
+
+  EZ_TEST_BLOCK(ezTestBlock::Enabled, "CompatibleKeyType")
+  {
+    ezMap<ezString, int> stringTable;
+    const char* szChar = "Char";
+    const char* szString = "ViewBla";
+    ezStringView sView(szString, szString + 4);
+    ezStringBuilder sBuilder("Builder");
+    ezString sString("String");
+    stringTable.Insert(szChar, 1);
+    stringTable.Insert(sView, 2);
+    stringTable.Insert(sBuilder, 3);
+    stringTable.Insert(sString, 4);
+
+    EZ_TEST_BOOL(stringTable.Contains(szChar));
+    EZ_TEST_BOOL(stringTable.Contains(sView));
+    EZ_TEST_BOOL(stringTable.Contains(sBuilder));
+    EZ_TEST_BOOL(stringTable.Contains(sString));
+
+    EZ_TEST_INT(*stringTable.GetValue(szChar), 1);
+    EZ_TEST_INT(*stringTable.GetValue(sView), 2);
+    EZ_TEST_INT(*stringTable.GetValue(sBuilder), 3);
+    EZ_TEST_INT(*stringTable.GetValue(sString), 4);
+
+    EZ_TEST_BOOL(stringTable.Remove(szChar));
+    EZ_TEST_BOOL(stringTable.Remove(sView));
+    EZ_TEST_BOOL(stringTable.Remove(sBuilder));
+    EZ_TEST_BOOL(stringTable.Remove(sString));
   }
 }
 

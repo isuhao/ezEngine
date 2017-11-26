@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <Foundation/Containers/HybridArray.h>
 
@@ -15,7 +15,7 @@ namespace ezMemoryPolicies
   public:
     enum
     {
-      Alignment = sizeof(void*)
+      Alignment = 16
     };
 
     EZ_FORCE_INLINE ezStackAllocation(ezAllocatorBase* pParent)
@@ -30,7 +30,7 @@ namespace ezMemoryPolicies
         "There is still something allocated!");
       for (auto& bucket : m_buckets)
       {
-        EZ_DELETE_ARRAY(m_pParent, bucket.memory);
+        m_pParent->Deallocate(bucket.memory.GetPtr());
       }
     }
 
@@ -41,7 +41,7 @@ namespace ezMemoryPolicies
 
     EZ_FORCE_INLINE void* Allocate(size_t uiSize, size_t uiAlign)
     {
-      EZ_ASSERT_DEV(uiAlign <= Alignment && Alignment % uiAlign == 0, "Unsupported alignment %d", uiAlign);
+      EZ_ASSERT_DEV(uiAlign <= Alignment && Alignment % uiAlign == 0, "Unsupported alignment {0}", ((ezUInt32)uiAlign));
       uiSize = ezMemoryUtils::AlignSize(uiSize, (size_t)Alignment);
 
       // Do we need a new bucket?
@@ -72,7 +72,7 @@ namespace ezMemoryPolicies
         else
         {
           AllocNewBucket:
-          m_currentBucket = EZ_NEW_ARRAY(m_pParent, ezUInt8, m_uiCurrentBucketSize);
+          m_currentBucket = ezArrayPtr<ezUInt8>(static_cast<ezUInt8*>(m_pParent->Allocate(m_uiCurrentBucketSize, Alignment)), m_uiCurrentBucketSize);
           m_buckets.ExpandAndGetRef().memory = m_currentBucket;
           m_uiCurrentBucketSize *= 2;
         }
@@ -126,7 +126,7 @@ namespace ezMemoryPolicies
       m_pNextAllocation = m_currentBucket.GetPtr();
     }
 
-    EZ_FORCE_INLINE ezAllocatorBase* GetParent() const { return m_pParent; }
+    EZ_ALWAYS_INLINE ezAllocatorBase* GetParent() const { return m_pParent; }
 
   private:
     struct Bucket
@@ -143,3 +143,4 @@ namespace ezMemoryPolicies
     ezHybridArray<Bucket, 4> m_buckets;
   };
 }
+

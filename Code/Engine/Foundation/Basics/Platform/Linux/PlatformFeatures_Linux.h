@@ -8,11 +8,18 @@
 #undef EZ_SUPPORTS_FILE_ITERATORS
 #define EZ_SUPPORTS_FILE_ITERATORS EZ_OFF
 
-/// Getting the stats of a file (modification times etc.) is not supported.
+/// Getting the stats of a file (modification times etc.) is supported.
 #undef EZ_SUPPORTS_FILE_STATS
-#define EZ_SUPPORTS_FILE_STATS EZ_OFF
+#define EZ_SUPPORTS_FILE_STATS EZ_ON
 
 /// Whether dynamic plugins (through DLLs loaded/unloaded at runtime) are supported
 #undef EZ_SUPPORTS_DYNAMIC_PLUGINS
 #define EZ_SUPPORTS_DYNAMIC_PLUGINS EZ_OFF
 
+/// Whether applications can access any file (not sandboxed)
+#undef EZ_SUPPORTS_UNRESTRICTED_FILE_ACCESS
+#define EZ_SUPPORTS_UNRESTRICTED_FILE_ACCESS EZ_ON
+
+/// Whether file accesses can be done through paths that do not match exact casing
+#undef EZ_SUPPORTS_CASE_INSENSITIVE_PATHS
+#define EZ_SUPPORTS_CASE_INSENSITIVE_PATHS EZ_OFF

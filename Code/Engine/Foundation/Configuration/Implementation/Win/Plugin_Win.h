@@ -18,7 +18,7 @@
     sNewPath.AppendPath(szPluginName);
 
     if (uiFileNumber > 0)
-      sNewPath.AppendFormat("%i", uiFileNumber);
+      sNewPath.AppendFormat("{0}", uiFileNumber);
 
     sNewPath.Append(".loaded");
   }
@@ -30,17 +30,7 @@
 
     if (FreeLibrary(Module) == FALSE)
     {
-      DWORD err = GetLastError();
-
-      LPVOID lpMsgBuf = nullptr;
-
-      FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, nullptr,
-          err, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR) &lpMsgBuf, 0, nullptr);
-
-      ezLog::Error("Could not unload plugin '%s'. Error-Code %u (\"%s\")", szPluginFile, err, lpMsgBuf);
-
-      LocalFree(lpMsgBuf);
-
+      ezLog::Error("Could not unload plugin '{0}'. Error-Code {1}", szPluginFile, ezArgErrorCode(GetLastError()));
       return EZ_FAILURE;
     }
 
@@ -53,23 +43,23 @@
     // reset last error code
     if (GetLastError()) { }
 
+#if EZ_ENABLED(EZ_PLATFORM_WINDOWS_UWP)
+    ezStringBuilder relativePath = szFileToLoad;
+    relativePath.MakeRelativeTo(ezOSFile::GetApplicationDirectory());
+    Module = LoadPackagedLibrary(ezStringWChar(relativePath).GetData(), 0);
+#else
     Module = LoadLibraryW(ezStringWChar(szFileToLoad).GetData());
+#endif
 
     if (Module == nullptr)
     {
       DWORD err = GetLastError();
+      ezLog::Error("Could not load plugin '{0}'. Error-Code {1}", szPluginFile, ezArgErrorCode(err));
 
-      LPVOID lpMsgBuf = nullptr;
-
-      FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, nullptr,
-          err, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR) &lpMsgBuf, 0, nullptr);
-
-      if (ezUnicodeUtils::IsValidUtf8((const char*) lpMsgBuf)) // happens on localized systems
-        ezLog::Error("Could not load plugin '%s'. Error-Code %u / 0x%08X (\"%s\")", szPluginFile, err, err, lpMsgBuf);
-      else
-        ezLog::Error("Could not load plugin '%s'. Error-Code %u / 0x%08X", szPluginFile, err, err);
-
-      LocalFree(lpMsgBuf);
+      if (err == 126)
+      {
+        ezLog::Error("Please Note: This means that the plugin exists, but a DLL dependency of the plugin is missing. You probably need to copy 3rd party DLLs next to the plugin.");
+      }
 
       return EZ_FAILURE;
     }

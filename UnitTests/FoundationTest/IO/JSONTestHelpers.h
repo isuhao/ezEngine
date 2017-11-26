@@ -2,7 +2,7 @@
 
 #include <Foundation/IO/OSFile.h>
 
-class StreamComparer : public ezStreamWriterBase
+class StreamComparer : public ezStreamWriter
 {
 public:
   StreamComparer(const char* szExpectedData, bool bOnlyWriteResult = false)
@@ -30,7 +30,9 @@ public:
       m_sResult.Append((const char*) pWriteBuffer);
     else
     {
-      EZ_TEST_BOOL(ezMemoryUtils::IsEqual((const char*) pWriteBuffer, m_szExpectedData, (ezUInt32) uiBytesToWrite));
+      const char* szWritten = (const char*)pWriteBuffer;
+
+      EZ_TEST_BOOL(ezMemoryUtils::IsEqual(szWritten, m_szExpectedData, (ezUInt32) uiBytesToWrite));
       m_szExpectedData += uiBytesToWrite;
     }
 
@@ -44,7 +46,7 @@ private:
 };
 
 
-class StringStream : public ezStreamReaderBase
+class StringStream : public ezStreamReader
 {
 public:
 

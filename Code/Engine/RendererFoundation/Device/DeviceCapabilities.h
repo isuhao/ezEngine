@@ -7,6 +7,9 @@ struct EZ_RENDERERFOUNDATION_DLL ezGALDeviceCapabilities
 {
   ezGALDeviceCapabilities();
 
+  // General capabilities
+  bool m_bMultithreadedResourceCreation; ///< whether creating resources is allowed on other threads than the main thread
+  bool m_bNoOverwriteBufferUpdate;
 
   // Draw related capabilities
   bool m_bShaderStageSupported[ezGALShaderStage::ENUM_COUNT];
@@ -15,7 +18,7 @@ struct EZ_RENDERERFOUNDATION_DLL ezGALDeviceCapabilities
   bool m_bIndirectDraw;
   bool m_bStreamOut;
   ezUInt16 m_uiMaxConstantBuffers;
-  
+
 
   // Texture related capabilities
   bool m_bTextureArrays;

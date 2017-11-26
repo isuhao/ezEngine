@@ -2,10 +2,9 @@
 
 #include <RendererCore/Basics.h>
 #include <Core/ResourceManager/Resource.h>
-#include <Core/ResourceManager/ResourceTypeLoader.h>
-#include <RendererCore/Shader/ShaderPermutationResource.h>
+#include <Foundation/Strings/HashedString.h>
 
-typedef ezResourceHandle<class ezShaderResource> ezShaderResourceHandle;
+typedef ezTypedResourceHandle<class ezShaderResource> ezShaderResourceHandle;
 
 struct ezShaderResourceDescriptor
 {
@@ -13,22 +12,23 @@ struct ezShaderResourceDescriptor
 
 class EZ_RENDERERCORE_DLL ezShaderResource : public ezResource<ezShaderResource, ezShaderResourceDescriptor>
 {
-  EZ_ADD_DYNAMIC_REFLECTION(ezShaderResource);
+  EZ_ADD_DYNAMIC_REFLECTION(ezShaderResource, ezResourceBase);
 
 public:
   ezShaderResource();
 
   bool IsShaderValid() const { return m_bShaderResourceIsValid; }
 
-  const ezString& GetUsedPermutationVars() const { return m_PermutationVarsUsed; }
+  ezArrayPtr<const ezHashedString> GetUsedPermutationVars() const { return m_PermutationVarsUsed; }
 
 private:
   virtual ezResourceLoadDesc UnloadData(Unload WhatToUnload) override;
-  virtual ezResourceLoadDesc UpdateContent(ezStreamReaderBase* Stream) override;
+  virtual ezResourceLoadDesc UpdateContent(ezStreamReader* Stream) override;
   virtual void UpdateMemoryUsage(MemoryUsage& out_NewMemoryUsage) override;
+  virtual ezResourceLoadDesc CreateResource(const ezShaderResourceDescriptor& descriptor) override;
 
 private:
-  ezString m_PermutationVarsUsed;
+  ezHybridArray<ezHashedString, 16> m_PermutationVarsUsed;
   bool m_bShaderResourceIsValid;
 };
 

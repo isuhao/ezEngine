@@ -1,4 +1,4 @@
-
+﻿
 template <typename T, ezUInt32 Size>
 ezHybridArrayBase<T, Size>::ezHybridArrayBase(ezAllocatorBase* pAllocator)
 {
@@ -49,13 +49,13 @@ ezHybridArrayBase<T, Size>::~ezHybridArrayBase()
 }
 
 template <typename T, ezUInt32 Size>
-EZ_FORCE_INLINE T* ezHybridArrayBase<T, Size>::GetStaticArray()
+EZ_ALWAYS_INLINE T* ezHybridArrayBase<T, Size>::GetStaticArray()
 {
   return reinterpret_cast<T*>(m_StaticData);
 }
 
 template <typename T, ezUInt32 Size>
-EZ_FORCE_INLINE void ezHybridArrayBase<T, Size>::operator= (const ezHybridArrayBase<T, Size>& rhs)
+EZ_ALWAYS_INLINE void ezHybridArrayBase<T, Size>::operator= (const ezHybridArrayBase<T, Size>& rhs)
 {
   ezArrayBase<T, ezHybridArrayBase<T, Size>>::operator=((ezArrayPtr<const T>)rhs); // redirect this to the ezArrayPtr version
 }
@@ -63,9 +63,16 @@ EZ_FORCE_INLINE void ezHybridArrayBase<T, Size>::operator= (const ezHybridArrayB
 template <typename T, ezUInt32 Size>
 EZ_FORCE_INLINE void ezHybridArrayBase<T, Size>::operator= (ezHybridArrayBase<T, Size>&& rhs)
 {
+  // Clear any existing data (calls destructors if necessary)
+  this->Clear();
+
   if (rhs.m_pElements == rhs.GetStaticArray() || (m_pAllocator != rhs.m_pAllocator))
   {
-    ezArrayBase<T, ezHybridArrayBase<T, Size>>::operator=((ezArrayPtr<const T>)rhs); // redirect this to the ezArrayPtr version
+    // Ensure we have enough data.
+    this->SetCountUninitialized(rhs.m_uiCount);
+
+    ezMemoryUtils::RelocateConstruct(this->m_pElements, rhs.m_pElements, rhs.m_uiCount);
+
     rhs.Clear();
   }
   else
@@ -73,8 +80,6 @@ EZ_FORCE_INLINE void ezHybridArrayBase<T, Size>::operator= (ezHybridArrayBase<T,
     // Move semantics !
     // We cannot do this when the allocators of this and rhs are different,
     // because the memory will be freed by this and not by rhs anymore.
-
-    this->Clear();
 
     if (this->m_pElements != GetStaticArray())
       EZ_DELETE_RAW_BUFFER(this->m_pAllocator, this->m_pElements);
@@ -161,6 +166,38 @@ ezUInt64 ezHybridArrayBase<T, Size>::GetHeapMemoryUsage() const
     return 0;
 
   return (ezUInt64) sizeof(T) * (ezUInt64) this->m_uiCapacity;
+}
+
+template <typename T, ezUInt32 Size>
+void ezHybridArrayBase<T, Size>::Swap(ezHybridArrayBase<T, Size>& other)
+{
+  struct Tmp : ezAligned<EZ_ALIGNMENT_OF(T)>
+  {
+    ezUInt8 m_StaticData[Size * sizeof(T)];
+  };
+
+  // If there is stuff in the local array we need to swap it
+  if (this->m_uiCapacity <= Size)
+  {
+    Tmp tmp;
+    ezMemoryUtils::RelocateConstruct(reinterpret_cast<T*>(tmp.m_StaticData), this->GetStaticArray(), this->m_uiCount);
+    ezMemoryUtils::RelocateConstruct(this->GetStaticArray(), other.GetStaticArray(), other.m_uiCount);
+    ezMemoryUtils::RelocateConstruct(other.GetStaticArray(), reinterpret_cast<T*>(tmp.m_StaticData), this->m_uiCount);
+  }
+
+  ezMath::Swap(this->m_pAllocator, other.m_pAllocator);
+  this->DoSwap(other);
+
+  // Fixup pElements pointer after swap
+  if (this->m_uiCapacity <= Size)
+  {
+    this->m_pElements = GetStaticArray();
+  }
+
+  if (other.m_uiCapacity <= Size)
+  {
+    other.m_pElements = other.GetStaticArray();
+  }
 }
 
 template <typename T, ezUInt32 Size, typename A>

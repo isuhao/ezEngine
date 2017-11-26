@@ -4,20 +4,24 @@
 #include "CollidableComponent.h"
 #include <InputXBox360/InputDeviceXBox.h>
 #include <Foundation/Utilities/Stats.h>
+#include <RendererCore/Meshes/MeshComponent.h>
+#include <Foundation/Configuration/CVar.h>
 
-EZ_BEGIN_COMPONENT_TYPE(ShipComponent, ezComponent, 1, ShipComponentManager);
-EZ_END_COMPONENT_TYPE();
+EZ_BEGIN_COMPONENT_TYPE(ShipComponent, 1);
+EZ_END_COMPONENT_TYPE
+
+ezCVarFloat CVar_MaxAmmo("g_MaxAmmo", 20.0f, ezCVarFlags::Default, "How much ammo a ship can store");
+ezCVarFloat CVar_MaxHealth("g_MaxHealth", 30.0f, ezCVarFlags::Default, "How much health a ship can have");
+ezCVarFloat CVar_ProjectileSpeed("g_ProjectileSpeed", 100.0f, ezCVarFlags::Default, "Projectile fly speed");
+ezCVarFloat CVar_ProjectileAmmoPerShot("g_AmmoPerShot", 0.2f, ezCVarFlags::Default, "Ammo used up per shot");
+ezCVarFloat CVar_ShotDelay("g_ShotDelay", 1.0 / 20.0, ezCVarFlags::Default, "Delay between each shot");
 
 ShipComponent::ShipComponent()
 {
   m_vVelocity.SetZero();
   m_bIsShooting = false;
-  m_iShootDelay = 2;//5;
-  m_iCurShootCooldown = 0;
-  m_iMaxAmmunition = 100;
-  m_iAmmunition = m_iMaxAmmunition / 2;
-  m_iAmmoPerShot = 10;
-  m_iHealth = 1000;
+  m_fAmmunition = CVar_MaxAmmo / 2.0f;
+  m_fHealth = CVar_MaxHealth;
   m_iPlayerIndex = -1;
 }
 
@@ -26,8 +30,8 @@ void ShipComponent::SetVelocity(const ezVec3& vVel)
   m_vVelocity += vVel * 0.1f;
 
   ezStringBuilder s, v;
-  s.Format("Game/Player%i/Velocity", m_iPlayerIndex);
-  v.Format("%.3f | %.3f | %.3f", m_vVelocity.x, m_vVelocity.y, m_vVelocity.z);
+  s.Format("Game/Player{0}/Velocity", m_iPlayerIndex);
+  v.Format("{0} | {1} | {2}", ezArgF(m_vVelocity.x, 3), ezArgF(m_vVelocity.y, 3), ezArgF(m_vVelocity.z, 3));
 
   ezStats::SetStat(s.GetData(), v.GetData());
 }
@@ -40,7 +44,7 @@ void ShipComponent::SetIsShooting(bool b)
   m_bIsShooting = b;
 
   ezStringBuilder s, v;
-  s.Format("Game/Player%i/Shooting", m_iPlayerIndex);
+  s.Format("Game/Player{0}/Shooting", m_iPlayerIndex);
   v = b ? "Yes" : "No";
 
   ezStats::SetStat(s.GetData(), v.GetData());
@@ -48,14 +52,14 @@ void ShipComponent::SetIsShooting(bool b)
 
 void ShipComponent::Update()
 {
-  if (m_iHealth <= 0)
+  if (!IsAlive())
     return;
 
-  const ezVec3 vShipDir = GetOwner()->GetLocalRotation() * ezVec3(0, 1, 0);
+  const ezTime tDiff = GetWorld()->GetClock().GetTimeDiff();
 
   if (!m_vVelocity.IsZero(0.001f))
   {
-    CollidableComponentManager* pCollidableManager = GetWorld()->GetComponentManager<CollidableComponentManager>();
+    CollidableComponentManager* pCollidableManager = GetWorld()->GetOrCreateComponentManager<CollidableComponentManager>();
 
     for (auto it = pCollidableManager->GetComponents(); it.IsValid(); ++it)
     {
@@ -68,7 +72,7 @@ void ShipComponent::Update()
         if (pShipComponent->m_iPlayerIndex == m_iPlayerIndex)
           continue;
 
-        if (pShipComponent->m_iHealth <= 0)
+        if (!pShipComponent->IsAlive())
           continue;
       }
 
@@ -86,30 +90,45 @@ void ShipComponent::Update()
   GetOwner()->SetLocalPosition(GetOwner()->GetLocalPosition() + m_vVelocity);
   m_vVelocity *= 0.97f;
 
-  if (m_iCurShootCooldown > 0)
+  if (m_CurShootCooldown > ezTime::Seconds(0))
   {
-    --m_iCurShootCooldown;
+    m_CurShootCooldown -= tDiff;
   }
-  else if (m_bIsShooting && m_iAmmunition >= m_iAmmoPerShot)
+  else if (m_bIsShooting && m_fAmmunition >= CVar_ProjectileAmmoPerShot)
   {
-    m_iCurShootCooldown = m_iShootDelay;
+    m_CurShootCooldown = ezTime::Seconds(CVar_ShotDelay);
 
     ezGameObjectDesc desc;
     desc.m_LocalPosition = GetOwner()->GetLocalPosition();
+    desc.m_LocalRotation = GetOwner()->GetGlobalRotation();
 
     ezGameObject* pProjectile = nullptr;
-    ezGameObjectHandle hProjectile = GetWorld()->CreateObject(desc, pProjectile);
+    GetWorld()->CreateObject(desc, pProjectile);
 
-    ProjectileComponent* pProjectileComponent = nullptr;
-    ezComponentHandle hProjectileComponent = ProjectileComponent::CreateComponent(GetWorld(), pProjectileComponent);
+    {
+      ProjectileComponent* pProjectileComponent = nullptr;
+      ezComponentHandle hProjectileComponent = ProjectileComponent::CreateComponent(pProjectile, pProjectileComponent);
 
-    pProjectileComponent->m_iBelongsToPlayer = m_iPlayerIndex;
-    pProjectileComponent->m_vVelocity = vShipDir * ezMath::Max(m_vVelocity.GetLength(), 1.0f) * 1.0f;
-    pProjectileComponent->m_bDoesDamage = true;
+      pProjectileComponent->m_iBelongsToPlayer = m_iPlayerIndex;
+      pProjectileComponent->m_fSpeed = CVar_ProjectileSpeed;
+      pProjectileComponent->m_bDoesDamage = true;
+    }
 
-    pProjectile->AddComponent(hProjectileComponent);
+    // ProjectileMesh
+    {
+      ezMeshComponent* pMeshComponent = nullptr;
+      ezMeshComponent::CreateComponent(pProjectile, pMeshComponent);
 
-    m_iAmmunition -= m_iAmmoPerShot;
+      pMeshComponent->SetMesh(ezResourceManager::LoadResource<ezMeshResource>("ProjectileMesh"));
+
+      // this only works because the materials are part of the Asset Collection and get a name like this from there
+      // otherwise we would need to have the GUIDs of the 4 different material assets available
+      ezStringBuilder sMaterialName;
+      sMaterialName.Format("MaterialPlayer{0}", m_iPlayerIndex + 1);
+      pMeshComponent->SetMaterial(0, ezResourceManager::LoadResource<ezMaterialResource>(sMaterialName));
+    }
+
+    m_fAmmunition -= CVar_ProjectileAmmoPerShot;
 
     float ShootTrack[20] =
     {
@@ -120,8 +139,8 @@ void ShipComponent::Update()
     ezInputDeviceXBox360::GetDevice()->AddVibrationTrack(m_iPlayerIndex, ezInputDeviceController::Motor::RightMotor, ShootTrack, 20);
   }
 
-  m_iAmmunition = ezMath::Clamp(m_iAmmunition + 1, 0, m_iMaxAmmunition);
-  m_iHealth = ezMath::Clamp(m_iHealth + 1, 0, 1000);
+  m_fAmmunition = ezMath::Clamp<float>(m_fAmmunition + (float)tDiff.GetSeconds(), 0.0f, CVar_MaxAmmo);
+  m_fHealth = ezMath::Clamp<float>(m_fHealth + (float)tDiff.GetSeconds(), 0.0f, CVar_MaxHealth);
 
 
   ezVec3 vCurPos = GetOwner()->GetLocalPosition();
@@ -134,15 +153,15 @@ void ShipComponent::Update()
   ezStringBuilder s, v;
 
   {
-    s.Format("Game/Player%i/Health", m_iPlayerIndex);
-    v.Format("%i", m_iHealth);
+    s.Format("Game/Player{0}/Health", m_iPlayerIndex);
+    v.Format("{0}", m_fHealth);
 
     ezStats::SetStat(s.GetData(), v.GetData());
   }
 
   {
-    s.Format("Game/Player%i/Ammo", m_iPlayerIndex);
-    v.Format("%i", m_iAmmunition);
+    s.Format("Game/Player{0}/Ammo", m_iPlayerIndex);
+    v.Format("{0}", m_fAmmunition);
 
     ezStats::SetStat(s.GetData(), v.GetData());
   }

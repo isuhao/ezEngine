@@ -3,31 +3,32 @@
 #include <Foundation/Serialization/AbstractObjectGraph.h>
 #include <ToolsFoundation/Object/DocumentObjectManager.h>
 
+class ezObjectAccessorBase;
+
 class EZ_TOOLSFOUNDATION_DLL ezDocumentObjectConverterWriter
 {
 public:
-
-  ezDocumentObjectConverterWriter(ezAbstractObjectGraph* pGraph, const ezDocumentObjectManager* pManager, bool bSerializeReadOnly, bool bSerializeOwnerPtrs)
+  typedef ezDelegate<bool(const ezAbstractProperty*)> FilterFunction;
+  ezDocumentObjectConverterWriter(ezAbstractObjectGraph* pGraph, const ezDocumentObjectManager* pManager,
+    FilterFunction filter = FilterFunction())
   {
     m_pGraph = pGraph;
     m_pManager = pManager;
-    m_bSerializeReadOnly = bSerializeReadOnly;
-    m_bSerializeOwnerPtrs = bSerializeOwnerPtrs;
+    m_Filter = filter;
   }
 
-  ezAbstractObjectNode* AddObjectToGraph(const ezDocumentObjectBase* pObject, const char* szNodeName = nullptr);
+  ezAbstractObjectNode* AddObjectToGraph(const ezDocumentObject* pObject, const char* szNodeName = nullptr);
 
 private:
-  void AddProperty(ezAbstractObjectNode* pNode, const ezAbstractProperty* pProp, const ezDocumentObjectBase* pObject);
-  void AddProperties(ezAbstractObjectNode* pNode, const ezDocumentObjectBase* pObject);
+  void AddProperty(ezAbstractObjectNode* pNode, const ezAbstractProperty* pProp, const ezDocumentObject* pObject);
+  void AddProperties(ezAbstractObjectNode* pNode, const ezDocumentObject* pObject);
 
-  ezAbstractObjectNode* AddSubObjectToGraph(const ezDocumentObjectBase* pObject, const char* szNodeName);
+  ezAbstractObjectNode* AddSubObjectToGraph(const ezDocumentObject* pObject, const char* szNodeName);
 
   const ezDocumentObjectManager* m_pManager;
   ezAbstractObjectGraph* m_pGraph;
-  bool m_bSerializeReadOnly;
-  bool m_bSerializeOwnerPtrs;
-  ezSet<const ezDocumentObjectBase*> m_QueuedObjects;
+  FilterFunction m_Filter;
+  ezSet<const ezDocumentObject*> m_QueuedObjects;
 };
 
 
@@ -38,18 +39,26 @@ public:
   {
     CreateOnly,
     CreateAndAddToDocument,
-    CreateAndAddToDocumentUndoable
   };
   ezDocumentObjectConverterReader(const ezAbstractObjectGraph* pGraph, ezDocumentObjectManager* pManager, Mode mode);
 
-  ezDocumentObjectBase* CreateObjectFromNode(const ezAbstractObjectNode* pNode, ezDocumentObjectBase* pParent, const char* szParentProperty, ezVariant index);
-  void ApplyPropertiesToObject(const ezAbstractObjectNode* pNode, ezDocumentObjectBase* pObject);
+  ezDocumentObject* CreateObjectFromNode(const ezAbstractObjectNode* pNode);
+  void ApplyPropertiesToObject(const ezAbstractObjectNode* pNode, ezDocumentObject* pObject);
+
+  ezUInt32 GetNumUnknownObjectCreations() const { return m_uiUnknownTypeInstances; }
+  const ezSet<ezString>& GetUnknownObjectTypes() const { return m_UnknownTypes; }
+
+  static void ApplyDiffToObject(ezObjectAccessorBase* pObjectAccessor, const ezDocumentObject* pObject, ezDeque<ezAbstractGraphDiffOperation>& diff);
 
 private:
-  void ApplyProperty(ezDocumentObjectBase* pObject, ezAbstractProperty* pProperty, const ezAbstractObjectNode::Property* pSource);
+  void AddObject(ezDocumentObject* pObject, ezDocumentObject* pParent, const char* szParentProperty, ezVariant index);
+  void ApplyProperty(ezDocumentObject* pObject, ezAbstractProperty* pProp, const ezAbstractObjectNode::Property* pSource);
+  static void ApplyDiff(ezObjectAccessorBase* pObjectAccessor, const ezDocumentObject* pObject, ezAbstractProperty* pProp, ezAbstractGraphDiffOperation& op, ezDeque<ezAbstractGraphDiffOperation>& diff);
 
   Mode m_Mode;
   ezDocumentObjectManager* m_pManager;
   const ezAbstractObjectGraph* m_pGraph;
+  ezSet<ezString> m_UnknownTypes;
+  ezUInt32 m_uiUnknownTypeInstances;
 };
 

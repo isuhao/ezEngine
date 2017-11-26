@@ -1,11 +1,9 @@
-#include <Core/PCH.h>
+#include <PCH.h>
 #include <Core/Input/VirtualThumbStick.h>
-#include <Core/Input/InputManager.h>
-#include <Foundation/Strings/StringBuilder.h>
 
-EZ_BEGIN_DYNAMIC_REFLECTED_TYPE(ezVirtualThumbStick, ezInputDevice, 1, ezRTTINoAllocator);
+EZ_BEGIN_DYNAMIC_REFLECTED_TYPE(ezVirtualThumbStick, 1, ezRTTINoAllocator);
   // no properties or message handlers
-EZ_END_DYNAMIC_REFLECTED_TYPE();
+EZ_END_DYNAMIC_REFLECTED_TYPE
 
 ezInt32 ezVirtualThumbStick::s_iThumbsticks = 0;
 
@@ -18,7 +16,7 @@ ezVirtualThumbStick::ezVirtualThumbStick()
   SetInputArea(ezVec2(0.0f), ezVec2(0.0f), 0.0f, 0.0f);
 
   ezStringBuilder s;
-  s.Format("Thumbstick_%i", s_iThumbsticks);
+  s.Format("Thumbstick_{0}", s_iThumbsticks);
   m_sName = s;
 
   ++s_iThumbsticks;
@@ -225,15 +223,15 @@ void ezVirtualThumbStick::UpdateInputSlotValues()
   ezInt8 iTriggerAlt;
 
   const ezKeyState::Enum ks = ezInputManager::GetInputActionState(GetDynamicRTTI()->GetTypeName(), m_sName.GetData(), &fValue, &iTriggerAlt);
-  
+
   if (ks != ezKeyState::Up)
   {
     m_bIsActive = true;
 
     ezVec2 vTouchPos(0.0f);
 
-    ezInputManager::GetInputSlotState(m_ActionConfig.m_sFilterByInputSlotX[iTriggerAlt].GetData(), &vTouchPos.x);
-    ezInputManager::GetInputSlotState(m_ActionConfig.m_sFilterByInputSlotY[iTriggerAlt].GetData(), &vTouchPos.y);
+    ezInputManager::GetInputSlotState(m_ActionConfig.m_sFilterByInputSlotX[(ezUInt32)iTriggerAlt].GetData(), &vTouchPos.x);
+    ezInputManager::GetInputSlotState(m_ActionConfig.m_sFilterByInputSlotY[(ezUInt32)iTriggerAlt].GetData(), &vTouchPos.y);
 
     if (ks == ezKeyState::Pressed)
     {

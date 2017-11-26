@@ -1,16 +1,16 @@
-#include <GuiFoundation/PCH.h>
+#include <PCH.h>
 #include <GuiFoundation/DockPanels/ApplicationPanel.moc.h>
 #include <GuiFoundation/ContainerWindow/ContainerWindow.moc.h>
-#include <QTimer>
+#include <Foundation/Strings/TranslationLookup.h>
 
-ezDynamicArray<ezApplicationPanel*> ezApplicationPanel::s_AllApplicationPanels;
+ezDynamicArray<ezQtApplicationPanel*> ezQtApplicationPanel::s_AllApplicationPanels;
 
-ezApplicationPanel::ezApplicationPanel(const char* szPanelName) : QDockWidget(ezContainerWindow::GetAllContainerWindows()[0])
+ezQtApplicationPanel::ezQtApplicationPanel(const char* szPanelName) : QDockWidget(ezQtContainerWindow::GetAllContainerWindows()[0])
 {
   ezStringBuilder sPanel("AppPanel_", szPanelName);
 
   setObjectName(QString::fromUtf8(sPanel.GetData()));
-  setWindowTitle(QString::fromUtf8(szPanelName));
+  setWindowTitle(QString::fromUtf8(ezTranslate(szPanelName)));
 
   setBackgroundRole(QPalette::ColorRole::Highlight);
 
@@ -18,19 +18,19 @@ ezApplicationPanel::ezApplicationPanel(const char* szPanelName) : QDockWidget(ez
 
   m_pContainerWindow = nullptr;
 
-  ezContainerWindow::GetAllContainerWindows()[0]->MoveApplicationPanelToContainer(this);
+  ezQtContainerWindow::GetAllContainerWindows()[0]->MoveApplicationPanelToContainer(this);
 
-  ezToolsProject::s_Events.AddEventHandler(ezMakeDelegate(&ezApplicationPanel::ToolsProjectEventHandler, this));
+  ezToolsProject::s_Events.AddEventHandler(ezMakeDelegate(&ezQtApplicationPanel::ToolsProjectEventHandler, this));
 }
 
-ezApplicationPanel::~ezApplicationPanel()
+ezQtApplicationPanel::~ezQtApplicationPanel()
 {
-  ezToolsProject::s_Events.RemoveEventHandler(ezMakeDelegate(&ezApplicationPanel::ToolsProjectEventHandler, this));
+  ezToolsProject::s_Events.RemoveEventHandler(ezMakeDelegate(&ezQtApplicationPanel::ToolsProjectEventHandler, this));
 
   s_AllApplicationPanels.RemoveSwap(this);
 }
 
-void ezApplicationPanel::EnsureVisible()
+void ezQtApplicationPanel::EnsureVisible()
 {
   m_pContainerWindow->EnsureVisible(this);
 
@@ -38,15 +38,18 @@ void ezApplicationPanel::EnsureVisible()
 }
 
 
-void ezApplicationPanel::ToolsProjectEventHandler(const ezToolsProject::Event& e)
+void ezQtApplicationPanel::ToolsProjectEventHandler(const ezToolsProjectEvent& e)
 {
   switch (e.m_Type)
   {
-  case ezToolsProject::Event::Type::ProjectClosing:
+  case ezToolsProjectEvent::Type::ProjectClosing:
     setEnabled(false);
     break;
-  case ezToolsProject::Event::Type::ProjectOpened:
+  case ezToolsProjectEvent::Type::ProjectOpened:
     setEnabled(true);
+    break;
+
+  default:
     break;
   }
 }

@@ -1,18 +1,24 @@
-#pragma once
+﻿#pragma once
 
 #include <System/Basics.h>
 #include <Foundation/Math/Rect.h>
 #include <Foundation/Math/Size.h>
 #include <Foundation/Math/Vec2.h>
 #include <Foundation/Strings/String.h>
+#include <Foundation/Types/UniquePtr.h>
 
+class ezOpenDdlWriter;
+class ezOpenDdlReader;
+class ezOpenDdlReaderElement;
 
 // Include the proper Input implementation to use
 #if EZ_ENABLED(EZ_SUPPORTS_SFML)
   #include <System/Window/Implementation/SFML/InputDevice_SFML.h>
-#elif EZ_ENABLED(EZ_PLATFORM_WINDOWS)
+#elif EZ_ENABLED(EZ_PLATFORM_WINDOWS_DESKTOP)
   #include <System/Window/Implementation/Win32/InputDevice_win32.h>
-#else 
+#elif EZ_ENABLED(EZ_PLATFORM_WINDOWS_UWP)
+  #include <System/Window/Implementation/uwp/InputDevice_uwp.h>
+#else
   #error "Missing code for ezWindow Input!"
 #endif
 
@@ -21,10 +27,15 @@
   typedef sf::Window* ezWindowHandle;
   #define INVALID_WINDOW_HANDLE_VALUE (sf::Window*)(0)
 
-#elif EZ_ENABLED(EZ_PLATFORM_WINDOWS)
+#elif EZ_ENABLED(EZ_PLATFORM_WINDOWS_DESKTOP)
 
   typedef HWND ezWindowHandle;
   #define INVALID_WINDOW_HANDLE_VALUE (ezWindowHandle)(0)
+
+#elif EZ_ENABLED(EZ_PLATFORM_WINDOWS_UWP)
+
+  typedef IUnknown* ezWindowHandle;
+  #define INVALID_WINDOW_HANDLE_VALUE nullptr
 
 #else
   #error "Missing Platform Code!"
@@ -39,47 +50,89 @@ public:
   virtual ezSizeU32 GetClientAreaSize() const = 0;
   virtual ezWindowHandle GetNativeWindowHandle() const = 0;
 
+  /// \brief Whether the window is a fullscren window
+  /// or should be one - some platforms may enforce this via the GALSwapchain)
+  ///
+  /// If bOnlyProperFullscreenMode, the caller accepts borderless windows that cover the entire screen as "fullscreen".
+  virtual bool IsFullscreenWindow(bool bOnlyProperFullscreenMode = false) const = 0;
+
   virtual void ProcessWindowMessages() = 0;
 };
 
+/// \brief Determines how the position and resolution for a window are picked
+struct EZ_SYSTEM_DLL ezWindowMode
+{
+  typedef ezUInt8 StorageType;
+
+  enum Enum
+  {
+    WindowFixedResolution, ///< The resolution and size are what the user picked and will not be changed. The window will not be resizable.
+    WindowResizable, ///< The resolution and size are what the user picked and will not be changed. Allows window resizing by the user.
+    FullscreenBorderlessNativeResolution, ///< A borderless window, the position and resolution are taken from the monitor on which the window shall appear.
+    FullscreenFixedResolution,  ///< A fullscreen window using the user provided resolution. Tries to change the monitor resolution accordingly.
+
+    Default = WindowFixedResolution
+  };
+
+  /// \brief Returns whether the window covers an entire monitor. This includes borderless windows and proper fullscreen modes.
+  static constexpr bool IsFullscreen(Enum e)
+  {
+    return e == FullscreenBorderlessNativeResolution || e == FullscreenFixedResolution;
+  }
+};
+
+/// \brief Parameters for creating a window, such as position and resolution
 struct EZ_SYSTEM_DLL ezWindowCreationDesc
 {
+  /// \brief Adjusts the position and size members, depending on the current value of m_WindowMode and m_iMonitor.
+  ///
+  /// For windowed mode, this does nothing.
+  /// For fullscreen modes, the window position is taken from the given monitor.
+  /// For borderless fullscreen mode, the window resolution is also taken from the given monitor.
+  ///
+  /// This function can only fail if ezScreen::EnumerateScreens fails to enumerate the available screens.
+  ezResult AdjustWindowSizeAndPosition();
 
-  ezWindowCreationDesc()
-    : m_ClientAreaSize(1280, 720),
-    m_Title("ezWindow"),
-    m_uiWindowNumber(0),
-    m_bFullscreenWindow(false),
-    m_bResizable(false),
-    m_bWindowsUseDevmodeFullscreen(false)
-  {
-#if EZ_ENABLED(EZ_PLATFORM_WINDOWS)
-    // Magic number on windows that positions the window at a 'good default position'
-    m_WindowPosition.Set(0x80000000, 0x80000000);
-#else
-    m_WindowPosition.SetZero();
-#endif
-  }
+  /// Serializes the configuration to DDL.
+  void SaveToDDL(ezOpenDdlWriter& writer);
 
-  ezVec2I32 m_WindowPosition;
-  ezSizeU32 m_ClientAreaSize;
+  /// Serializes the configuration to DDL.
+  ezResult SaveToDDL(const char* szFile);
 
-  ezHybridString<64> m_Title;
+  /// Deserializes the configuration from DDL.
+  void LoadFromDDL(const ezOpenDdlReaderElement* pParentElement);
 
-  /// \brief The number of the window. This is mostly used for setting up the input system, which then reports
+  /// Deserializes the configuration from DDL.
+  ezResult LoadFromDDL(const char* szFile);
+
+
+  /// The window title to be displayed.
+  ezString m_Title = "ezEngine";
+
+  /// Defines how the window size is determined.
+  ezEnum<ezWindowMode> m_WindowMode;
+
+  /// The monitor index is as given by ezScreen::EnumerateScreens.
+  /// -1 as the index means to pick the primary monitor.
+  ezInt8 m_iMonitor = -1;
+
+  /// The virtual position of the window. Determines on which monitor the window ends up.
+  ezVec2I32 m_Position = ezVec2I32(0x80000000, 0x80000000); // Magic number on windows that positions the window at a 'good default position'
+
+  /// The pixel resolution of the window.
+  ezSizeU32 m_Resolution = ezSizeU32(1280, 720);
+
+  /// The number of the window. This is mostly used for setting up the input system, which then reports
   /// different mouse positions for each window.
-  ezUInt8 m_uiWindowNumber;
+  ezUInt8 m_uiWindowNumber = 0;
 
-  bool m_bFullscreenWindow;
+  /// Whether the mouse cursor should be trapped inside the window or not.
+  /// \see ezStandardInputDevice::SetClipMouseCursor
+  bool m_bClipMouseCursor = true;
 
-  /// Enables window resizing by the user.
-  /// Ignored for fullscreen windows.
-  bool m_bResizable;
-
-  /// Windows only - set to true if you want create a fullscreen window using the Windows device mode
-  /// Does not work together with DirectX device settings
-  /// \remarks will be ignored if \code{.cpp} m_bFullscreenWindow == false\endcode
-  bool m_bWindowsUseDevmodeFullscreen;
+  /// Whether the mouse cursor should be visilbe or not.
+  /// \see ezStandardInputDevice::SetShowMouseCursor
+  bool m_bShowMouseCursor = false;
 };
 
 /// \brief A simple abstraction for platform specific window creation.
@@ -95,10 +148,7 @@ public:
   ///
   /// You need to call Initialize to actually create a window.
   /// \see ezWindow::Initialize
-  inline ezWindow()
-    : m_bInitialized(false), m_WindowHandle()
-  {
-  }
+  ezWindow();
 
   /// \brief Destroys the window if not already done.
   virtual ~ezWindow();
@@ -109,10 +159,10 @@ public:
     return m_CreationDescription;
   }
 
-  /// \brief Returns the size of the client area.
+  /// \brief Returns the size of the client area / ie. the window resolution.
   virtual ezSizeU32 GetClientAreaSize() const override
   {
-    return m_CreationDescription.m_ClientAreaSize;
+    return m_CreationDescription.m_Resolution;
   }
 
   /// \brief Returns the platform specific window handle.
@@ -120,6 +170,18 @@ public:
   {
     return m_WindowHandle;
   }
+
+  /// \brief Returns whether the window covers an entire monitor.
+  ///
+  /// If bOnlyProperFullscreenMode == false, this includes borderless windows.
+  virtual bool IsFullscreenWindow(bool bOnlyProperFullscreenMode = false) const override
+  {
+    if (bOnlyProperFullscreenMode)
+      return m_CreationDescription.m_WindowMode == ezWindowMode::FullscreenFixedResolution;
+
+    return ezWindowMode::IsFullscreen(m_CreationDescription.m_WindowMode);
+  }
+
 
   /// \brief Runs the platform specific message pump.
   ///
@@ -161,7 +223,10 @@ public:
   /// \param newWindowSize
   ///   New window size in pixel.
   /// \see OnWindowMessage
-  virtual void OnResizeMessage(const ezSizeU32& newWindowSize) {}
+  virtual void OnResizeMessage(const ezSizeU32& newWindowSize);
+
+  /// \brief Called when the window position is changed. Not possible on all OSes.
+  virtual void OnWindowMoveMessage(const ezInt32 newPosX, const ezInt32 newPosY) {}
 
   /// \brief Called when the window gets focus or loses focus.
   virtual void OnFocusMessage(bool bHasFocus) {}
@@ -190,7 +255,7 @@ public:
 #endif
 
   /// \brief Returns the input device that is attached to this window and typically provides mouse / keyboard input.
-  ezStandardInputDevice* GetInputDevice() const { return m_pInputDevice; }
+  ezStandardInputDevice* GetInputDevice() const { return m_pInputDevice.Borrow(); }
 
 protected:
 
@@ -200,10 +265,10 @@ protected:
 
 private:
 
-  bool m_bInitialized;
+  bool m_bInitialized = false;
 
-  ezStandardInputDevice* m_pInputDevice;
+  ezUniquePtr<ezStandardInputDevice> m_pInputDevice;
 
-  mutable ezWindowHandle m_WindowHandle;
+  mutable ezWindowHandle m_WindowHandle = ezWindowHandle();
 };
 

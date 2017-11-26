@@ -1,8 +1,26 @@
-#include <RendererFoundation/PCH.h>
+﻿#include <PCH.h>
 #include <RendererFoundation/Resources/ResourceFormats.h>
 
-const ezUInt8 ezGALResourceFormat::BitsPerElement[ezGALResourceFormat::ENUM_COUNT] =
+EZ_BEGIN_STATIC_REFLECTED_ENUM(ezGALResourceFormat, 1)
+  EZ_ENUM_CONSTANTS(ezGALResourceFormat::RGBAFloat, ezGALResourceFormat::RGBAHalf)
+  EZ_ENUM_CONSTANTS(ezGALResourceFormat::RGB10A2UIntNormalized, ezGALResourceFormat::RG11B10Float)
+  EZ_ENUM_CONSTANTS(ezGALResourceFormat::RGBAUByteNormalized, ezGALResourceFormat::RGBAUByteNormalizedsRGB)
+  EZ_ENUM_CONSTANTS(ezGALResourceFormat::D16, ezGALResourceFormat::D24S8)
+  EZ_ENUM_CONSTANTS(ezGALResourceFormat::BGRAUByteNormalized, ezGALResourceFormat::BGRAUByteNormalizedsRGB)
+  EZ_ENUM_CONSTANTS(ezGALResourceFormat::BC1, ezGALResourceFormat::BC1sRGB)
+  EZ_ENUM_CONSTANTS(ezGALResourceFormat::BC2, ezGALResourceFormat::BC2sRGB)
+  EZ_ENUM_CONSTANTS(ezGALResourceFormat::BC3, ezGALResourceFormat::BC3sRGB)
+  EZ_ENUM_CONSTANTS(ezGALResourceFormat::BC4UNormalized, ezGALResourceFormat::BC4Normalized)
+  EZ_ENUM_CONSTANTS(ezGALResourceFormat::BC5UNormalized, ezGALResourceFormat::BC5Normalized)
+  EZ_ENUM_CONSTANTS(ezGALResourceFormat::BC6UFloat, ezGALResourceFormat::BC6Float)
+  EZ_ENUM_CONSTANTS(ezGALResourceFormat::BC7UNormalized, ezGALResourceFormat::BC7UNormalizedsRGB)
+  EZ_ENUM_CONSTANTS(ezGALResourceFormat::RFloat)
+EZ_END_STATIC_REFLECTED_ENUM();
+
+const ezUInt8 ezGALResourceFormat::s_BitsPerElement[ezGALResourceFormat::ENUM_COUNT] =
 {
+  0, // Invalid
+
   128, // RGBAFloat, XYZWFloat
   128, // RGBAUInt
   128, // RGBAInt
@@ -64,6 +82,7 @@ const ezUInt8 ezGALResourceFormat::BitsPerElement[ezGALResourceFormat::ENUM_COUN
   8, // RByteNormalized
   8, // AUByteNormalized
 
+  16, // D16
   32, // D24S8
 
   // For compressed formats see: http://msdn.microsoft.com/en-us/library/windows/desktop/hh308955%28v=vs.85%29.aspx
@@ -87,8 +106,10 @@ const ezUInt8 ezGALResourceFormat::BitsPerElement[ezGALResourceFormat::ENUM_COUN
   8  // BC7UNormalizedsRGB
 };
 
-const ezUInt8 ezGALResourceFormat::ChannelCount[ezGALResourceFormat::ENUM_COUNT] =
+const ezUInt8 ezGALResourceFormat::s_ChannelCount[ezGALResourceFormat::ENUM_COUNT] =
 {
+  0, // Invalid
+
   4, // RGBAFloat, XYZWFloat
   4, // RGBAUInt
   4, // RGBAInt
@@ -150,6 +171,7 @@ const ezUInt8 ezGALResourceFormat::ChannelCount[ezGALResourceFormat::ENUM_COUNT]
   1, // RByteNormalized
   1, // AUByteNormalized
 
+  1, // D16
   2, // D24S8
 
   // For compressed formats see: http://msdn.microsoft.com/en-us/library/windows/desktop/hh308955%28v=vs.85%29.aspx
@@ -168,7 +190,7 @@ const ezUInt8 ezGALResourceFormat::ChannelCount[ezGALResourceFormat::ENUM_COUNT]
   3, // BC6Float
   4, // BC7UNormalized
   4  // BC7UNormalizedsRGB
-};  
+};
 
 
 

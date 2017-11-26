@@ -1,5 +1,7 @@
 #include <PCH.h>
 #include <Foundation/Math/Math.h>
+#include <Foundation/Math/Vec2.h>
+#include <Foundation/Logging/Log.h>
 
 /// ********************* Binary to Int conversion *********************
 /// Most significant bit comes first.
@@ -34,14 +36,14 @@
   + ((unsigned long)EZ_8BIT(B2) <<  8) \
   + ((unsigned long)EZ_8BIT(B1))
 
-namespace 
+namespace
 {
     struct UniqueInt
     {
         int i, id;
         UniqueInt(int i, int id) : i(i), id(id) {}
 
-        bool operator < (const UniqueInt& rh) 
+        bool operator < (const UniqueInt& rh)
         {
             return this->i < rh.i;
         }
@@ -87,7 +89,7 @@ EZ_CREATE_SIMPLE_TEST(Math, General)
     EZ_TEST_FLOAT(ezMath::Sin(ezAngle::Degree(90.0f)),  1.0f, 0.000001f);
     EZ_TEST_FLOAT(ezMath::Sin(ezAngle::Degree(180.0f)), 0.0f, 0.000001f);
     EZ_TEST_FLOAT(ezMath::Sin(ezAngle::Degree(270.0f)),-1.0f, 0.000001f);
-    
+
     EZ_TEST_FLOAT(ezMath::Sin(ezAngle::Degree(45.0f)),  0.7071067f, 0.000001f);
     EZ_TEST_FLOAT(ezMath::Sin(ezAngle::Degree(135.0f)), 0.7071067f, 0.000001f);
     EZ_TEST_FLOAT(ezMath::Sin(ezAngle::Degree(225.0f)),-0.7071067f, 0.000001f);
@@ -100,7 +102,7 @@ EZ_CREATE_SIMPLE_TEST(Math, General)
     EZ_TEST_FLOAT(ezMath::Cos(ezAngle::Degree(90.0f)),  0.0f, 0.000001f);
     EZ_TEST_FLOAT(ezMath::Cos(ezAngle::Degree(180.0f)),-1.0f, 0.000001f);
     EZ_TEST_FLOAT(ezMath::Cos(ezAngle::Degree(270.0f)), 0.0f, 0.000001f);
-    
+
     EZ_TEST_FLOAT(ezMath::Cos(ezAngle::Degree(45.0f)),  0.7071067f, 0.000001f);
     EZ_TEST_FLOAT(ezMath::Cos(ezAngle::Degree(135.0f)),-0.7071067f, 0.000001f);
     EZ_TEST_FLOAT(ezMath::Cos(ezAngle::Degree(225.0f)),-0.7071067f, 0.000001f);
@@ -137,7 +139,7 @@ EZ_CREATE_SIMPLE_TEST(Math, General)
     EZ_TEST_FLOAT(ezMath::ASin(0.0f).GetDegree(),   0.0f, 0.00001f);
     EZ_TEST_FLOAT(ezMath::ASin(1.0f).GetDegree(),  90.0f, 0.00001f);
     EZ_TEST_FLOAT(ezMath::ASin(-1.0f).GetDegree(),-90.0f, 0.00001f);
-    
+
     EZ_TEST_FLOAT(ezMath::ASin(0.7071067f).GetDegree(),  45.0f, 0.0001f);
     EZ_TEST_FLOAT(ezMath::ASin(-0.7071067f).GetDegree(),-45.0f, 0.0001f);
   }
@@ -147,7 +149,7 @@ EZ_CREATE_SIMPLE_TEST(Math, General)
     EZ_TEST_FLOAT(ezMath::ACos(0.0f).GetDegree(),  90.0f, 0.00001f);
     EZ_TEST_FLOAT(ezMath::ACos(1.0f).GetDegree(),   0.0f, 0.00001f);
     EZ_TEST_FLOAT(ezMath::ACos(-1.0f).GetDegree(),180.0f, 0.0001f);
-    
+
     EZ_TEST_FLOAT(ezMath::ACos( 0.7071067f).GetDegree(), 45.0f, 0.0001f);
     EZ_TEST_FLOAT(ezMath::ACos(-0.7071067f).GetDegree(),135.0f, 0.0001f);
   }
@@ -301,6 +303,7 @@ EZ_CREATE_SIMPLE_TEST(Math, General)
     EZ_TEST_BOOL(ezMath::Min(5, 6, 7, 4) == 4);
 
     EZ_TEST_BOOL(ezMath::Min(UniqueInt(1, 0), UniqueInt(1, 1)).id == 0);
+    EZ_TEST_BOOL(ezMath::Min(UniqueInt(1, 1), UniqueInt(1, 0)).id == 1);
   }
 
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "Max")
@@ -311,13 +314,14 @@ EZ_CREATE_SIMPLE_TEST(Math, General)
     EZ_TEST_BOOL(ezMath::Max(1, 2, 3) == 3);
     EZ_TEST_BOOL(ezMath::Max(1, 2, 0) == 2);
     EZ_TEST_BOOL(ezMath::Max(1, 0, 0) == 1);
-                   
+
     EZ_TEST_BOOL(ezMath::Max(1, 2, 3, 4) == 4);
     EZ_TEST_BOOL(ezMath::Max(1, 2, 3, 0) == 3);
     EZ_TEST_BOOL(ezMath::Max(1, 2, 0, 0) == 2);
     EZ_TEST_BOOL(ezMath::Max(1, 0, 0, 0) == 1);
 
-    EZ_TEST_BOOL(ezMath::Max(UniqueInt(1, 0), UniqueInt(1, 1)).id == 1);
+    EZ_TEST_BOOL(ezMath::Max(UniqueInt(1, 0), UniqueInt(1, 1)).id == 0);
+    EZ_TEST_BOOL(ezMath::Max(UniqueInt(1, 1), UniqueInt(1, 0)).id == 1);
   }
 
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "Clamp")
@@ -566,5 +570,32 @@ EZ_CREATE_SIMPLE_TEST(Math, General)
     EZ_TEST_BOOL(ezMath::IsZero(0.001f, 0.01f) == true);
     EZ_TEST_BOOL(ezMath::IsZero(0.009f, 0.0001f) == false);
     EZ_TEST_BOOL(ezMath::IsZero(0.001f, 0.0001f) == false);
+  }
+
+  EZ_TEST_BLOCK(ezTestBlock::Enabled, "EvaluateBezierCurve")
+  {
+    // Determined through the scientific method of manually comparing the result of the function with an online Bezier curve generator:
+    // https://www.desmos.com/calculator/cahqdxeshd
+    const ezVec2 res[] =
+    {
+      ezVec2(1, 5),
+      ezVec2(0.893, 4.455),
+      ezVec2(1.112, 4.008),
+      ezVec2(1.557, 3.631),
+      ezVec2(2.136, 3.304),
+      ezVec2(2.750, 3.000),
+      ezVec2(3.303, 2.695),
+      ezVec2(3.701, 2.368),
+      ezVec2(3.847, 1.991),
+      ezVec2(3.645, 1.543),
+      ezVec2(3, 1)
+    };
+
+    const float step = 1.0f / (EZ_ARRAY_SIZE(res) - 1);
+    for (int i = 0; i < EZ_ARRAY_SIZE(res); ++i)
+    {
+      const ezVec2 r = ezMath::EvaluateBezierCurve<ezVec2>(step * i, ezVec2(1, 5), ezVec2(0, 3), ezVec2(6, 3), ezVec2(3, 1));
+      EZ_TEST_VEC2(r, res[i], 0.001f);
+    }
   }
 }

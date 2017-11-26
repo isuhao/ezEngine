@@ -1,0 +1,63 @@
+[PLATFORMS]
+ALL
+
+[PERMUTATIONS]
+PRE_TRANSFORMED_VERTICES
+
+[RENDERSTATE]
+
+BlendingEnabled0 = true
+DestBlend0 = Blend_InvSrcAlpha
+SourceBlend0 = Blend_SrcAlpha
+
+DepthTest = true
+#if PRE_TRANSFORMED_VERTICES
+  DepthWrite = false
+#else
+  DepthWrite = true
+#endif
+
+[VERTEXSHADER]
+
+#define USE_COLOR
+
+#include <Shaders/Common/GlobalConstants.h>
+#include <Shaders/Materials/MaterialInterpolator.h>
+
+#if EZ_ENABLED(PLATFORM_DX11)
+
+VS_OUT main(VS_IN Input)
+{
+  VS_OUT RetVal;
+
+  #if PRE_TRANSFORMED_VERTICES
+    float2 screenPosition = (Input.Position.xy * ViewportSize.zw) * float2(2.0, -2.0) + float2(-1.0, 1.0);
+    RetVal.Position = float4(screenPosition, Input.Position.z, 1.0f);
+  #else
+    RetVal.Position = mul(GetWorldToScreenMatrix(), float4(Input.Position, 1.0f));
+  #endif
+
+  RetVal.Color = Input.Color;
+  RetVal.InstanceID = 0;
+
+  return RetVal;
+}
+
+#endif
+
+
+[PIXELSHADER]
+
+#define USE_COLOR
+
+#include <Shaders/Materials/MaterialInterpolator.h>
+
+#if EZ_ENABLED(PLATFORM_DX11)
+
+float4 main(PS_IN Input) : SV_Target
+{
+  return Input.Color;
+}
+
+#endif
+

@@ -1,8 +1,10 @@
 /*
-** $Id: lctype.h,v 1.12.1.1 2013/04/12 18:48:47 roberto Exp $
+** $Id: lctype.h,v 1.12 2011/07/15 12:50:29 roberto Exp $
 ** 'ctype' functions for Lua
 ** See Copyright Notice in lua.h
 */
+
+#ifdef BUILDSYSTEM_ENABLE_LUA_SUPPORT
 
 #ifndef lctype_h
 #define lctype_h
@@ -93,3 +95,4 @@ LUAI_DDEC const lu_byte luai_ctype_[UCHAR_MAX + 2];
 
 #endif
 
+#endif // BUILDSYSTEM_ENABLE_LUA_SUPPORT

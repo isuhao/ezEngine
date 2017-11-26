@@ -2,11 +2,11 @@
 
 #include <RendererCore/ShaderCompiler/ShaderCompiler.h>
 
-struct ID3D11ShaderReflection;
+struct ID3D11ShaderReflectionConstantBuffer;
 
 class ezShaderCompilerHLSL : public ezShaderProgramCompiler
 {
-  EZ_ADD_DYNAMIC_REFLECTION(ezShaderCompilerHLSL);
+  EZ_ADD_DYNAMIC_REFLECTION(ezShaderCompilerHLSL, ezShaderProgramCompiler);
 
 public:
   virtual void GetSupportedPlatforms(ezHybridArray<ezString, 4>& Platforms) override
@@ -21,7 +21,7 @@ public:
 
 private:
   void ReflectShaderStage(ezShaderProgramData& inout_Data, ezGALShaderStage::Enum Stage);
-  void ReflectMaterialParameters(ezShaderProgramData& inout_Data, ezGALShaderStage::Enum Stage, ID3D11ShaderReflection* pReflector);
+  ezShaderConstantBufferLayout* ReflectConstantBufferLayout(ezShaderStageBinary& pStageBinary, ID3D11ShaderReflectionConstantBuffer* pConstantBufferReflection);
 };
 
 

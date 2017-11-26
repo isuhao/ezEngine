@@ -3,35 +3,29 @@
 
 #include <GuiFoundation/Basics.h>
 #include <Code/Tools/GuiFoundation/ui_CollapsibleGroupBox.h>
-#include <GuiFoundation/PropertyGrid/PropertyBaseWidget.moc.h>
-#include <QGroupBox>
-#include <QLayout>
+#include <GuiFoundation/Widgets/GroupBoxBase.moc.h>
 
-class EZ_GUIFOUNDATION_DLL ezCollapsibleGroupBox : public QWidget, public Ui_CollapsibleGroupBox
+class EZ_GUIFOUNDATION_DLL ezQtCollapsibleGroupBox : public ezQtGroupBoxBase, protected Ui_CollapsibleGroupBox
 {
   Q_OBJECT
 public:
-  explicit ezCollapsibleGroupBox(QWidget* pParent);
+  explicit ezQtCollapsibleGroupBox(QWidget* pParent);
 
-  void setTitle(QString sTitle);
-  QString title() const;
+  virtual void SetTitle(const char* szTitle) override;
+  virtual void SetIcon(const QIcon& icon) override;
+  virtual void SetFillColor(const QColor& color) override;
 
-  void setInnerLayout(QLayout* pLayout) { Content->setLayout(pLayout); }
-  void SetFillColor(const QColor& color);
-  QColor GetFillColor() const { return m_FillColor; }
+  virtual void SetCollapseState(bool bCollapsed) override;
+  virtual bool GetCollapseState() const override;
 
-  void SetCollapseState(bool bCollapsed);
-  bool GetCollapseState() const;
-
-signals:
-  void CollapseStateChanged(bool bCollapsed);
+  virtual QWidget* GetContent() override;
+  virtual QWidget* GetHeader() override;
 
 protected:
   virtual bool eventFilter(QObject* object, QEvent* event) override;
   virtual void paintEvent(QPaintEvent* event) override;
 
 protected:
-  QColor m_FillColor;
   bool m_bCollapsed;
 };
 

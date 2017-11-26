@@ -1,100 +1,196 @@
 #include <PCH.h>
 #include <EditorPluginAssets/TextureAsset/TextureAssetObjects.h>
 #include <EditorFramework/EditorApp/EditorApp.moc.h>
+#include <GuiFoundation/PropertyGrid/PropertyMetaState.h>
 
 
-EZ_BEGIN_STATIC_REFLECTED_ENUM(ezTextureUsageEnum, 1)
-EZ_ENUM_CONSTANTS(ezTextureUsageEnum::Unknown, ezTextureUsageEnum::Diffuse, ezTextureUsageEnum::NormalMap, ezTextureUsageEnum::Height, ezTextureUsageEnum::Mask, ezTextureUsageEnum::LookupTable, ezTextureUsageEnum::Skybox)
+EZ_BEGIN_STATIC_REFLECTED_ENUM(ezTexture2DUsageEnum, 1)
+EZ_ENUM_CONSTANTS(ezTexture2DUsageEnum::Unknown, ezTexture2DUsageEnum::Diffuse, ezTexture2DUsageEnum::NormalMap, ezTexture2DUsageEnum::EmissiveMask)
+EZ_ENUM_CONSTANTS(ezTexture2DUsageEnum::EmissiveColor, ezTexture2DUsageEnum::Height, ezTexture2DUsageEnum::Mask, ezTexture2DUsageEnum::LookupTable)
+EZ_ENUM_CONSTANTS(ezTexture2DUsageEnum::HDR)
+EZ_ENUM_CONSTANTS(ezTexture2DUsageEnum::Other_sRGB, ezTexture2DUsageEnum::Other_Linear)//, ezTexture2DUsageEnum::Other_sRGB_Auto, ezTexture2DUsageEnum::Other_Linear_Auto)
 EZ_END_STATIC_REFLECTED_ENUM();
 
-EZ_BEGIN_STATIC_REFLECTED_ENUM(ezTextureTypeEnum, 1)
-  EZ_ENUM_CONSTANTS(ezTextureTypeEnum::Unknown, ezTextureTypeEnum::Texture2D, ezTextureTypeEnum::Texture3D, ezTextureTypeEnum::TextureCube)
+EZ_BEGIN_STATIC_REFLECTED_ENUM(ezTexture2DChannelMappingEnum, 1)
+EZ_ENUM_CONSTANTS(ezTexture2DChannelMappingEnum::R1)
+EZ_ENUM_CONSTANTS(ezTexture2DChannelMappingEnum::RG1, ezTexture2DChannelMappingEnum::R1_G2)
+EZ_ENUM_CONSTANTS(ezTexture2DChannelMappingEnum::RGB1, ezTexture2DChannelMappingEnum::RGB1_ABLACK, ezTexture2DChannelMappingEnum::R1_G2_B3)
+EZ_ENUM_CONSTANTS(ezTexture2DChannelMappingEnum::RGBA1, ezTexture2DChannelMappingEnum::RGB1_A2, ezTexture2DChannelMappingEnum::R1_G2_B3_A4)
 EZ_END_STATIC_REFLECTED_ENUM();
 
-EZ_BEGIN_STATIC_REFLECTED_ENUM(ezSRGBModeEnum, 1)
-  EZ_ENUM_CONSTANTS(ezSRGBModeEnum::Unknown, ezSRGBModeEnum::sRGB, ezSRGBModeEnum::Linear, ezSRGBModeEnum::sRGB_Auto, ezSRGBModeEnum::Linear_Auto)
+EZ_BEGIN_STATIC_REFLECTED_ENUM(ezTexture2DAddressMode, 1)
+EZ_ENUM_CONSTANTS(ezTexture2DAddressMode::Wrap, ezTexture2DAddressMode::Mirror, ezTexture2DAddressMode::Clamp)
 EZ_END_STATIC_REFLECTED_ENUM();
 
-EZ_BEGIN_DYNAMIC_REFLECTED_TYPE(ezTextureAssetProperties, ezReflectedClass, 1, ezRTTIDefaultAllocator<ezTextureAssetProperties>);
+EZ_BEGIN_DYNAMIC_REFLECTED_TYPE(ezTextureAssetProperties, 2, ezRTTIDefaultAllocator<ezTextureAssetProperties>)
+{
   EZ_BEGIN_PROPERTIES
-    EZ_ACCESSOR_PROPERTY("Texture File", GetInputFile, SetInputFile),
-    //EZ_ACCESSOR_PROPERTY("Usage", GetTextureUsage, SetTextureUsage),
+  {
     /// \todo Accessor properties with enums don't link
-    EZ_ENUM_MEMBER_PROPERTY("Usage", ezTextureUsageEnum, m_TextureUsage),
-    EZ_ENUM_MEMBER_PROPERTY("sRGB-Mode", ezSRGBModeEnum, m_sRGBMode),
-    EZ_ENUM_MEMBER_PROPERTY_READ_ONLY("Type", ezTextureTypeEnum, m_TextureType),
-    EZ_ACCESSOR_PROPERTY_READ_ONLY("Format", GetFormatString),
-    EZ_ACCESSOR_PROPERTY_READ_ONLY("Width", GetWidth),
-    EZ_ACCESSOR_PROPERTY_READ_ONLY("Height", GetHeight),
-    EZ_ACCESSOR_PROPERTY_READ_ONLY("Depth", GetDepth),
+    EZ_ENUM_MEMBER_PROPERTY("Usage", ezTexture2DUsageEnum, m_TextureUsage),
+
+    EZ_MEMBER_PROPERTY("Mipmaps", m_bMipmaps)->AddAttributes(new ezDefaultValueAttribute(true)),
+    EZ_MEMBER_PROPERTY("Compression", m_bCompression)->AddAttributes(new ezDefaultValueAttribute(true)),
+    EZ_MEMBER_PROPERTY("PremultipliedAlpha", m_bPremultipliedAlpha),
+
+    EZ_ENUM_MEMBER_PROPERTY("TextureFilter", ezTextureFilterSetting, m_TextureFilter),
+    EZ_ENUM_MEMBER_PROPERTY("AddressModeU", ezTexture2DAddressMode, m_AddressModeU),
+    EZ_ENUM_MEMBER_PROPERTY("AddressModeV", ezTexture2DAddressMode, m_AddressModeV),
+    EZ_ENUM_MEMBER_PROPERTY("AddressModeW", ezTexture2DAddressMode, m_AddressModeW),
+
+    EZ_ENUM_MEMBER_PROPERTY("ChannelMapping", ezTexture2DChannelMappingEnum, m_ChannelMapping),
+
+    EZ_ACCESSOR_PROPERTY("Input1", GetInputFile0, SetInputFile0)->AddAttributes(new ezFileBrowserAttribute("Select Texture", "*.dds;*.tga;*.png;*.jpg;*.jpeg;*.hdr")),
+    EZ_ACCESSOR_PROPERTY("Input2", GetInputFile1, SetInputFile1)->AddAttributes(new ezFileBrowserAttribute("Select Texture", "*.dds;*.tga;*.png;*.jpg;*.jpeg;*.hdr")),
+    EZ_ACCESSOR_PROPERTY("Input3", GetInputFile2, SetInputFile2)->AddAttributes(new ezFileBrowserAttribute("Select Texture", "*.dds;*.tga;*.png;*.jpg;*.jpeg;*.hdr")),
+    EZ_ACCESSOR_PROPERTY("Input4", GetInputFile3, SetInputFile3)->AddAttributes(new ezFileBrowserAttribute("Select Texture", "*.dds;*.tga;*.png;*.jpg;*.jpeg;*.hdr")),
+
+  }
   EZ_END_PROPERTIES
-EZ_END_DYNAMIC_REFLECTED_TYPE();
-
-ezTextureAssetProperties::ezTextureAssetProperties()
-{
-  m_sRGBMode = ezSRGBModeEnum::Unknown;
 }
+EZ_END_DYNAMIC_REFLECTED_TYPE
 
-ezString ezTextureAssetProperties::GetFormatString() const
+void ezTextureAssetProperties::PropertyMetaStateEventHandler(ezPropertyMetaStateEvent& e)
 {
-  return ezImageFormat::GetName(m_Image.GetImageFormat());
-}
-
-void ezTextureAssetProperties::SetInputFile(const char* szFile)
-{
-  ezStringBuilder sTemp = szFile;
-  sTemp.MakeCleanPath();
-
-  ezString sPath = sTemp;
-
-  if (!sTemp.IsAbsolutePath())
+  if (e.m_pObject->GetTypeAccessor().GetType() == ezRTTI::FindTypeByName("ezTextureAssetProperties"))
   {
-    ezEditorApp::GetInstance()->MakeDataDirectoryRelativePathAbsolute(sPath);
-  }
+    const ezInt64 mapping = e.m_pObject->GetTypeAccessor().GetValue("ChannelMapping").ConvertTo<ezInt64>();
 
-  m_TextureType = ezTextureTypeEnum::Unknown;
+    auto& props = *e.m_pPropertyStates;
 
-  m_Input = sTemp;
-  if (m_Image.LoadFrom(sPath).Succeeded())
-  {
-    if (m_Image.GetNumFaces() == 6)
-      m_TextureType = ezTextureTypeEnum::TextureCube;
-    else if (m_Image.GetDepth() > 1)
-      m_TextureType = ezTextureTypeEnum::Texture3D;
-    else
-      m_TextureType = ezTextureTypeEnum::Texture2D;
-  }
-}
+    props["Usage"].m_Visibility = ezPropertyUiState::Default;
+    props["Input1"].m_Visibility = ezPropertyUiState::Default;
+    props["Input2"].m_Visibility = ezPropertyUiState::Invisible;
+    props["Input3"].m_Visibility = ezPropertyUiState::Invisible;
+    props["Input4"].m_Visibility = ezPropertyUiState::Invisible;
 
-void ezTextureAssetProperties::SetTextureUsage(ezEnum<ezTextureUsageEnum> usage)
-{
-  /// \todo Currently does not work, because enum accessors don't compile
-
-  m_TextureUsage = usage;
-
-  if (m_sRGBMode == ezSRGBModeEnum::Unknown || m_sRGBMode == ezSRGBModeEnum::Linear_Auto || m_sRGBMode == ezSRGBModeEnum::sRGB_Auto)
-  {
-    switch (m_TextureUsage)
     {
-    case ezTextureUsageEnum::Diffuse:
-    case ezTextureUsageEnum::Skybox:
-      m_sRGBMode = ezSRGBModeEnum::sRGB_Auto;
-      break;
-    case ezTextureUsageEnum::NormalMap:
-    case ezTextureUsageEnum::Height:
-    case ezTextureUsageEnum::Mask:
-    case ezTextureUsageEnum::LookupTable:
-      m_sRGBMode = ezSRGBModeEnum::Linear_Auto;
+      props["Input1"].m_sNewLabelText = "Input 1";
+      props["Input2"].m_sNewLabelText = "Input 2";
+      props["Input3"].m_sNewLabelText = "Input 3";
+      props["Input4"].m_sNewLabelText = "Input 4";
+    }
+
+    switch (mapping)
+    {
+    case ezTexture2DChannelMappingEnum::R1_G2:
+      props["Input2"].m_Visibility = ezPropertyUiState::Default;
+      // fall through
+
+    case ezTexture2DChannelMappingEnum::RG1:
+    case ezTexture2DChannelMappingEnum::R1:
+      props["Usage"].m_Visibility = ezPropertyUiState::Disabled;
       break;
 
-    default:
-      break;
+    case ezTexture2DChannelMappingEnum::R1_G2_B3_A4:
+      props["Input4"].m_Visibility = ezPropertyUiState::Default;
+      // fall through
+
+    case ezTexture2DChannelMappingEnum::R1_G2_B3:
+      props["Input3"].m_Visibility = ezPropertyUiState::Default;
+      // fall through
+
+    case ezTexture2DChannelMappingEnum::RGB1_A2:
+      props["Input2"].m_Visibility = ezPropertyUiState::Default;
+      // fall through
     }
   }
 }
 
-bool ezTextureAssetProperties::IsSRGB() const
+ezString ezTextureAssetProperties::GetAbsoluteInputFilePath(ezInt32 iInput) const
 {
-  return (m_sRGBMode == ezSRGBModeEnum::Unknown || m_sRGBMode == ezSRGBModeEnum::sRGB || m_sRGBMode == ezSRGBModeEnum::sRGB_Auto);
+  ezStringBuilder sPath = m_Input[iInput];
+  sPath.MakeCleanPath();
+
+  if (!sPath.IsAbsolutePath())
+  {
+    ezQtEditorApp::GetSingleton()->MakeDataDirectoryRelativePathAbsolute(sPath);
+  }
+
+  return sPath;
 }
 
+
+ezInt32 ezTextureAssetProperties::GetNumInputFiles() const
+{
+  switch (m_ChannelMapping)
+  {
+  case ezTexture2DChannelMappingEnum::R1:
+  case ezTexture2DChannelMappingEnum::RG1:
+  case ezTexture2DChannelMappingEnum::RGB1:
+  case ezTexture2DChannelMappingEnum::RGB1_ABLACK:
+  case ezTexture2DChannelMappingEnum::RGBA1:
+    return 1;
+
+  case ezTexture2DChannelMappingEnum::R1_G2:
+  case ezTexture2DChannelMappingEnum::RGB1_A2:
+    return 2;
+
+  case ezTexture2DChannelMappingEnum::R1_G2_B3:
+    return 3;
+
+  case ezTexture2DChannelMappingEnum::R1_G2_B3_A4:
+    return 4;
+  }
+
+  EZ_REPORT_FAILURE("Invalid Code Path");
+  return 1;
+}
+
+
+ezInt32 ezTextureAssetProperties::GetNumChannels() const
+{
+  if (m_TextureUsage == ezTexture2DUsageEnum::NormalMap && m_bCompression)
+  {
+    return 2;
+  }
+
+  switch (m_ChannelMapping)
+  {
+  case ezTexture2DChannelMappingEnum::R1:
+    return 1;
+
+  case ezTexture2DChannelMappingEnum::RG1:
+  case ezTexture2DChannelMappingEnum::R1_G2:
+    return 2;
+
+  case ezTexture2DChannelMappingEnum::RGB1:
+  case ezTexture2DChannelMappingEnum::R1_G2_B3:
+    return 3;
+
+  case ezTexture2DChannelMappingEnum::RGB1_ABLACK:
+  case ezTexture2DChannelMappingEnum::RGBA1:
+  case ezTexture2DChannelMappingEnum::RGB1_A2:
+  case ezTexture2DChannelMappingEnum::R1_G2_B3_A4:
+    return 4;
+  }
+
+  EZ_REPORT_FAILURE("Invalid Code Path");
+  return 4;
+}
+
+bool ezTextureAssetProperties::IsSRGB() const
+{
+  // these formats can never be sRGB
+  if (m_ChannelMapping == ezTexture2DChannelMappingEnum::R1 ||
+      m_ChannelMapping == ezTexture2DChannelMappingEnum::R1_G2 ||
+      m_ChannelMapping == ezTexture2DChannelMappingEnum::RG1)
+    return false;
+
+  if (m_TextureUsage == ezTexture2DUsageEnum::EmissiveMask ||
+      m_TextureUsage == ezTexture2DUsageEnum::Height ||
+      m_TextureUsage == ezTexture2DUsageEnum::LookupTable ||
+      m_TextureUsage == ezTexture2DUsageEnum::Mask ||
+      m_TextureUsage == ezTexture2DUsageEnum::NormalMap ||
+      m_TextureUsage == ezTexture2DUsageEnum::Other_Linear ||
+      m_TextureUsage == ezTexture2DUsageEnum::HDR/* ||
+      m_TextureUsage == ezTexture2DUsageEnum::Other_Linear_Auto*/)
+    return false;
+
+  return true;
+}
+
+bool ezTextureAssetProperties::IsHDR() const
+{
+  return m_TextureUsage == ezTexture2DUsageEnum::HDR;
+}

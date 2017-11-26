@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <Foundation/Containers/Deque.h>
 
@@ -44,22 +44,22 @@ public:
     EZ_DECLARE_POD_TYPE();
 
     /// \brief Constructs an invalid iterator.
-    EZ_FORCE_INLINE Iterator() : m_pElement(nullptr) { } // [tested]
+    EZ_ALWAYS_INLINE Iterator() : m_pElement(nullptr) { } // [tested]
 
     /// \brief Checks whether this iterator points to a valid element.
-    EZ_FORCE_INLINE bool IsValid() const { return (m_pElement != nullptr); } // [tested]
+    EZ_ALWAYS_INLINE bool IsValid() const { return (m_pElement != nullptr); } // [tested]
 
     /// \brief Checks whether the two iterators point to the same element.
-    EZ_FORCE_INLINE bool operator==(const typename ezSetBase<KeyType, Comparer>::Iterator& it2) const { return (m_pElement == it2.m_pElement); }
+    EZ_ALWAYS_INLINE bool operator==(const typename ezSetBase<KeyType, Comparer>::Iterator& it2) const { return (m_pElement == it2.m_pElement); }
 
     /// \brief Checks whether the two iterators point to the same element.
-    EZ_FORCE_INLINE bool operator!=(const typename ezSetBase<KeyType, Comparer>::Iterator& it2) const { return (m_pElement != it2.m_pElement); }
+    EZ_ALWAYS_INLINE bool operator!=(const typename ezSetBase<KeyType, Comparer>::Iterator& it2) const { return (m_pElement != it2.m_pElement); }
 
     /// \brief Returns the 'key' of the element that this iterator points to.
-    EZ_FORCE_INLINE const KeyType&   Key ()  const { EZ_ASSERT_DEV(IsValid(), "Cannot access the 'key' of an invalid iterator."); return m_pElement->m_Key;   } // [tested]
+    EZ_FORCE_INLINE const KeyType&   Key ()  const { EZ_ASSERT_DEBUG(IsValid(), "Cannot access the 'key' of an invalid iterator."); return m_pElement->m_Key;   } // [tested]
 
     /// \brief Returns the 'key' of the element that this iterator points to.
-    EZ_FORCE_INLINE const KeyType& operator*() { return Key(); }
+    EZ_ALWAYS_INLINE const KeyType& operator*() { return Key(); }
 
     /// \brief Advances the iterator to the next element in the set. The iterator will not be valid anymore, if the end is reached.
     void Next(); // [tested]
@@ -68,15 +68,15 @@ public:
     void Prev(); // [tested]
 
     /// \brief Shorthand for 'Next'
-    EZ_FORCE_INLINE void operator++() { Next();  } // [tested]
+    EZ_ALWAYS_INLINE void operator++() { Next();  } // [tested]
 
     /// \brief Shorthand for 'Prev'
-    EZ_FORCE_INLINE void operator--() { Prev(); } // [tested]
+    EZ_ALWAYS_INLINE void operator--() { Prev(); } // [tested]
 
   protected:
     friend class ezSetBase<KeyType, Comparer>;
 
-    EZ_FORCE_INLINE explicit Iterator(Node* pInit)              : m_pElement(pInit) { }
+    EZ_ALWAYS_INLINE explicit Iterator(Node* pInit)              : m_pElement(pInit) { }
 
     Node* m_pElement;
   };
@@ -112,7 +112,8 @@ public:
   Iterator GetLastIterator() const; // [tested]
 
   /// \brief Inserts the key into the tree and returns an Iterator to it. O(log n) operation.
-  Iterator Insert(const KeyType& key); // [tested]
+  template <typename CompatibleKeyType>
+  Iterator Insert(CompatibleKeyType&& key); // [tested]
 
   /// \brief Erases the element with the given key, if it exists. O(log n) operation.
   bool Remove(const KeyType& key); // [tested]
@@ -121,7 +122,8 @@ public:
   Iterator Remove(const Iterator& pos); // [tested]
 
   /// \brief Searches for key, returns an Iterator to it or an invalid iterator, if no such key is found. O(log n) operation.
-  Iterator Find(const KeyType& key) const; // [tested]
+  template <typename CompatibleKeyType>
+  Iterator Find(const CompatibleKeyType& key) const; // [tested]
 
   /// \brief Checks whether the given key is in the container.
   bool Contains(const KeyType& key) const; // [tested]
@@ -130,10 +132,12 @@ public:
   bool Contains(const ezSetBase<KeyType, Comparer>& operand) const; // [tested]
 
   /// \brief Returns an Iterator to the element with a key equal or larger than the given key. Returns an invalid iterator, if there is no such element.
-  Iterator LowerBound(const KeyType& key) const; // [tested]
+  template <typename CompatibleKeyType>
+  Iterator LowerBound(const CompatibleKeyType& key) const; // [tested]
 
   /// \brief Returns an Iterator to the element with a key that is LARGER than the given key. Returns an invalid iterator, if there is no such element.
-  Iterator UpperBound(const KeyType& key) const; // [tested]
+  template <typename CompatibleKeyType>
+  Iterator UpperBound(const CompatibleKeyType& key) const; // [tested]
 
   /// \brief Makes this set the union of itself and the operand.
   void Union(const ezSetBase<KeyType, Comparer>& operand);
@@ -157,15 +161,19 @@ public:
   ezUInt64 GetHeapMemoryUsage() const { return m_Elements.GetHeapMemoryUsage(); } // [tested]
 
 private:
-  Node* Internal_Find(const KeyType& key) const;
-  Node* Internal_LowerBound(const KeyType& key) const;
-  Node* Internal_UpperBound(const KeyType& key) const;
+  template<typename CompatibleKeyType>
+  Node* Internal_Find(const CompatibleKeyType& key) const;
+  template <typename CompatibleKeyType>
+  Node* Internal_LowerBound(const CompatibleKeyType& key) const;
+  template <typename CompatibleKeyType>
+  Node* Internal_UpperBound(const CompatibleKeyType& key) const;
 
 private:
   void Constructor();
 
   /// \brief Creates one new node and initializes it.
-  Node* AcquireNode(const KeyType& key, int m_uiLevel, Node* pParent);
+  template <typename CompatibleKeyType>
+  Node* AcquireNode(CompatibleKeyType&& key, int m_uiLevel, Node* pParent);
 
   /// \brief Destroys the given node.
   void ReleaseNode(Node* pNode);
@@ -175,7 +183,9 @@ private:
   /// Code taken from here: http://eternallyconfuzzled.com/tuts/datastructures/jsw_tut_andersson.aspx
   Node* SkewNode(Node* root);
   Node* SplitNode(Node* root);
-  Node* Insert(Node* root, const KeyType& key, Node*& pInsertedNode);
+
+  template <typename CompatibleKeyType>
+  Node* Insert(Node* root, CompatibleKeyType&& key, Node*& pInsertedNode);
   Node* Remove(Node* root, const KeyType& key, bool& bRemoved);
 
   /// \brief Returns the left-most node of the tree(smallest key).

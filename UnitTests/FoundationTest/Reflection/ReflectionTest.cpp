@@ -3,10 +3,6 @@
 #include <Foundation/Reflection/ReflectionUtils.h>
 #include <Foundation/Serialization/ReflectionSerializer.h>
 #include <Foundation/IO/MemoryStream.h>
-#include <Foundation/IO/FileSystem/FileSystem.h>
-#include <Foundation/IO/FileSystem/FileReader.h>
-#include <Foundation/IO/FileSystem/FileWriter.h>
-#include <Foundation/IO/FileSystem/DataDirTypeFolder.h>
 
 
 EZ_CREATE_SIMPLE_TEST_GROUP(Reflection);
@@ -41,6 +37,28 @@ EZ_CREATE_SIMPLE_TEST(Reflection, Types)
     EZ_TEST_BOOL(bFoundClass2);
   }
 
+  EZ_TEST_BLOCK(ezTestBlock::Enabled, "PropertyFlags")
+  {
+    EZ_TEST_BOOL(ezPropertyFlags::GetParameterFlags<void>() == (ezPropertyFlags::Void));
+    EZ_TEST_BOOL(ezPropertyFlags::GetParameterFlags<const char*>() == (ezPropertyFlags::StandardType | ezPropertyFlags::Const));
+    EZ_TEST_BOOL(ezPropertyFlags::GetParameterFlags<int>() == ezPropertyFlags::StandardType);
+    EZ_TEST_BOOL(ezPropertyFlags::GetParameterFlags<int&>() == (ezPropertyFlags::StandardType | ezPropertyFlags::Reference));
+    EZ_TEST_BOOL(ezPropertyFlags::GetParameterFlags<int*>() == (ezPropertyFlags::StandardType | ezPropertyFlags::Pointer));
+
+    EZ_TEST_BOOL(ezPropertyFlags::GetParameterFlags<const int>() == (ezPropertyFlags::StandardType | ezPropertyFlags::Const));
+    EZ_TEST_BOOL(ezPropertyFlags::GetParameterFlags<const int&>() == (ezPropertyFlags::StandardType | ezPropertyFlags::Reference | ezPropertyFlags::Const));
+    EZ_TEST_BOOL(ezPropertyFlags::GetParameterFlags<const int*>() == (ezPropertyFlags::StandardType | ezPropertyFlags::Pointer | ezPropertyFlags::Const));
+
+    EZ_TEST_BOOL(ezPropertyFlags::GetParameterFlags<ezVariant>() == (ezPropertyFlags::StandardType));
+
+    EZ_TEST_BOOL(ezPropertyFlags::GetParameterFlags<ezExampleEnum::Enum>() == ezPropertyFlags::IsEnum);
+    EZ_TEST_BOOL(ezPropertyFlags::GetParameterFlags<ezEnum<ezExampleEnum>>() == ezPropertyFlags::IsEnum);
+    EZ_TEST_BOOL(ezPropertyFlags::GetParameterFlags<ezBitflags<ezExampleBitflags>>() == ezPropertyFlags::Bitflags);
+
+    EZ_TEST_BOOL(ezPropertyFlags::GetParameterFlags<ezTestStruct3>() == ezPropertyFlags::Class);
+    EZ_TEST_BOOL(ezPropertyFlags::GetParameterFlags<ezTestClass2>() == ezPropertyFlags::Class);
+  }
+
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "TypeFlags")
   {
     EZ_TEST_INT(ezGetStaticRTTI<bool>()->GetTypeFlags().GetValue(), ezTypeFlags::StandardType);
@@ -50,11 +68,11 @@ EZ_CREATE_SIMPLE_TEST(Reflection, Types)
     EZ_TEST_INT(ezGetStaticRTTI<ezMat4>()->GetTypeFlags().GetValue(), ezTypeFlags::StandardType);
     EZ_TEST_INT(ezGetStaticRTTI<ezVariant>()->GetTypeFlags().GetValue(), ezTypeFlags::StandardType);
 
-    EZ_TEST_INT(ezGetStaticRTTI<ezAbstractTestClass>()->GetTypeFlags().GetValue(), ezTypeFlags::Abstract);
-    EZ_TEST_INT(ezGetStaticRTTI<ezAbstractTestStruct>()->GetTypeFlags().GetValue(), ezTypeFlags::Abstract);
+    EZ_TEST_INT(ezGetStaticRTTI<ezAbstractTestClass>()->GetTypeFlags().GetValue(), (ezTypeFlags::Class | ezTypeFlags::Abstract).GetValue());
+    EZ_TEST_INT(ezGetStaticRTTI<ezAbstractTestStruct>()->GetTypeFlags().GetValue(), (ezTypeFlags::Class | ezTypeFlags::Abstract).GetValue());
 
-    EZ_TEST_INT(ezGetStaticRTTI<ezTestStruct3>()->GetTypeFlags().GetValue(), ezTypeFlags::Default);
-    EZ_TEST_INT(ezGetStaticRTTI<ezTestClass2>()->GetTypeFlags().GetValue(), ezTypeFlags::Default);
+    EZ_TEST_INT(ezGetStaticRTTI<ezTestStruct3>()->GetTypeFlags().GetValue(), ezTypeFlags::Class);
+    EZ_TEST_INT(ezGetStaticRTTI<ezTestClass2>()->GetTypeFlags().GetValue(), ezTypeFlags::Class);
 
     EZ_TEST_INT(ezGetStaticRTTI<ezExampleEnum>()->GetTypeFlags().GetValue(), ezTypeFlags::IsEnum);
     EZ_TEST_INT(ezGetStaticRTTI<ezExampleBitflags>()->GetTypeFlags().GetValue(), ezTypeFlags::Bitflags);
@@ -81,12 +99,15 @@ EZ_CREATE_SIMPLE_TEST(Reflection, Types)
       ezRTTI* pType = ezRTTI::FindTypeByName("ezTestStruct");
 
       auto Props = pType->GetProperties();
-      EZ_TEST_INT(Props.GetCount(), 5);
+      EZ_TEST_INT(Props.GetCount(), 8);
       EZ_TEST_STRING(Props[0]->GetPropertyName(), "Float");
       EZ_TEST_STRING(Props[1]->GetPropertyName(), "Vector");
       EZ_TEST_STRING(Props[2]->GetPropertyName(), "Int");
       EZ_TEST_STRING(Props[3]->GetPropertyName(), "UInt8");
       EZ_TEST_STRING(Props[4]->GetPropertyName(), "Variant");
+      EZ_TEST_STRING(Props[5]->GetPropertyName(), "Angle");
+      EZ_TEST_STRING(Props[6]->GetPropertyName(), "DataBuffer");
+      EZ_TEST_STRING(Props[7]->GetPropertyName(), "vVec3I");
     }
 
     {
@@ -105,9 +126,9 @@ EZ_CREATE_SIMPLE_TEST(Reflection, Types)
       pType->GetAllProperties(AllProps);
 
       EZ_TEST_INT(AllProps.GetCount(), 9);
-      EZ_TEST_STRING(AllProps[0]->GetPropertyName(), "Sub Struct");
+      EZ_TEST_STRING(AllProps[0]->GetPropertyName(), "SubStruct");
       EZ_TEST_STRING(AllProps[1]->GetPropertyName(), "Color");
-      EZ_TEST_STRING(AllProps[2]->GetPropertyName(), "Sub Vector");
+      EZ_TEST_STRING(AllProps[2]->GetPropertyName(), "SubVector");
       EZ_TEST_STRING(AllProps[3]->GetPropertyName(), "Text");
       EZ_TEST_STRING(AllProps[4]->GetPropertyName(), "Time");
       EZ_TEST_STRING(AllProps[5]->GetPropertyName(), "Enum");
@@ -115,6 +136,30 @@ EZ_CREATE_SIMPLE_TEST(Reflection, Types)
       EZ_TEST_STRING(AllProps[7]->GetPropertyName(), "Array");
       EZ_TEST_STRING(AllProps[8]->GetPropertyName(), "Variant");
     }
+  }
+
+  EZ_TEST_BLOCK(ezTestBlock::Enabled, "Casts")
+  {
+    ezTestClass2 test;
+    ezTestClass1* pTestClass1 = &test;
+    const ezTestClass1* pConstTestClass1 = &test;
+
+    ezTestClass2* pTestClass2 = ezStaticCast<ezTestClass2*>(pTestClass1);
+    const ezTestClass2* pConstTestClass2 = ezStaticCast<const ezTestClass2*>(pConstTestClass1);
+
+    pTestClass2 = ezDynamicCast<ezTestClass2*>(pTestClass1);
+    pConstTestClass2 = ezDynamicCast<const ezTestClass2*>(pConstTestClass1);
+    EZ_TEST_BOOL(pTestClass2 != nullptr);
+    EZ_TEST_BOOL(pConstTestClass2 != nullptr);
+
+    ezTestClass1 otherTest;
+    pTestClass1 = &otherTest;
+    pConstTestClass1 = &otherTest;
+
+    pTestClass2 = ezDynamicCast<ezTestClass2*>(pTestClass1);
+    pConstTestClass2 = ezDynamicCast<const ezTestClass2*>(pConstTestClass1);
+    EZ_TEST_BOOL(pTestClass2 == nullptr);
+    EZ_TEST_BOOL(pConstTestClass2 == nullptr);
   }
 
 #if EZ_ENABLED(EZ_SUPPORTS_DYNAMIC_PLUGINS)
@@ -143,7 +188,7 @@ EZ_CREATE_SIMPLE_TEST(Reflection, Types)
         void* pInstance = pRtti->GetAllocator()->Allocate();
         EZ_TEST_BOOL(pInstance != nullptr);
 
-        ezAbstractProperty* pProp = pRtti->FindPropertyByName("Float 2");
+        ezAbstractProperty* pProp = pRtti->FindPropertyByName("Float2");
 
         EZ_TEST_BOOL(pProp != nullptr);
 
@@ -191,7 +236,7 @@ EZ_CREATE_SIMPLE_TEST(Reflection, Hierarchies)
 
     EZ_TEST_BOOL(pRtti->GetParentType() == nullptr);
 
-    EZ_TEST_BOOL(!pRtti->GetAllocator()->CanAllocate());
+    EZ_TEST_BOOL(pRtti->GetAllocator()->CanAllocate());
   }
 
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "ezTestClass1")
@@ -301,7 +346,19 @@ EZ_CREATE_SIMPLE_TEST(Reflection, MemberProperties)
     TestMemberProperty<ezInt32>("Int", &data, pRtti, ezPropertyFlags::StandardType, 2, -8);
     TestMemberProperty<ezVec3>("Vector", &data, pRtti, ezPropertyFlags::StandardType | ezPropertyFlags::ReadOnly, ezVec3(3, 4, 5), ezVec3(0, -1.0f, 3.14f));
     TestMemberProperty<ezVariant>("Variant", &data, pRtti, ezPropertyFlags::StandardType, ezVariant("Test"), ezVariant(ezVec3(0, -1.0f, 3.14f)));
+    TestMemberProperty<ezAngle>("Angle", &data, pRtti, ezPropertyFlags::StandardType, ezAngle::Degree(0.5f), ezAngle::Degree(1.0f));
 
+    ezDataBuffer expected;
+    expected.PushBack(255);
+    expected.PushBack(0);
+    expected.PushBack(127);
+
+    ezDataBuffer newValue;
+    newValue.PushBack(1);
+    newValue.PushBack(2);
+
+    TestMemberProperty<ezDataBuffer>("DataBuffer", &data, pRtti, ezPropertyFlags::StandardType, expected, newValue);
+    TestMemberProperty<ezVec3I32>("vVec3I", &data, pRtti, ezPropertyFlags::StandardType, ezVec3I32(1,2,3), ezVec3I32(5,6,7));
   }
 
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "ezTestClass2")
@@ -310,19 +367,19 @@ EZ_CREATE_SIMPLE_TEST(Reflection, MemberProperties)
     const ezRTTI* pRtti = ezGetStaticRTTI<ezTestClass2>();
 
     {
-      TestMemberProperty<const char*>("Text", &Instance, pRtti, ezPropertyFlags::StandardType, ezString("Legen"), ezString("dary"));
-      ezAbstractProperty* pProp = pRtti->FindPropertyByName("Sub Vector", false);
-      EZ_TEST_BOOL(pProp == nullptr);
-    }
-
-    { 
-      TestMemberProperty<ezVec3>("Sub Vector", &Instance, pRtti, ezPropertyFlags::StandardType | ezPropertyFlags::ReadOnly, ezVec3(3, 4, 5), ezVec3(3, 4, 5));
-      ezAbstractProperty* pProp = pRtti->FindPropertyByName("Sub Struct", false);
+      TestMemberProperty<const char*>("Text", &Instance, pRtti, ezPropertyFlags::StandardType | ezPropertyFlags::Const, ezString("Legen"), ezString("dary"));
+      ezAbstractProperty* pProp = pRtti->FindPropertyByName("SubVector", false);
       EZ_TEST_BOOL(pProp == nullptr);
     }
 
     {
-      ezAbstractProperty* pProp = pRtti->FindPropertyByName("Sub Struct");
+      TestMemberProperty<ezVec3>("SubVector", &Instance, pRtti, ezPropertyFlags::StandardType | ezPropertyFlags::ReadOnly, ezVec3(3, 4, 5), ezVec3(3, 4, 5));
+      ezAbstractProperty* pProp = pRtti->FindPropertyByName("SubStruct", false);
+      EZ_TEST_BOOL(pProp == nullptr);
+    }
+
+    {
+      ezAbstractProperty* pProp = pRtti->FindPropertyByName("SubStruct");
       EZ_TEST_BOOL(pProp != nullptr);
 
       EZ_TEST_BOOL(pProp->GetCategory() == ezPropertyCategory::Member);
@@ -339,125 +396,37 @@ EZ_CREATE_SIMPLE_TEST(Reflection, MemberProperties)
 }
 
 
-EZ_CREATE_SIMPLE_TEST(Reflection, ReflectionUtils)
+template<typename T>
+void TestSerialization(const T& source)
 {
-
-  ezStringBuilder sOutputFolder1 = BUILDSYSTEM_OUTPUT_FOLDER;
-  sOutputFolder1.AppendPath("FoundationTest", "Reflection");
-
-  //ezOSFile osf;
-  //osf.CreateDirectoryStructure(sOutputFolder1.GetData());
-
-  //ezFileSystem::ClearAllDataDirectoryFactories();
-  //ezFileSystem::RegisterDataDirectoryFactory(ezDataDirectory::FolderType::Factory);
-  //EZ_TEST_BOOL(ezFileSystem::AddDataDirectory(sOutputFolder1.GetData(), ezFileSystem::AllowWrites, "Clear") == EZ_SUCCESS);
-
   ezMemoryStreamStorage StreamStorage;
 
-  EZ_TEST_BLOCK(ezTestBlock::Enabled, "WriteObjectToJSON")
+  EZ_TEST_BLOCK(ezTestBlock::Enabled, "WriteObjectToDDL")
   {
     ezMemoryStreamWriter FileOut(&StreamStorage);
 
-    //ezFileWriter FileOut;
-    //EZ_TEST_BOOL(FileOut.Open("JSON.txt") == EZ_SUCCESS);
-
-    ezTestClass2 c2;
-    c2.SetText("Hallo");
-    c2.m_MyVector.Set(14, 16, 18);
-    c2.m_Struct.m_fFloat1 = 128;
-    c2.m_Struct.m_UInt8 = 234;
-    c2.m_Color = ezColor(0.1f, 0.2f, 0.3f);
-    c2.m_Time = ezTime::Seconds(91.0f);
-    c2.m_enumClass = ezExampleEnum::Value3;
-    c2.m_bitflagsClass = ezExampleBitflags::Enum(ezExampleBitflags::Value1 | ezExampleBitflags::Value2 | ezExampleBitflags::Value3);
-    c2.m_array.PushBack(5.0f);
-    c2.m_array.PushBack(10.0f);
-    c2.m_Variant = ezVec3(1.0f, 2.0f, 3.0f);
-
-    ezReflectionSerializer::WriteObjectToJSON(FileOut, c2.GetDynamicRTTI(), &c2, ezJSONWriter::WhitespaceMode::All);
+    ezReflectionSerializer::WriteObjectToDDL(FileOut, ezGetStaticRTTI<T>(), &source, false, ezOpenDdlWriter::TypeStringMode::Compliant);
   }
 
-  EZ_TEST_BLOCK(ezTestBlock::Enabled, "ReadObjectPropertiesFromJSON")
+  EZ_TEST_BLOCK(ezTestBlock::Enabled, "ReadObjectPropertiesFromDDL")
   {
     ezMemoryStreamReader FileIn(&StreamStorage);
+    T data;
+    ezReflectionSerializer::ReadObjectPropertiesFromDDL(FileIn, *ezGetStaticRTTI<T>(), &data);
 
-    //ezFileReader FileIn;
-    //EZ_TEST_BOOL(FileIn.Open("JSON.txt") == EZ_SUCCESS);
-
-    ezTestClass2 c2;
-
-    ezReflectionSerializer::ReadObjectPropertiesFromJSON(FileIn, *c2.GetDynamicRTTI(), &c2);
-
-    EZ_TEST_STRING(c2.GetText(), "Hallo");
-    EZ_TEST_VEC3(c2.m_MyVector, ezVec3(3, 4, 5), 0.0f);
-    EZ_TEST_FLOAT(c2.m_Time.GetSeconds(), 91.0f, 0.0f);
-    EZ_TEST_FLOAT(c2.m_Color.r, 0.1f, 0.0f);
-    EZ_TEST_FLOAT(c2.m_Color.g, 0.2f, 0.0f);
-    EZ_TEST_FLOAT(c2.m_Color.b, 0.3f, 0.0f);
-    EZ_TEST_FLOAT(c2.m_Struct.m_fFloat1, 128, 0.0f);
-    EZ_TEST_INT(c2.m_Struct.m_UInt8, 234);
-    EZ_TEST_BOOL(c2.m_enumClass == ezExampleEnum::Value3);
-    EZ_TEST_BOOL(c2.m_bitflagsClass == ezExampleBitflags::Enum(ezExampleBitflags::Value1 | ezExampleBitflags::Value2 | ezExampleBitflags::Value3));
-    EZ_TEST_INT(c2.m_array.GetCount(), 2);
-    if (c2.m_array.GetCount() == 2)
-    {
-      EZ_TEST_FLOAT(c2.m_array[0], 5.0f, 0.0f);
-      EZ_TEST_FLOAT(c2.m_array[1], 10.0f, 0.0f);
-    }
-    EZ_TEST_VEC3(c2.m_Variant.Get<ezVec3>(), ezVec3(1.0f, 2.0f, 3.0f), 0.0f);
+    EZ_TEST_BOOL(data == source);
   }
 
-  EZ_TEST_BLOCK(ezTestBlock::Enabled, "ReadObjectPropertiesFromJSON (different type)")
-  {
-    // here we restore the same properties into a different type of object which has properties that are named the same
-    // but may have slightly different types (but which are compatible)
-
-    ezMemoryStreamReader FileIn(&StreamStorage);
-
-    //ezFileReader FileIn;
-    //EZ_TEST_BOOL(FileIn.Open("JSON.txt") == EZ_SUCCESS);
-
-    ezTestClass2b c2;
-
-    ezReflectionSerializer::ReadObjectPropertiesFromJSON(FileIn, *c2.GetDynamicRTTI(), &c2);
-
-    EZ_TEST_STRING(c2.GetText(), "Tut"); // not restored, different property name
-    EZ_TEST_FLOAT(c2.m_Color.r, 0.1f, 0.0f);
-    EZ_TEST_FLOAT(c2.m_Color.g, 0.2f, 0.0f);
-    EZ_TEST_FLOAT(c2.m_Color.b, 0.3f, 0.0f);
-    EZ_TEST_FLOAT(c2.m_Struct.m_fFloat1, 128, 0.0f);
-    EZ_TEST_INT(c2.m_Struct.m_UInt8, 234);
-  }
-
-  EZ_TEST_BLOCK(ezTestBlock::Enabled, "ReadObjectFromJSON")
+  EZ_TEST_BLOCK(ezTestBlock::Enabled, "ReadObjectFromDDL")
   {
     ezMemoryStreamReader FileIn(&StreamStorage);
-
-    //ezFileReader FileIn;
-    //EZ_TEST_BOOL(FileIn.Open("JSON.txt") == EZ_SUCCESS);
 
     const ezRTTI* pRtti;
-    void* pObject = ezReflectionSerializer::ReadObjectFromJSON(FileIn, pRtti);
+    void* pObject = ezReflectionSerializer::ReadObjectFromDDL(FileIn, pRtti);
 
-    ezTestClass2& c2 = *((ezTestClass2*) pObject);
+    T& c2 = *((T*)pObject);
 
-    EZ_TEST_STRING(c2.GetText(), "Hallo");
-    EZ_TEST_VEC3(c2.m_MyVector, ezVec3(3, 4, 5), 0.0f);
-    EZ_TEST_FLOAT(c2.m_Time.GetSeconds(), 91.0f, 0.0f);
-    EZ_TEST_FLOAT(c2.m_Color.r, 0.1f, 0.0f);
-    EZ_TEST_FLOAT(c2.m_Color.g, 0.2f, 0.0f);
-    EZ_TEST_FLOAT(c2.m_Color.b, 0.3f, 0.0f);
-    EZ_TEST_FLOAT(c2.m_Struct.m_fFloat1, 128, 0.0f);
-    EZ_TEST_INT(c2.m_Struct.m_UInt8, 234);
-    EZ_TEST_BOOL(c2.m_enumClass == ezExampleEnum::Value3);
-    EZ_TEST_BOOL(c2.m_bitflagsClass == ezExampleBitflags::Enum(ezExampleBitflags::Value1 | ezExampleBitflags::Value2 | ezExampleBitflags::Value3));
-    EZ_TEST_INT(c2.m_array.GetCount(), 2);
-    if (c2.m_array.GetCount() == 2)
-    {
-      EZ_TEST_FLOAT(c2.m_array[0], 5.0f, 0.0f);
-      EZ_TEST_FLOAT(c2.m_array[1], 10.0f, 0.0f);
-    }
-    EZ_TEST_VEC3(c2.m_Variant.Get<ezVec3>(), ezVec3(1.0f, 2.0f, 3.0f), 0.0f);
+    EZ_TEST_BOOL(c2 == source);
 
     if (pObject)
     {
@@ -465,9 +434,57 @@ EZ_CREATE_SIMPLE_TEST(Reflection, ReflectionUtils)
     }
   }
 
-  ezFileSystem::ClearAllDataDirectories();
-}
+  ezMemoryStreamStorage StreamStorageBinary;
+  EZ_TEST_BLOCK(ezTestBlock::Enabled, "WriteObjectToBinary")
+  {
+    ezMemoryStreamWriter FileOut(&StreamStorageBinary);
 
+    ezReflectionSerializer::WriteObjectToBinary(FileOut, ezGetStaticRTTI<T>(), &source);
+  }
+
+  EZ_TEST_BLOCK(ezTestBlock::Enabled, "ReadObjectPropertiesFromBinary")
+  {
+    ezMemoryStreamReader FileIn(&StreamStorageBinary);
+    T data;
+    ezReflectionSerializer::ReadObjectPropertiesFromBinary(FileIn, *ezGetStaticRTTI<T>(), &data);
+
+    EZ_TEST_BOOL(data == source);
+  }
+
+  EZ_TEST_BLOCK(ezTestBlock::Enabled, "ReadObjectFromBinary")
+  {
+    ezMemoryStreamReader FileIn(&StreamStorageBinary);
+
+    const ezRTTI* pRtti;
+    void* pObject = ezReflectionSerializer::ReadObjectFromBinary(FileIn, pRtti);
+
+    T& c2 = *((T*)pObject);
+
+    EZ_TEST_BOOL(c2 == source);
+
+    if (pObject)
+    {
+      pRtti->GetAllocator()->Deallocate(pObject);
+    }
+  }
+
+  EZ_TEST_BLOCK(ezTestBlock::Enabled, "Clone")
+  {
+    {
+      T clone;
+      ezReflectionSerializer::Clone(&source, &clone, ezGetStaticRTTI<T>());
+      EZ_TEST_BOOL(clone == source);
+      EZ_TEST_BOOL(ezReflectionUtils::IsEqual(&clone, &source, ezGetStaticRTTI<T>()));
+    }
+
+    {
+      T* pClone = ezReflectionSerializer::Clone(&source);
+      EZ_TEST_BOOL(*pClone == source);
+      EZ_TEST_BOOL(ezReflectionUtils::IsEqual(pClone, &source));
+      ezGetStaticRTTI<T>()->GetAllocator()->Deallocate(pClone);
+    }
+  }
+}
 
 EZ_CREATE_SIMPLE_TEST(Reflection, Enum)
 {
@@ -737,6 +754,11 @@ EZ_CREATE_SIMPLE_TEST(Reflection, Arrays)
 
     TestArrayProperty<double>("AcHybrid", &containers, pRtti, fValue);
     TestArrayProperty<double>("AcHybridRO", &containers, pRtti, fValue);
+
+    const char* szValue = "Bla";
+    const char* szValue2 = "LongString------------------------------------------------------------------------------------";
+    containers.m_HybridChar.PushBack(szValue);
+    containers.m_HybridChar.PushBack(szValue2);
   }
 
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "Struct Array")
@@ -764,41 +786,9 @@ EZ_CREATE_SIMPLE_TEST(Reflection, Arrays)
     TestArrayProperty<ezTestArrays>("AcDequeRO", &containers, pRtti, data);
   }
 
-  ezMemoryStreamStorage StreamStorage;
-
-  EZ_TEST_BLOCK(ezTestBlock::Enabled, "WriteObjectToJSON")
-  {
-    ezMemoryStreamWriter FileOut(&StreamStorage);
-
-    ezReflectionSerializer::WriteObjectToJSON(FileOut, containers.GetDynamicRTTI(), &containers, ezJSONWriter::WhitespaceMode::All);
-  }
-
-  EZ_TEST_BLOCK(ezTestBlock::Enabled, "ReadObjectPropertiesFromJSON")
-  {
-    ezMemoryStreamReader FileIn(&StreamStorage);
-    ezTestArrays data;
-    ezReflectionSerializer::ReadObjectPropertiesFromJSON(FileIn, *data.GetDynamicRTTI(), &data);
-
-    EZ_TEST_BOOL(data == containers);
-  }
-
-  EZ_TEST_BLOCK(ezTestBlock::Enabled, "ReadObjectFromJSON")
-  {
-    ezMemoryStreamReader FileIn(&StreamStorage);
-
-    const ezRTTI* pRtti;
-    void* pObject = ezReflectionSerializer::ReadObjectFromJSON(FileIn, pRtti);
-
-    ezTestArrays& c2 = *((ezTestArrays*) pObject);
-
-    EZ_TEST_BOOL(c2 == containers);
-
-    if (pObject)
-    {
-      pRtti->GetAllocator()->Deallocate(pObject);
-    }
-  }
+  TestSerialization<ezTestArrays>(containers);
 }
+
 
 
 template<typename T>
@@ -815,13 +805,13 @@ void TestSetProperty(const char* szPropName, void* pObject, const ezRTTI* pRtti,
   if (!pSetProp->GetFlags().IsSet(ezPropertyFlags::ReadOnly))
   {
     pSetProp->Clear(pObject);
-    EZ_TEST_INT(pSetProp->GetCount(pObject), 0);
+    EZ_TEST_BOOL(pSetProp->IsEmpty(pObject));
     pSetProp->Insert(pObject, &value1);
-    EZ_TEST_INT(pSetProp->GetCount(pObject), 1);
+    EZ_TEST_BOOL(!pSetProp->IsEmpty(pObject));
     EZ_TEST_BOOL(pSetProp->Contains(pObject, &value1));
     EZ_TEST_BOOL(!pSetProp->Contains(pObject, &value2));
     pSetProp->Insert(pObject, &value2);
-    EZ_TEST_INT(pSetProp->GetCount(pObject), 2);
+    EZ_TEST_BOOL(!pSetProp->IsEmpty(pObject));
     EZ_TEST_BOOL(pSetProp->Contains(pObject, &value1));
     EZ_TEST_BOOL(pSetProp->Contains(pObject, &value2));
 
@@ -830,21 +820,21 @@ void TestSetProperty(const char* szPropName, void* pObject, const ezRTTI* pRtti,
     {
       T temp;
       pSetProp->Insert(pObject, &temp);
-      EZ_TEST_INT(pSetProp->GetCount(pObject), 3);
+      EZ_TEST_BOOL(!pSetProp->IsEmpty(pObject));
       EZ_TEST_BOOL(pSetProp->Contains(pObject, &value1));
       EZ_TEST_BOOL(pSetProp->Contains(pObject, &value2));
       EZ_TEST_BOOL(pSetProp->Contains(pObject, &temp));
 
       // Remove it again
       pSetProp->Remove(pObject, &temp);
-      EZ_TEST_INT(pSetProp->GetCount(pObject), 2);
+      EZ_TEST_BOOL(!pSetProp->IsEmpty(pObject));
       EZ_TEST_BOOL(!pSetProp->Contains(pObject, &temp));
     }
   }
 
   // Assumes this function gets called first by a writeable property, and then immediately by the same data as a read-only property.
   // So the checks are valid for the read-only version, too.
-  EZ_TEST_INT(pSetProp->GetCount(pObject), 2);
+  EZ_TEST_BOOL(!pSetProp->IsEmpty(pObject));
   EZ_TEST_BOOL(pSetProp->Contains(pObject, &value1));
   EZ_TEST_BOOL(pSetProp->Contains(pObject, &value2));
 
@@ -874,6 +864,19 @@ EZ_CREATE_SIMPLE_TEST(Reflection, Sets)
     TestSetProperty<double>("AcSetRO", &containers, pRtti, fValue1, fValue2);
   }
 
+  EZ_TEST_BLOCK(ezTestBlock::Enabled, "ezHashSet")
+  {
+    ezInt32 iValue1 = -5;
+    ezInt32 iValue2 = 127;
+    TestSetProperty<ezInt32>("HashSet", &containers, pRtti, iValue1, iValue2);
+    TestSetProperty<ezInt32>("HashSetRO", &containers, pRtti, iValue1, iValue2);
+
+    ezInt64 fValue1 = 5;
+    ezInt64 fValue2 = -3;
+    TestSetProperty<ezInt64>("HashAcSet", &containers, pRtti, fValue1, fValue2);
+    TestSetProperty<ezInt64>("HashAcSetRO", &containers, pRtti, fValue1, fValue2);
+  }
+
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "ezDeque Pseudo Set")
   {
     int iValue1 = -5;
@@ -896,40 +899,95 @@ EZ_CREATE_SIMPLE_TEST(Reflection, Sets)
     TestSetProperty<const char*>("AcPseudoSet2b", &containers, pRtti, szValue1, szValue2);
   }
 
-  ezMemoryStreamStorage StreamStorage;
+  TestSerialization<ezTestSets>(containers);
+}
 
-  EZ_TEST_BLOCK(ezTestBlock::Enabled, "WriteObjectToJSON")
+template<typename T>
+void TestMapProperty(const char* szPropName, void* pObject, const ezRTTI* pRtti, T& value1, T& value2)
+{
+  ezAbstractProperty* pProp = pRtti->FindPropertyByName(szPropName);
+  EZ_TEST_BOOL(pProp != nullptr);
+  EZ_TEST_BOOL(pProp->GetCategory() == ezPropertyCategory::Map);
+  ezAbstractMapProperty* pMapProp = static_cast<ezAbstractMapProperty*>(pProp);
+  const ezRTTI* pElemRtti = pProp->GetSpecificType();
+  EZ_TEST_BOOL(pElemRtti == ezGetStaticRTTI<T>());
+  EZ_TEST_BOOL(ezReflectionUtils::IsBasicType(pElemRtti));
+
+  if (!pMapProp->GetFlags().IsSet(ezPropertyFlags::ReadOnly))
   {
-    ezMemoryStreamWriter FileOut(&StreamStorage);
+    pMapProp->Clear(pObject);
+    EZ_TEST_BOOL(pMapProp->IsEmpty(pObject));
+    pMapProp->Insert(pObject, "value1", &value1);
+    EZ_TEST_BOOL(!pMapProp->IsEmpty(pObject));
+    EZ_TEST_BOOL(pMapProp->Contains(pObject, "value1"));
+    EZ_TEST_BOOL(!pMapProp->Contains(pObject, "value2"));
+    T getValue;
+    EZ_TEST_BOOL(!pMapProp->GetValue(pObject, "value2", &getValue));
+    EZ_TEST_BOOL(pMapProp->GetValue(pObject, "value1", &getValue));
+    EZ_TEST_BOOL(getValue == value1);
 
-    ezReflectionSerializer::WriteObjectToJSON(FileOut, containers.GetDynamicRTTI(), &containers, ezJSONWriter::WhitespaceMode::All);
+    pMapProp->Insert(pObject, "value2", &value2);
+    EZ_TEST_BOOL(!pMapProp->IsEmpty(pObject));
+    EZ_TEST_BOOL(pMapProp->Contains(pObject, "value1"));
+    EZ_TEST_BOOL(pMapProp->Contains(pObject, "value2"));
+    EZ_TEST_BOOL(pMapProp->GetValue(pObject, "value1", &getValue));
+    EZ_TEST_BOOL(getValue == value1);
+    EZ_TEST_BOOL(pMapProp->GetValue(pObject, "value2", &getValue));
+    EZ_TEST_BOOL(getValue == value2);
   }
 
-  EZ_TEST_BLOCK(ezTestBlock::Enabled, "ReadObjectPropertiesFromJSON")
-  {
-    ezMemoryStreamReader FileIn(&StreamStorage);
-    ezTestSets data;
-    ezReflectionSerializer::ReadObjectPropertiesFromJSON(FileIn, *data.GetDynamicRTTI(), &data);
+  // Assumes this function gets called first by a writeable property, and then immediately by the same data as a read-only property.
+  // So the checks are valid for the read-only version, too.
+  T getValue2;
+  EZ_TEST_BOOL(!pMapProp->IsEmpty(pObject));
+  EZ_TEST_BOOL(pMapProp->Contains(pObject, "value1"));
+  EZ_TEST_BOOL(pMapProp->Contains(pObject, "value2"));
+  EZ_TEST_BOOL(pMapProp->GetValue(pObject, "value1", &getValue2));
+  EZ_TEST_BOOL(getValue2 == value1);
+  EZ_TEST_BOOL(pMapProp->GetValue(pObject, "value2", &getValue2));
+  EZ_TEST_BOOL(getValue2 == value2);
 
-    EZ_TEST_BOOL(data == containers);
+  ezHybridArray<ezString, 16> keys;
+  pMapProp->GetKeys(pObject, keys);
+  EZ_TEST_INT(keys.GetCount(), 2);
+  keys.Sort();
+  EZ_TEST_BOOL(keys[0] == "value1");
+  EZ_TEST_BOOL(keys[1] == "value2");
+}
+
+EZ_CREATE_SIMPLE_TEST(Reflection, Maps)
+{
+  ezTestMaps containers;
+  const ezRTTI* pRtti = ezGetStaticRTTI<ezTestMaps>();
+  EZ_TEST_BOOL(pRtti != nullptr);
+
+  EZ_TEST_BLOCK(ezTestBlock::Enabled, "ezMap")
+  {
+    int iValue1 = -5;
+    int iValue2 = 127;
+    TestMapProperty<int>("Map", &containers, pRtti, iValue1, iValue2);
+    TestMapProperty<int>("MapRO", &containers, pRtti, iValue1, iValue2);
+
+    ezInt64 iValue1b = 5;
+    ezInt64 iValue2b = -3;
+    TestMapProperty<ezInt64>("AcMap", &containers, pRtti, iValue1b, iValue2b);
+    TestMapProperty<ezInt64>("AcMapRO", &containers, pRtti, iValue1b, iValue2b);
   }
 
-  EZ_TEST_BLOCK(ezTestBlock::Enabled, "ReadObjectFromJSON")
+  EZ_TEST_BLOCK(ezTestBlock::Enabled, "ezHashMap")
   {
-    ezMemoryStreamReader FileIn(&StreamStorage);
+    double fValue1 = -5;
+    double fValue2 = 127;
+    TestMapProperty<double>("HashTable", &containers, pRtti, fValue1, fValue2);
+    TestMapProperty<double>("HashTableRO", &containers, pRtti, fValue1, fValue2);
 
-    const ezRTTI* pRtti;
-    void* pObject = ezReflectionSerializer::ReadObjectFromJSON(FileIn, pRtti);
-
-    ezTestSets& c2 = *((ezTestSets*) pObject);
-
-    EZ_TEST_BOOL(c2 == containers);
-
-    if (pObject)
-    {
-      pRtti->GetAllocator()->Deallocate(pObject);
-    }
+    ezString sValue1 = "Bla";
+    ezString sValue2 = "Test";
+    TestMapProperty<ezString>("AcHashTable", &containers, pRtti, sValue1, sValue2);
+    TestMapProperty<ezString>("AcHashTableRO", &containers, pRtti, sValue1, sValue2);
   }
+
+  TestSerialization<ezTestMaps>(containers);
 }
 
 
@@ -981,12 +1039,12 @@ EZ_CREATE_SIMPLE_TEST(Reflection, Pointer)
       ezAbstractProperty* pProp = pRtti->FindPropertyByName("ConstCharPtr");
       EZ_TEST_BOOL(pProp != nullptr);
       EZ_TEST_BOOL(pProp->GetCategory() == ezPropertyCategory::Member);
-      EZ_TEST_INT(pProp->GetFlags().GetValue(), ezPropertyFlags::StandardType);
+      EZ_TEST_INT(pProp->GetFlags().GetValue(), (ezPropertyFlags::StandardType | ezPropertyFlags::Const).GetValue());
       EZ_TEST_BOOL(pProp->GetSpecificType() == ezGetStaticRTTI<const char*>());
     }
 
-    TestPointerMemberProperty<ezTestArrays>("ArraysPtr", &containers, pRtti, ezPropertyFlags::Pointer | ezPropertyFlags::PointerOwner, containers.m_pArrays);
-    TestPointerMemberProperty<ezTestArrays>("ArraysPtrDirect", &containers, pRtti, ezPropertyFlags::Pointer | ezPropertyFlags::PointerOwner, containers.m_pArraysDirect);
+    TestPointerMemberProperty<ezTestArrays>("ArraysPtr", &containers, pRtti, ezPropertyFlags::Class | ezPropertyFlags::Pointer | ezPropertyFlags::PointerOwner, containers.m_pArrays);
+    TestPointerMemberProperty<ezTestArrays>("ArraysPtrDirect", &containers, pRtti, ezPropertyFlags::Class | ezPropertyFlags::Pointer | ezPropertyFlags::PointerOwner, containers.m_pArraysDirect);
   }
 
   ezTestPtr containers;
@@ -1006,44 +1064,5 @@ EZ_CREATE_SIMPLE_TEST(Reflection, Pointer)
     containers.m_SetPtr.GetIterator().Key()->m_Array.PushBack("BLA");
   }
 
-  EZ_TEST_BLOCK(ezTestBlock::Enabled, "WriteObjectToJSON")
-  {
-    ezMemoryStreamWriter FileOut(&StreamStorage);
-
-    ezReflectionSerializer::WriteObjectToJSON(FileOut, containers.GetDynamicRTTI(), &containers, ezJSONWriter::WhitespaceMode::All);
-  }
-
-  EZ_TEST_BLOCK(ezTestBlock::Enabled, "ReadObjectPropertiesFromJSON")
-  {
-    ezMemoryStreamReader FileIn(&StreamStorage);
-    ezTestPtr data;
-    ezReflectionSerializer::ReadObjectPropertiesFromJSON(FileIn, *data.GetDynamicRTTI(), &data);
-
-    EZ_TEST_BOOL(data.m_sString == containers.m_sString);
-    EZ_TEST_BOOL(*data.m_pArrays == *containers.m_pArrays);
-    EZ_TEST_BOOL(*data.m_ArrayPtr[0] == *containers.m_ArrayPtr[0]);
-    EZ_TEST_BOOL(*data.m_SetPtr.GetIterator().Key() == *containers.m_SetPtr.GetIterator().Key());
-  }
-
-  EZ_TEST_BLOCK(ezTestBlock::Enabled, "ReadObjectFromJSON")
-  {
-    ezMemoryStreamReader FileIn(&StreamStorage);
-
-    const ezRTTI* pRtti2;
-    void* pObject = ezReflectionSerializer::ReadObjectFromJSON(FileIn, pRtti2);
-    EZ_TEST_BOOL(pRtti == pRtti2);
-    
-    ezTestPtr& data = *((ezTestPtr*) pObject);
-
-    EZ_TEST_BOOL(data.m_sString == containers.m_sString);
-    EZ_TEST_BOOL(*data.m_pArrays == *containers.m_pArrays);
-    EZ_TEST_BOOL(*data.m_ArrayPtr[0] == *containers.m_ArrayPtr[0]);
-    EZ_TEST_BOOL(*data.m_SetPtr.GetIterator().Key() == *containers.m_SetPtr.GetIterator().Key());
-
-    if (pObject)
-    {
-      pRtti->GetAllocator()->Deallocate(pObject);
-    }
-  }
-
+  TestSerialization<ezTestPtr>(containers);
 }

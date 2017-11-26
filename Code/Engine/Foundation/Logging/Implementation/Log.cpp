@@ -1,27 +1,24 @@
-#include <Foundation/PCH.h>
+﻿#include <PCH.h>
 #include <Foundation/Logging/Log.h>
-#include <Foundation/Threading/ThreadUtils.h>
+#include <Foundation/Strings/StringBuilder.h>
 
-
-ezThreadLocalPointer<ezGlobalLog> ezGlobalLog::s_pInstances;
-ezLogMsgType::Enum ezGlobalLog::s_LogLevel = ezLogMsgType::All;
+ezLogMsgType::Enum ezLog::s_LogLevel = ezLogMsgType::All;
 ezAtomicInteger32 ezGlobalLog::s_uiMessageCount[ezLogMsgType::ENUM_COUNT];
 ezLoggingEvent ezGlobalLog::s_LoggingEvent;
 
 ezThreadLocalPointer<ezLogInterface> ezLog::s_DefaultLogSystem;
 
-ezGlobalLog* ezGlobalLog::GetInstance()
+void ezGlobalLog::AddLogWriter(ezLoggingEvent::Handler handler)
 {
-  ezGlobalLog* pLog = s_pInstances;
-
-  if (pLog == nullptr)
+  if (!s_LoggingEvent.HasEventHandler(handler))
   {
-    // use new, not EZ_DEFAULT_NEW, to prevent tracking
-    s_pInstances = new ezGlobalLog;
-    return s_pInstances;
+    s_LoggingEvent.AddEventHandler(handler);
   }
-  
-  return pLog;
+}
+
+void ezGlobalLog::RemoveLogWriter(ezLoggingEvent::Handler handler)
+{
+  s_LoggingEvent.RemoveEventHandler(handler);
 }
 
 void ezGlobalLog::HandleLogMessage(const ezLoggingEventData& le)
@@ -31,24 +28,12 @@ void ezGlobalLog::HandleLogMessage(const ezLoggingEventData& le)
   if ((ThisType > ezLogMsgType::None) && (ThisType < ezLogMsgType::All))
     s_uiMessageCount[ThisType].Increment();
 
-  if (s_LogLevel < ThisType)
-    return;
-
   s_LoggingEvent.Broadcast(le);
 }
 
-void ezGlobalLog::SetLogLevel(ezLogMsgType::Enum LogLevel)
-{
-  EZ_ASSERT_DEV(LogLevel >= ezLogMsgType::None, "Invalid Log Level");
-  EZ_ASSERT_DEV(LogLevel <= ezLogMsgType::All, "Invalid Log Level");
-
-  s_LogLevel = LogLevel;
-}
-
-
 ezLogBlock::ezLogBlock(const char* szName, const char* szContextInfo)
 {
-  m_pLogInterface = ezGlobalLog::GetInstance();
+  m_pLogInterface = ezLog::GetThreadLocalLogSystem();
 
   if (!m_pLogInterface)
     return;
@@ -59,7 +44,7 @@ ezLogBlock::ezLogBlock(const char* szName, const char* szContextInfo)
 
   m_pParentBlock = m_pLogInterface->m_pCurrentBlock;
   m_pLogInterface->m_pCurrentBlock = this;
-    
+
   m_iBlockDepth = m_pParentBlock ? (m_pParentBlock->m_iBlockDepth + 1) : 0;
 }
 
@@ -77,7 +62,7 @@ ezLogBlock::ezLogBlock(ezLogInterface* pInterface, const char* szName, const cha
 
   m_pParentBlock = m_pLogInterface->m_pCurrentBlock;
   m_pLogInterface->m_pCurrentBlock = this;
-    
+
   m_iBlockDepth = m_pParentBlock ? (m_pParentBlock->m_iBlockDepth + 1) : 0;
 }
 
@@ -126,6 +111,9 @@ void ezLog::WriteBlockHeader(ezLogInterface* pInterface, ezLogBlock* pBlock)
 
 void ezLog::BroadcastLoggingEvent(ezLogInterface* pInterface, ezLogMsgType::Enum type, const char* szString)
 {
+  if (pInterface->GetLogLevel() < type)
+    return;
+
   ezLogBlock* pTopBlock = pInterface->m_pCurrentBlock;
   ezInt32 iIndentation = 0;
 
@@ -166,105 +154,91 @@ void ezLog::BroadcastLoggingEvent(ezLogInterface* pInterface, ezLogMsgType::Enum
   pInterface->HandleLogMessage(le);
 }
 
-void ezLog::SetDefaultLogSystem(ezLogInterface* pInterface)
+void ezLog::SetThreadLocalLogSystem(ezLogInterface* pInterface)
 {
   EZ_ASSERT_DEV(pInterface != nullptr, "You cannot set a nullptr logging system. If you want to discard all log information, set a dummy system that does not do anything.");
 
   s_DefaultLogSystem = pInterface;
 }
 
-ezLogInterface* ezLog::GetDefaultLogSystem()
+ezLogInterface* ezLog::GetThreadLocalLogSystem()
 {
   if (s_DefaultLogSystem == nullptr)
-    s_DefaultLogSystem = ezGlobalLog::GetInstance();
+  {
+    // use new, not EZ_DEFAULT_NEW, to prevent tracking
+    s_DefaultLogSystem = new ezGlobalLog;
+  }
 
   return s_DefaultLogSystem;
 }
 
-#define LOG_IMPL(ThisType, pInterface) \
-  if (pInterface == nullptr) \
-    return; \
-  char szString[4096]; \
-  va_list args; \
-  va_start (args, szFormat); \
-  ezStringUtils::vsnprintf(szString, 4096, szFormat, args); \
-  va_end (args); \
-  BroadcastLoggingEvent(pInterface, ThisType, szString);
-
-void ezLog::Error(const char* szFormat, ...)
+void ezLog::Error(ezLogInterface* pInterface, const ezFormatString& string)
 {
-  LOG_IMPL(ezLogMsgType::ErrorMsg, GetDefaultLogSystem());
+  if (pInterface == nullptr)
+    return;
+
+  ezStringBuilder tmp;
+  BroadcastLoggingEvent(pInterface, ezLogMsgType::ErrorMsg, string.GetText(tmp));
 }
 
-void ezLog::Error(ezLogInterface* pInterface, const char* szFormat, ...)
+void ezLog::SeriousWarning(ezLogInterface* pInterface, const ezFormatString& string)
 {
-  LOG_IMPL(ezLogMsgType::ErrorMsg, pInterface);
+  if (pInterface == nullptr)
+    return;
+
+  ezStringBuilder tmp;
+  BroadcastLoggingEvent(pInterface, ezLogMsgType::SeriousWarningMsg, string.GetText(tmp));
 }
 
-void ezLog::SeriousWarning(const char* szFormat, ...)
+void ezLog::Warning(ezLogInterface* pInterface, const ezFormatString& string)
 {
-  LOG_IMPL(ezLogMsgType::SeriousWarningMsg, GetDefaultLogSystem());
+  if (pInterface == nullptr)
+    return;
+
+  ezStringBuilder tmp;
+  BroadcastLoggingEvent(pInterface, ezLogMsgType::WarningMsg, string.GetText(tmp));
 }
 
-void ezLog::SeriousWarning(ezLogInterface* pInterface, const char* szFormat, ...)
+void ezLog::Success(ezLogInterface* pInterface, const ezFormatString& string)
 {
-  LOG_IMPL(ezLogMsgType::SeriousWarningMsg, pInterface);
+  if (pInterface == nullptr)
+    return;
+
+  ezStringBuilder tmp;
+  BroadcastLoggingEvent(pInterface, ezLogMsgType::SuccessMsg, string.GetText(tmp));
 }
 
-void ezLog::Warning(const char* szFormat, ...)
+void ezLog::Info(ezLogInterface* pInterface, const ezFormatString& string)
 {
-  LOG_IMPL(ezLogMsgType::WarningMsg, GetDefaultLogSystem());
-}
+  if (pInterface == nullptr)
+    return;
 
-void ezLog::Warning(ezLogInterface* pInterface, const char* szFormat, ...)
-{
-  LOG_IMPL(ezLogMsgType::WarningMsg, pInterface);
-}
-
-void ezLog::Success(const char* szFormat, ...)
-{
-  LOG_IMPL(ezLogMsgType::SuccessMsg, GetDefaultLogSystem());
-}
-
-void ezLog::Success(ezLogInterface* pInterface, const char* szFormat, ...)
-{
-  LOG_IMPL(ezLogMsgType::SuccessMsg, pInterface);
-}
-
-void ezLog::Info(const char* szFormat, ...)
-{
-  LOG_IMPL(ezLogMsgType::InfoMsg, GetDefaultLogSystem());
-}
-
-void ezLog::Info(ezLogInterface* pInterface, const char* szFormat, ...)
-{
-  LOG_IMPL(ezLogMsgType::InfoMsg, pInterface);
+  ezStringBuilder tmp;
+  BroadcastLoggingEvent(pInterface, ezLogMsgType::InfoMsg, string.GetText(tmp));
 }
 
 #if EZ_ENABLED(EZ_COMPILE_FOR_DEVELOPMENT)
 
-void ezLog::Dev(const char* szFormat, ...)
+void ezLog::Dev(ezLogInterface* pInterface, const ezFormatString& string)
 {
-  LOG_IMPL(ezLogMsgType::DevMsg, GetDefaultLogSystem());
-}
+  if (pInterface == nullptr)
+    return;
 
-void ezLog::Dev(ezLogInterface* pInterface, const char* szFormat, ...)
-{
-  LOG_IMPL(ezLogMsgType::DevMsg, pInterface);
+  ezStringBuilder tmp;
+  BroadcastLoggingEvent(pInterface, ezLogMsgType::DevMsg, string.GetText(tmp));
 }
 
 #endif
 
 #if EZ_ENABLED(EZ_COMPILE_FOR_DEBUG)
 
-void ezLog::Debug(const char* szFormat, ...)
+void ezLog::Debug(ezLogInterface* pInterface, const ezFormatString& string)
 {
-  LOG_IMPL(ezLogMsgType::DebugMsg, GetDefaultLogSystem());
-}
+  if (pInterface == nullptr)
+    return;
 
-void ezLog::Debug(ezLogInterface* pInterface, const char* szFormat, ...)
-{
-  LOG_IMPL(ezLogMsgType::DebugMsg, pInterface);
+  ezStringBuilder tmp;
+  BroadcastLoggingEvent(pInterface, ezLogMsgType::DebugMsg, string.GetText(tmp));
 }
 
 #endif

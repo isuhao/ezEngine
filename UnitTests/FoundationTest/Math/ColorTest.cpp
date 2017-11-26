@@ -18,9 +18,9 @@ EZ_CREATE_SIMPLE_TEST(Math, Color)
     // Placement new of the default constructor should not have any effect on the previous data.
     float testBlock[4] = { 1.0f, 2.0f, 3.0f, 4.0f };
     ezColor* pDefCtor = ::new ((void*)&testBlock[0]) ezColor;
-    EZ_TEST_BOOL(pDefCtor->r == 1.0f && 
-      pDefCtor->g == 2.0f && 
-      pDefCtor->b == 3.0f && 
+    EZ_TEST_BOOL(pDefCtor->r == 1.0f &&
+      pDefCtor->g == 2.0f &&
+      pDefCtor->b == 3.0f &&
       pDefCtor->a == 4.0f);
 #endif
 
@@ -73,23 +73,24 @@ EZ_CREATE_SIMPLE_TEST(Math, Color)
 
 
     // hsv test - took some samples from http://www.javascripter.net/faq/rgb2hsv.htm
-    ezVec3 rgb[] = { ezVec3(1,1,1), ezVec3(0,0,0), ezVec3(123, 12, 1) / 255.0f, ezVec3(31, 112, 153) / 255.0f };
-    ezVec3 hsv[] = { ezVec3(0,0,1), ezVec3(0,0,0), ezVec3(5.4f, 0.991f, 0.48f), ezVec3(200.2f, 0.797f, 0.600f)};
+    const ezColorGammaUB rgb[] = { ezColorGammaUB(255,255,255), ezColorGammaUB(0,0,0), ezColorGammaUB(123, 12, 1), ezColorGammaUB(31, 112, 153) };
+    const ezVec3 hsv[] = { ezVec3(0,0,1), ezVec3(0,0,0), ezVec3(5.4f, 0.991f, 0.48f), ezVec3(200.2f, 0.797f, 0.600f)};
+
     for (int i=0; i<4; ++i)
     {
-      ezColor color(rgb[i].x, rgb[i].y, rgb[i].z);
+      const ezColor color = rgb[i];
       float hue, sat, val;
-      color.ToLinearHSV(hue, sat, val);
+      color.GetHSV(hue, sat, val);
 
       EZ_TEST_FLOAT(hue, hsv[i].x, 0.1f);
       EZ_TEST_FLOAT(sat, hsv[i].y, 0.1f);
       EZ_TEST_FLOAT(val, hsv[i].z, 0.1f);
 
       ezColor fromHSV;
-      fromHSV.FromLinearHSV(hsv[i].x, hsv[i].y, hsv[i].z);
-      EZ_TEST_FLOAT(fromHSV.r, rgb[i].x, 0.01f);
-      EZ_TEST_FLOAT(fromHSV.g, rgb[i].y, 0.01f);
-      EZ_TEST_FLOAT(fromHSV.b, rgb[i].z, 0.01f);
+      fromHSV.SetHSV(hsv[i].x, hsv[i].y, hsv[i].z);
+      EZ_TEST_FLOAT(fromHSV.r, color.r, 0.01f);
+      EZ_TEST_FLOAT(fromHSV.g, color.g, 0.01f);
+      EZ_TEST_FLOAT(fromHSV.b, color.b, 0.01f);
     }
   }
 
@@ -102,14 +103,14 @@ EZ_CREATE_SIMPLE_TEST(Math, Color)
         ezColor(0.0f, fNaN, 0.0f, 0.0f),
         ezColor(0.0f, 0.0f, fNaN, 0.0f),
         ezColor(0.0f, 0.0f, 0.0f, fNaN) };
-      const ezColor compArray[4] = { 
+      const ezColor compArray[4] = {
         ezColor(1.0f, 0.0f, 0.0f, 0.0f),
         ezColor(0.0f, 1.0f, 0.0f, 0.0f),
         ezColor(0.0f, 0.0f, 1.0f, 0.0f),
         ezColor(0.0f, 0.0f, 0.0f, 1.0f) };
 
 
-      EZ_TEST_BLOCK(true, "IsNaN") 
+      EZ_TEST_BLOCK(true, "IsNaN")
       {
         for (int i = 0; i < 4; ++i)
         {
@@ -268,6 +269,31 @@ EZ_CREATE_SIMPLE_TEST(Math, Color)
       }
     }
 
+    EZ_TEST_BLOCK(ezTestBlock::Enabled, "operator< (ezColor, ezColor)")
+    {
+      for (int i = 0; i < 4; ++i)
+      {
+        for (int j = 0; j < 4; ++j)
+        {
+          if (i == j)
+          {
+            EZ_TEST_BOOL(!(compArray[i] < compArray[j]));
+            EZ_TEST_BOOL(!(compArray[j] < compArray[i]));
+          }
+          else if (i < j)
+          {
+            EZ_TEST_BOOL(!(compArray[i] < compArray[j]));
+            EZ_TEST_BOOL(compArray[j] < compArray[i]);
+          }
+          else
+          {
+            EZ_TEST_BOOL(!(compArray[j] < compArray[i]));
+            EZ_TEST_BOOL(compArray[i] < compArray[j]);
+          }
+        }
+      }
+    }
+
     EZ_TEST_BLOCK(ezTestBlock::Enabled, "operator!= (ezColor, ezColor)")
     {
       EZ_TEST_BOOL(!(op1 != op1));
@@ -282,7 +308,7 @@ EZ_CREATE_SIMPLE_TEST(Math, Color)
     {
       ezColor c;
       ezColorLinearUB lin(50, 100, 150, 255);
- 
+
       c = lin;
 
       EZ_TEST_FLOAT(c.r, 50 / 255.0f, 0.001f);
@@ -295,7 +321,7 @@ EZ_CREATE_SIMPLE_TEST(Math, Color)
     {
       ezColor c;
       ezColorGammaUB gamma(50, 100, 150, 255);
- 
+
       c = gamma;
       ezColor c3 = gamma;
 
@@ -349,22 +375,6 @@ EZ_CREATE_SIMPLE_TEST(Math, Color)
       EZ_TEST_FLOAT(ezColor::Red.GetSaturation(), 1.0f, 0.001f);
       EZ_TEST_FLOAT(ezColor::Lime.GetSaturation(), 1.0f, 0.001f);;
       EZ_TEST_FLOAT(ezColor::Blue.GetSaturation(), 1.0f, 0.001f);
-    }
-
-    EZ_TEST_BLOCK(ezTestBlock::Enabled, "FromGammaHSV / ToGammaHSV")
-    {
-      ezColor c1;
-      c1.FromGammaHSV(22, 0.54f, 1.0f);
-
-      ezColorGammaUB c2 = c1;
-      EZ_TEST_BOOL(c2 == ezColorGammaUB(255, 168, 117));
-
-      float h, s, v;
-      c1.ToGammaHSV(h, s, v);
-
-      EZ_TEST_FLOAT(h, 22.0f, 0.01f);
-      EZ_TEST_FLOAT(s, 0.54f, 0.01f);
-      EZ_TEST_FLOAT(v, 1.0f, 0.01f);
     }
 
     EZ_TEST_BLOCK(ezTestBlock::Enabled, "operator * / *= (ezMat4)")

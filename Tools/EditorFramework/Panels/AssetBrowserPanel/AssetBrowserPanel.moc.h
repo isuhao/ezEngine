@@ -5,19 +5,29 @@
 #include <GuiFoundation/DockPanels/ApplicationPanel.moc.h>
 #include <Tools/EditorFramework/ui_AssetBrowserPanel.h>
 
-class EZ_EDITORFRAMEWORK_DLL ezAssetBrowserPanel : public ezApplicationPanel, public Ui_AssetBrowserPanel
+class QStatusBar;
+class QLabel;
+struct ezToolsProjectEvent;
+class ezQtCuratorControl;
+
+/// \brief The application wide panel that shows and asset browser.
+class EZ_EDITORFRAMEWORK_DLL ezQtAssetBrowserPanel : public ezQtApplicationPanel, public Ui_AssetBrowserPanel
 {
   Q_OBJECT
 
-public:
-  ezAssetBrowserPanel();
-  ~ezAssetBrowserPanel();
+  EZ_DECLARE_SINGLETON(ezQtAssetBrowserPanel);
 
-  static ezAssetBrowserPanel* GetInstance() { return s_pInstance; }
+public:
+  ezQtAssetBrowserPanel();
+  ~ezQtAssetBrowserPanel();
 
 private slots:
-  void SlotAssetChosen(QString sAssetGuid, QString sAssetPathRelative, QString sAssetPathAbsolute);
+  void SlotAssetChosen(ezUuid guid, QString sAssetPathRelative, QString sAssetPathAbsolute);
 
 private:
-  static ezAssetBrowserPanel* s_pInstance;
+  void AssetCuratorEvents(const ezAssetCuratorEvent& e);
+  void ProjectEvents(const ezToolsProjectEvent& e);
+
+  QStatusBar* m_pStatusBar;
+  ezQtCuratorControl* m_pCuratorControl;
 };

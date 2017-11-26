@@ -13,9 +13,9 @@
 
 
 
-#include <CoreUtils/Image/Image.h>
-#include <CoreUtils/Image/ImageConversion.h>
-#include <CoreUtils/Image/ImageUtils.h>
+#include <Foundation/Image/Image.h>
+#include <Foundation/Image/ImageConversion.h>
+#include <Foundation/Image/ImageUtils.h>
 #include <Foundation/Basics.h>
 #include <Foundation/Configuration/Startup.h>
 #include <Foundation/IO/FileSystem/DataDirTypeFolder.h>
@@ -26,7 +26,6 @@
 #include <Foundation/Logging/Log.h>
 #include <Foundation/Math/Math.h>
 #include <Foundation/Memory/MemoryTracker.h>
-#include <Foundation/Profiling/Profiling.h>
 #include <Foundation/Strings/StringBuilder.h>
 #include <Foundation/System/SystemInformation.h>
 #include <Foundation/Time/Time.h>

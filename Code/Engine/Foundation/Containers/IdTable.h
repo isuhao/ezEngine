@@ -10,6 +10,8 @@
 /// Lookup is nearly as fast as a simple array lookup. 
 /// The table stores a free-list in its free elements to ensure fast insertion/erasure.
 ///
+/// \note Valid IDs will never be all zero (index + generation).
+///
 /// \see ezGenericId
 template <typename IdType, typename ValueType>
 class ezIdTableBase
@@ -97,6 +99,9 @@ public:
 
   /// \brief Inserts the value into the table and returns the corresponding id. 
   IdType Insert(const ValueType& value); // [tested]
+
+  /// \brief Inserts the temporary value into the table and returns the corresponding id. 
+  IdType Insert(ValueType&& value);
 
   /// \brief Removes the entry with the given id. Returns if an entry was removed and optionally writes out the old value to out_oldValue.
   bool Remove(const IdType id, ValueType* out_oldValue = nullptr); // [tested]

@@ -1,8 +1,6 @@
-#include <Core/PCH.h>
-#include <Core/ResourceManager/ResourceTypeLoader.h>
+#include <PCH.h>
 #include <Core/ResourceManager/Resource.h>
 #include <Foundation/IO/FileSystem/FileReader.h>
-#include <Foundation/IO/MemoryStream.h>
 #include <Foundation/IO/OSFile.h>
 
 struct FileResourceLoadData
@@ -71,15 +69,18 @@ bool ezResourceLoaderFromFile::IsResourceOutdated(const ezResourceBase* pResourc
 #if EZ_ENABLED(EZ_SUPPORTS_FILE_STATS)
   if (pResource->GetLoadedFileModificationTime().IsValid())
   {
-    ezString sAbs;
-    if (ezFileSystem::ResolvePath(pResource->GetResourceID(), false, &sAbs, nullptr).Failed())
+    ezStringBuilder sAbs;
+    if (ezFileSystem::ResolvePath(pResource->GetResourceID(), &sAbs, nullptr).Failed())
       return false;
 
     ezFileStats stat;
     if (ezOSFile::GetFileStats(sAbs, stat).Failed())
       return false;
-  
-    return !stat.m_LastModificationTime.IsEqual(pResource->GetLoadedFileModificationTime(), ezTimestamp::CompareMode::FileTime);
+
+    if (!stat.m_LastModificationTime.Compare(pResource->GetLoadedFileModificationTime(), ezTimestamp::CompareMode::FileTimeEqual))
+      return true;
+
+    return false;
   }
 
 #endif
@@ -87,7 +88,40 @@ bool ezResourceLoaderFromFile::IsResourceOutdated(const ezResourceBase* pResourc
   return true;
 }
 
+//////////////////////////////////////////////////////////////////////////
 
+ezResourceLoadData ezResourceLoaderFromMemory::OpenDataStream(const ezResourceBase* pResource)
+{
+  m_Reader.SetStorage(&m_CustomData);
+  m_Reader.SetReadPosition(0);
+
+  ezResourceLoadData res;
+
+  res.m_sResourceDescription = m_sResourceDescription;
+  res.m_LoadedFileModificationDate = m_ModificationTimestamp;
+  res.m_pDataStream = &m_Reader;
+  res.m_pCustomLoaderData = nullptr;
+
+  return res;
+}
+
+void ezResourceLoaderFromMemory::CloseDataStream(const ezResourceBase* pResource, const ezResourceLoadData& LoaderData)
+{
+  m_Reader.SetStorage(nullptr);
+}
+
+bool ezResourceLoaderFromMemory::IsResourceOutdated(const ezResourceBase* pResource) const
+{
+  if (pResource->GetLoadedFileModificationTime().IsValid() && m_ModificationTimestamp.IsValid())
+  {
+    if (!m_ModificationTimestamp.Compare(pResource->GetLoadedFileModificationTime(), ezTimestamp::CompareMode::FileTimeEqual))
+      return true;
+
+    return false;
+  }
+
+  return true;
+}
 
 
 

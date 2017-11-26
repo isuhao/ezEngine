@@ -1,13 +1,20 @@
-#include <RendererCore/PCH.h>
+﻿#include <PCH.h>
 #include <RendererCore/Shader/ShaderPermutationBinary.h>
-#include <Foundation/Logging/Log.h>
 
-enum ezShaderPermutationBinaryVersion
+struct ezShaderPermutationBinaryVersion
 {
-  Version1 = 1,
+  enum Enum : ezUInt32
+  {
+    Version1 = 1,
+    Version2 = 2,
+    Version3 = 3,
+    Version4 = 4,
 
-  ENUM_COUNT,
-  Current = ENUM_COUNT - 1
+    // Increase this version number to trigger shader recompilation
+
+    ENUM_COUNT,
+    Current = ENUM_COUNT - 1
+  };
 };
 
 ezShaderPermutationBinary::ezShaderPermutationBinary()
@@ -16,7 +23,7 @@ ezShaderPermutationBinary::ezShaderPermutationBinary()
     m_uiShaderStageHashes[stage] = 0;
 }
 
-ezResult ezShaderPermutationBinary::Write(ezStreamWriterBase& Stream)
+ezResult ezShaderPermutationBinary::Write(ezStreamWriter& Stream)
 {
   // write this at the beginning so that the file can be read as an ezDependencyFile
   m_DependencyFile.StoreCurrentTimeStamp();
@@ -35,10 +42,18 @@ ezResult ezShaderPermutationBinary::Write(ezStreamWriterBase& Stream)
 
   m_StateDescriptor.Save(Stream);
 
+  Stream << m_PermutationVars.GetCount();
+
+  for (auto& var : m_PermutationVars)
+  {
+    Stream << var.m_sName.GetString();
+    Stream << var.m_sValue.GetString();
+  }
+
   return EZ_SUCCESS;
 }
 
-ezResult ezShaderPermutationBinary::Read(ezStreamReaderBase& Stream)
+ezResult ezShaderPermutationBinary::Read(ezStreamReader& Stream, bool& out_bOldVersion)
 {
   m_DependencyFile.ReadDependencyFile(Stream);
 
@@ -47,7 +62,9 @@ ezResult ezShaderPermutationBinary::Read(ezStreamReaderBase& Stream)
   if (Stream.ReadBytes(&uiVersion, sizeof(ezUInt8)) != sizeof(ezUInt8))
     return EZ_FAILURE;
 
-  EZ_ASSERT_DEV(uiVersion <= ezShaderPermutationBinaryVersion::Current, "Wrong Version %u", uiVersion);
+  EZ_ASSERT_DEV(uiVersion <= ezShaderPermutationBinaryVersion::Current, "Wrong Version {0}", uiVersion);
+
+  out_bOldVersion = uiVersion != ezShaderPermutationBinaryVersion::Current;
 
   for (ezUInt32 stage = 0; stage < ezGALShaderStage::ENUM_COUNT; ++stage)
   {
@@ -57,11 +74,28 @@ ezResult ezShaderPermutationBinary::Read(ezStreamReaderBase& Stream)
 
   m_StateDescriptor.Load(Stream);
 
+  if (uiVersion >= ezShaderPermutationBinaryVersion::Version2)
+  {
+    ezUInt32 uiPermutationCount;
+    Stream >> uiPermutationCount;
+
+    m_PermutationVars.SetCount(uiPermutationCount);
+
+    ezStringBuilder tmp;
+    for (ezUInt32 i = 0; i < uiPermutationCount; ++i)
+    {
+      auto& var = m_PermutationVars[i];
+
+      Stream >> tmp; var.m_sName.Assign(tmp.GetData());
+      Stream >> tmp; var.m_sValue.Assign(tmp.GetData());
+    }
+  }
+
   return EZ_SUCCESS;
 }
 
 
 
 
-EZ_STATICLINK_FILE(RendererCore, RendererCore_Shader_ShaderPermutationBinary);
+EZ_STATICLINK_FILE(RendererCore, RendererCore_Shader_Implementation_ShaderPermutationBinary);
 

@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <Core/Input/InputDevice.h>
 #include <Foundation/Containers/Map.h>
@@ -183,7 +183,15 @@ public:
   static void GetAllInputSets(ezDynamicArray<ezString>& out_InputSetNames); // [tested]
 
   /// \brief Returns the names of all input actions in the given input set.
-  static void GetAllInputActions(const char* szInputSetName, ezDynamicArray<ezString>& out_InputActions); // [tested]
+  static void GetAllInputActions(const char* szInputSetName, ezHybridArray<ezString, 24>& out_InputActions); // [tested]
+
+  /// \brief This can be used to pass input exclusively to this input set and no others.
+  ///
+  /// Querying input from other input sets will always return 'key up.
+  static void SetExclusiveInputSet(const char* szExclusiveSet) { s_sExclusiveInputSet = szExclusiveSet; }
+
+  /// \brief Returns whether any input set gets input exclusively.
+  static const char* GetExclusiveInputSet() { return s_sExclusiveInputSet; }
 
   /// \brief This function allows to 'inject' input state for one frame.
   ///
@@ -203,6 +211,17 @@ public:
 
   /// \brief Mostly for internal use. Converts a scan-code value to the string that is used inside the engine for that key.
   static const char* ConvertScanCodeToEngineName(ezUInt8 uiScanCode, bool bIsExtendedKey);
+
+
+  /// \brief Helper for retrieving the input slot string for touch point with a given index.
+  static const char* GetInputSlotTouchPoint(unsigned int index);
+
+  /// \brief Helper for retrieving the input slot string for touch point x position with a given index.
+  static const char* GetInputSlotTouchPointPositionX(unsigned int index);
+
+  /// \brief Helper for retrieving the input slot string for touch point y position with a given index.
+  static const char* GetInputSlotTouchPointPositionY(unsigned int index);
+
 
   /// \brief The data that is broadcast when certain events occur.
   struct InputEventData
@@ -288,6 +307,9 @@ private:
   static ezUInt32 s_LastCharacter;
 
   static bool s_bInputSlotResetRequired;
+
+  /// \brief If not empty, all input for other input sets is returned as inactive ('key up')
+  static ezString s_sExclusiveInputSet;
 
   /// \brief Resets all input slot value to zero.
   static void ResetInputSlotValues();

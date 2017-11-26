@@ -1,0 +1,69 @@
+[PLATFORMS]
+ALL
+
+[PERMUTATIONS]
+
+[RENDERSTATE]
+
+BlendingEnabled0 = true
+DestBlend0 = Blend_InvSrcAlpha
+SourceBlend0 = Blend_SrcAlpha
+
+DepthTest = true
+DepthWrite = true
+
+[VERTEXSHADER]
+
+#define USE_COLOR
+
+#include <Shaders/Common/GlobalConstants.h>
+#include <Shaders/Materials/MaterialInterpolator.h>
+
+#if EZ_ENABLED(PLATFORM_DX11)
+
+struct BoxData
+{
+	Transform transform;
+	float4 color;
+};
+
+StructuredBuffer<BoxData> boxData;
+
+struct VS_IN_POS_ONLY
+{
+  float3 Position : POSITION;
+  uint InstanceID : SV_InstanceID;
+};
+
+VS_OUT main(VS_IN_POS_ONLY Input)
+{
+  float4x4 worldMatrix = TransformToMatrix(boxData[Input.InstanceID].transform);
+
+  float4 worldPos = mul(worldMatrix, float4(Input.Position, 1.0f));
+
+  VS_OUT RetVal;
+  RetVal.Position = mul(GetWorldToScreenMatrix(), worldPos);
+  RetVal.Color = boxData[Input.InstanceID].color;
+  RetVal.InstanceID = 0;
+
+  return RetVal;
+}
+
+#endif
+
+
+[PIXELSHADER]
+
+#define USE_COLOR
+
+#include <Shaders/Materials/MaterialInterpolator.h>
+
+#if EZ_ENABLED(PLATFORM_DX11)
+
+float4 main(PS_IN Input) : SV_Target
+{
+  return Input.Color;
+}
+
+#endif
+

@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <Foundation/Math/Math.h>
 
@@ -17,7 +17,7 @@ ezListBase<T>::ListElement::ListElement(const T& data) : m_Data(data)
 // **** ezListBase ****
 
 template <typename T>
-ezListBase<T>::ezListBase(ezAllocatorBase* pAllocator) : 
+ezListBase<T>::ezListBase(ezAllocatorBase* pAllocator) :
   m_End(reinterpret_cast<ListElement*>(&m_Last)),
   m_uiCount(0),
   m_Elements(pAllocator),
@@ -28,7 +28,7 @@ ezListBase<T>::ezListBase(ezAllocatorBase* pAllocator) :
 }
 
 template <typename T>
-ezListBase<T>::ezListBase(const ezListBase<T>& cc, ezAllocatorBase* pAllocator) : 
+ezListBase<T>::ezListBase(const ezListBase<T>& cc, ezAllocatorBase* pAllocator) :
   m_End(reinterpret_cast<ListElement*>(&m_Last)),
   m_uiCount(0),
   m_Elements(pAllocator),
@@ -99,49 +99,49 @@ void ezListBase<T>::ReleaseNode(ListElement* pNode)
 
 
 template <typename T>
-EZ_FORCE_INLINE typename ezListBase<T>::Iterator ezListBase<T>::GetIterator()
+EZ_ALWAYS_INLINE typename ezListBase<T>::Iterator ezListBase<T>::GetIterator()
 {
   return Iterator(m_First.m_pNext);
 }
 
 template <typename T>
-EZ_FORCE_INLINE typename ezListBase<T>::Iterator ezListBase<T>::GetLastIterator()
+EZ_ALWAYS_INLINE typename ezListBase<T>::Iterator ezListBase<T>::GetLastIterator()
 {
   return Iterator(m_Last.m_pPrev);
 }
 
 template <typename T>
-EZ_FORCE_INLINE typename ezListBase<T>::Iterator ezListBase<T>::GetEndIterator()
+EZ_ALWAYS_INLINE typename ezListBase<T>::Iterator ezListBase<T>::GetEndIterator()
 {
   return m_End;
 }
 
 template <typename T>
-EZ_FORCE_INLINE typename ezListBase<T>::ConstIterator ezListBase<T>::GetIterator() const
+EZ_ALWAYS_INLINE typename ezListBase<T>::ConstIterator ezListBase<T>::GetIterator() const
 {
   return ConstIterator(m_First.m_pNext);
 }
 
 template <typename T>
-EZ_FORCE_INLINE typename ezListBase<T>::ConstIterator ezListBase<T>::GetLastIterator() const
+EZ_ALWAYS_INLINE typename ezListBase<T>::ConstIterator ezListBase<T>::GetLastIterator() const
 {
   return ConstIterator(m_Last.m_pPrev);
 }
 
 template <typename T>
-EZ_FORCE_INLINE typename ezListBase<T>::ConstIterator ezListBase<T>::GetEndIterator() const
+EZ_ALWAYS_INLINE typename ezListBase<T>::ConstIterator ezListBase<T>::GetEndIterator() const
 {
   return m_End;
 }
 
 template <typename T>
-EZ_FORCE_INLINE ezUInt32 ezListBase<T>::GetCount() const
+EZ_ALWAYS_INLINE ezUInt32 ezListBase<T>::GetCount() const
 {
   return m_uiCount;
 }
 
 template <typename T>
-EZ_FORCE_INLINE bool ezListBase<T>::IsEmpty() const
+EZ_ALWAYS_INLINE bool ezListBase<T>::IsEmpty() const
 {
   return (m_uiCount == 0);
 }
@@ -190,25 +190,25 @@ EZ_FORCE_INLINE const T& ezListBase<T>::PeekBack() const
 
 
 template <typename T>
-EZ_FORCE_INLINE void ezListBase<T>::PushBack()
+EZ_ALWAYS_INLINE void ezListBase<T>::PushBack()
 {
   PushBack(T());
 }
 
 template <typename T>
-EZ_FORCE_INLINE void ezListBase<T>::PushBack(const T& element)
+EZ_ALWAYS_INLINE void ezListBase<T>::PushBack(const T& element)
 {
   Insert(GetEndIterator(), element);
 }
 
 template <typename T>
-EZ_FORCE_INLINE void ezListBase<T>::PushFront()
+EZ_ALWAYS_INLINE void ezListBase<T>::PushFront()
 {
   PushFront(T());
 }
 
 template <typename T>
-EZ_FORCE_INLINE void ezListBase<T>::PushFront(const T& element)
+EZ_ALWAYS_INLINE void ezListBase<T>::PushFront(const T& element)
 {
   Insert(GetIterator(), element);
 }

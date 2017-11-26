@@ -12,3 +12,4 @@
 #else
   #define EZ_TOOLSFOUNDATION_DLL
 #endif
+

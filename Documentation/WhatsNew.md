@@ -1,6 +1,103 @@
 What's New {#WhatsNew}
 ==========
 
+Milestone 8
+-----------
+
+[//]: # (SVN Revision 1192 to 3287)
+
+General features:
+  * Added PhysX support
+  * Added 'Surface' assets / resources, which describe the physical properties (e.g. friction) and interactions with objects. E.g. which effects to spawn when shooting a surface or which sounds to play when walking on them.
+  * Added Fmod support for sound and music.
+  * Added a particle effect system and editor.
+  * Added a Visual Shader editor. Can be used to easily create custom material shaders.
+  * Added UWP port
+  * Added support for Windows Mixed Reality and the HoloLens
+  * Added support for 'dear imgui' for displaying UIs in game
+  * Added Visual Scripting functionality
+  * Added Recast integration to generate navmeshes from the level geometry and compute paths for AI characters
+  * Added decal functionality for rendering signs, splatter, dirt, etc.
+  * Added "property animations" and an editor to edit to edit the curves both through curve editor as well as through recording changes to a scene
+
+Editor:
+  * Shortcuts can now be configured with a hotkey editor
+  * All UI actions can now be translated
+  * Objects can now be hidden for easier editing
+  * Added editor prefabs, objects that can be edited like scenes and added to other scenes. Modifications to the original will be synchronized to all instances.
+  * Scenes can now be exported to a binary format and run through ezPlayer
+  * Various improvements to orthographic views, eg most gizmos work
+  * Scenes can now be simulated or played directly from the editor, simulation can be done at different speeds
+  * Added "shape icons" for objects that are otherwise invisible (e.g. sound sources)
+  * Added a "Duplicate Special" dialog for quickly duplicating objects in certain patterns
+  * Added drag&drop for material assets to assign materials to objects in the 3D viewport
+  * Added a dialog to configure which plugins to load into the editor and the runtime
+  * The input bindings (which keys trigger which action) can now be configured from the editor
+  * Added manipulators for visualizing and modifying property values. For instance light source cones can now be modified in the 3D viewport.
+  * Editor can now spawn multiple 'container windows' to display documents on multiple monitors
+  * Added a dialog to configure the game's window mode and resolution. Allows for different settings when run from the editor.
+  * Before exporting a scene, the editor can now modify (bake / optimize) the world
+  * The editor can now connect to an instance of the engine process, running on a remote device, for previewing purposes
+  * Added a panel to display and modify CVars. This allows to enable debug functionality inside the editor.
+  * Added marquee selection via SPACE+Drag
+  * Added a "Move Parent Only" mode for adjusting node transforms without changing the child transforms
+  * Added a "Delta Transform" dialog to precisely modify object transforms
+  * Added "Import Assets" functionality that allows to quickly import multiple source assets and auto-generate the necessary documents
+  * Assets in a folder named "XYZ_data" are now hidden in the asset browser, unless one enables showing them or navigates directly to that folder
+  * Added support for importing Source Engine BSP files
+  * Added a greyboxing tool to easily generate prototyping geometry such as boxes, columns, ramps and stairs
+
+Engine Runtime:
+  * Added ezWorldReader and ezWorldWriter for importing and exporting ezWorld's in binary format
+  * Added ezPrefabResource and ezSpawnComponent which are used for instantiating prefabs at runtime
+  * Added ezTimedDeathComponent which deletes an object after a timeout
+  * Added ezInputComponent for handling input events at specific nodes
+  * Added ezProjectileComponent for implementing weapons
+  * ezGameObject now has a 'GlobalKey' property to identify very important objects
+  * Added 'Collection' assets/resources which are used to preload assets at startup and to access resources through a custom name
+  * Added an ingame console for modifying CVars. Can be opened in ezPlayer with F1.
+  * Added ezCameraComponent for managing runtime cameras
+  * Editor can now ignore unknown component types. Shows warnings when opening and saving such a scene, but does not crash.
+  * Negative mesh scaling (mirroring) is now supported
+
+Rendering:
+  * Support for point and line rendering
+  * Added ambient, point, spot and directional light sources
+  * Added dynamic shadows for all light types
+  * Added ezDebugRenderer, which allows to easily display shapes for debugging purposes
+  * Added functionality to enumerate all available screens on Windows
+  * Added a Bloom post processor.
+  * Added a tonemapping post processor.
+  * Added ezSkyboxComponent for rendering a skybox.
+  * Added MSAA support
+  * Added support for JPG and PNG as texture files
+  * Added two different SSAO post processors with different speed/quality trade offs
+  * Added emissive and occlusion to the material model
+  * Embedded a font in code for debug text output
+  * Implemented proper culling and various other optimizations
+  * Added stereoscopic rendering support
+  * Added depth and height fog rendering through the ezFogComponent
+
+Infrastructure:
+  * Added ezDeferredFileWriter for only writing files to disk after everything succeeded
+  * Added a random number generator
+  * Added readers and writers for OpenDLL files
+  * Added ezGameApplication and ezGameState which decouple the application framework and custom game code, which allows to load game code via a plugin into the editor
+  * Added ezDGMLGraph, ezDGMLGraphWriter and ezDGMLGraphCreator for generating DGML diagrams
+  * Added ezProcessingStream for efficient, data oriented processing. Used by the particle system.
+  * Added color gradient and curve resources and respective editors. Used by the property animation system and the particle effects.
+  * Added ezModelImporter for loading and processing mesh data
+  * Added a typesafe printf replacement to ezStringBuffer
+  * Added SIMD versions of the vector and matrix classes
+
+Tools / Samples:
+  * Added ezPlayer, a stand-alone application to run exported scenes
+  * Added ezTexConv for converting image files to optimized formats
+  * Added ezShaderCompiler for compiling shaders in a separate process. Used by the Visual Shader editor for verification purposes.
+  * Added the ComputeShaderHistogram sample
+  * Added ezFileServe, an application to stream game data to a remote device
+
+
 Milestone 7
 -----------
   * Added solid color texture resources. E.g. use a texture resource with name "CornflowerBlue.color" or "#FF00FF.color" or "FF00FF00.color" and a 4x4 color texture will be generated from memory, instead of read from disk.
@@ -24,7 +121,7 @@ Milestone 7
   * Added rendering resources: ezConstantBufferResource, ezMaterialResource, ezMeshResource, ezShaderResource, ezTextureResource
   * Added (runtime) shader compilation and shader permutation generation
   * Added ezGPUResourcePool for sharing gpu resources
- 
+
 
 Milestone 6
 -----------
@@ -77,7 +174,7 @@ Milestone 5
   * Added ezPreprocessor, a class that allows to run a C preprocessor on text and get the result, it supports all the standard features
   * ezVariant now supports more basic types and is more efficient by using move semantics when possible.
 
-  
+
 Milestone 4
 -----------
 
@@ -105,14 +202,14 @@ Milestone 4
 
 Milestone 3
 -----------
-  
+
   * Added ezTimestamp, a platform independent timestamp for file-time and system-time stored in microseconds since Unix epoch.
   * Added ezDateTime, a class that converts an ezTimestamp into human-readable form.
   * Added an input abstraction system (ezInputManager, ezInputDevice, etc.).
      * Implements mouse/keyboard and XBox 360 controller on Windows.
      * Contains ezVirtualThumbStick, which can be used on touch devices for 'controller input'.
      * Can be extended through additional ezInputDevice's to handle more platforms and device types.
-  * Added the basics of a game object system (ezWorld, ezGameObject, ezComponent). The Asteroids game sample already shows how to do a simple game with it. The system is not yet complete but good enough for now.     
+  * Added the basics of a game object system (ezWorld, ezGameObject, ezComponent). The Asteroids game sample already shows how to do a simple game with it. The system is not yet complete but good enough for now.
   * Added a sample game, similar to Asteroids, to show how to use the Game Object system and the Input System.
   * Added ezCompressedStreamReader and ezCompressedStreamWriter, which allow to (un-)compress data while writing/reading a file or memory stream.
   * Asserts can now be intercepted with an Assert Handler

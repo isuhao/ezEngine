@@ -4,6 +4,12 @@ ezUuid::ezUuid()
 {
 }
 
+void ezUuid::SetInvalid()
+{
+  m_uiHigh = 0;
+  m_uiLow = 0;
+}
+
 bool ezUuid::operator == (const ezUuid& Other) const
 {
   return m_uiHigh == Other.m_uiHigh && m_uiLow == Other.m_uiLow;
@@ -44,12 +50,12 @@ void ezUuid::RevertCombinationWithSeed(const ezUuid& seed)
 template <>
 struct ezHashHelper<ezUuid>
 {
-  EZ_FORCE_INLINE static ezUInt32 Hash(const ezUuid& value)
+  EZ_ALWAYS_INLINE static ezUInt32 Hash(const ezUuid& value)
   {
     return ezHashing::MurmurHash(&value, sizeof(ezUuid));
   }
 
-  EZ_FORCE_INLINE static bool Equal(const ezUuid& a, const ezUuid& b)
+  EZ_ALWAYS_INLINE static bool Equal(const ezUuid& a, const ezUuid& b)
   {
     return a == b;
   }

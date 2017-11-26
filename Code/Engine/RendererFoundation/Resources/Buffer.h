@@ -1,14 +1,14 @@
-
+﻿
 #pragma once
 
-#include <RendererFoundation/Basics.h>
+#include <RendererFoundation/Resources/Resource.h>
 #include <RendererFoundation/Descriptors/Descriptors.h>
 
-class EZ_RENDERERFOUNDATION_DLL ezGALBuffer : public ezGALObjectBase<ezGALBufferCreationDescription>
+class EZ_RENDERERFOUNDATION_DLL ezGALBuffer : public ezGALResource<ezGALBufferCreationDescription>
 {
 public:
 
-  EZ_FORCE_INLINE ezUInt32 GetSize() const;
+  EZ_ALWAYS_INLINE ezUInt32 GetSize() const;
 
 protected:
 
@@ -18,7 +18,7 @@ protected:
 
   virtual ~ezGALBuffer();
 
-  virtual ezResult InitPlatform(ezGALDevice* pDevice, const void* pInitialData) = 0;
+  virtual ezResult InitPlatform(ezGALDevice* pDevice, ezArrayPtr<const ezUInt8> pInitialData) = 0;
 
   virtual ezResult DeInitPlatform(ezGALDevice* pDevice) = 0;
 };

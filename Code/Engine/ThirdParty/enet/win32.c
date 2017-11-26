@@ -1,8 +1,13 @@
-/** 
+﻿/**
  @file  win32.c
  @brief ENet Win32 system specific functions
 */
+
+#ifdef BUILDSYSTEM_ENABLE_ENET_SUPPORT
+
 #ifdef _WIN32
+#define _WINSOCK_DEPRECATED_NO_WARNINGS
+#define _CRT_SECURE_NO_WARNINGS
 
 #include <time.h>
 #define ENET_BUILDING_LIB 1
@@ -15,7 +20,7 @@ enet_initialize (void)
 {
     WORD versionRequested = MAKEWORD (1, 1);
     WSADATA wsaData;
-   
+
     if (WSAStartup (versionRequested, & wsaData))
        return -1;
 
@@ -23,11 +28,9 @@ enet_initialize (void)
         HIBYTE (wsaData.wVersion) != 1)
     {
        WSACleanup ();
-       
+
        return -1;
     }
-
-    timeBeginPeriod (1);
 
     return 0;
 }
@@ -35,21 +38,19 @@ enet_initialize (void)
 void
 enet_deinitialize (void)
 {
-    timeEndPeriod (1);
-
     WSACleanup ();
 }
 
 enet_uint32
 enet_time_get (void)
 {
-    return (enet_uint32) timeGetTime () - timeBase;
+    return (enet_uint32) (clock() * (CLOCKS_PER_SEC / 1000)) - timeBase;
 }
 
 void
 enet_time_set (enet_uint32 newTimeBase)
 {
-    timeBase = (enet_uint32) timeGetTime () - newTimeBase;
+    timeBase = (enet_uint32) (clock() * (CLOCKS_PER_SEC / 1000)) - newTimeBase;
 }
 
 int
@@ -88,9 +89,9 @@ enet_address_get_host (const ENetAddress * address, char * name, size_t nameLeng
 {
     struct in_addr in;
     struct hostent * hostEntry;
-    
+
     in.s_addr = address -> host;
-    
+
     hostEntry = gethostbyaddr ((char *) & in, sizeof (struct in_addr), AF_INET);
     if (hostEntry == NULL)
       return enet_address_get_host_ip (address, name, nameLength);
@@ -221,8 +222,8 @@ enet_socket_accept (ENetSocket socket, ENetAddress * address)
     struct sockaddr_in sin;
     int sinLength = sizeof (struct sockaddr_in);
 
-    result = accept (socket, 
-                     address != NULL ? (struct sockaddr *) & sin : NULL, 
+    result = accept (socket,
+                     address != NULL ? (struct sockaddr *) & sin : NULL,
                      address != NULL ? & sinLength : NULL);
 
     if (result == INVALID_SOCKET)
@@ -268,7 +269,7 @@ enet_socket_send (ENetSocket socket,
         sin.sin_addr.s_addr = address -> host;
     }
 
-    if (WSASendTo (socket, 
+    if (WSASendTo (socket,
                    (LPWSABUF) buffers,
                    (DWORD) bufferCount,
                    & sentLength,
@@ -347,10 +348,10 @@ enet_socket_wait (ENetSocket socket, enet_uint32 * condition, enet_uint32 timeou
     fd_set readSet, writeSet;
     struct timeval timeVal;
     int selectCount;
-    
+
     timeVal.tv_sec = timeout / 1000;
     timeVal.tv_usec = (timeout % 1000) * 1000;
-    
+
     FD_ZERO (& readSet);
     FD_ZERO (& writeSet);
 
@@ -372,12 +373,14 @@ enet_socket_wait (ENetSocket socket, enet_uint32 * condition, enet_uint32 timeou
 
     if (FD_ISSET (socket, & writeSet))
       * condition |= ENET_SOCKET_WAIT_SEND;
-    
+
     if (FD_ISSET (socket, & readSet))
       * condition |= ENET_SOCKET_WAIT_RECEIVE;
 
     return 0;
-} 
+}
 
 #endif
+
+#endif // BUILDSYSTEM_ENABLE_ENET_SUPPORT
 

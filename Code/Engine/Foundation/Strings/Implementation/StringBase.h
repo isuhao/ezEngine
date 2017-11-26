@@ -130,6 +130,13 @@ private: // friends
   friend struct ezStringIterator<Derived>;
 
   friend struct ezStringReverseIterator<Derived>;
+
+  template <typename T>
+  friend struct ezCompareHelper;
+
+  friend struct ezCompareString_NoCase;
+
+  friend struct ezHashHelperString_NoCase;
 };
 
 

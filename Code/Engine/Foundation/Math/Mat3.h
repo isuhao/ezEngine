@@ -157,6 +157,8 @@ public:
   /// \brief Tries to set the three scaling factors in the matrix. Returns EZ_FAILURE if the matrix columns cannot be normalized and thus no rescaling is possible.
   ezResult SetScalingFactors(const ezVec3Template<Type>& vXYZ, Type fEpsilon = ezMath::BasicType<Type>::DefaultEpsilon()); // [tested]
 
+  /// \brief Computes the determinant of the matix.
+  Type GetDeterminant() const;
 
 // *** Operators ***
 public:
@@ -217,7 +219,6 @@ template<typename Type>
 bool operator!= (const ezMat3Template<Type>& lhs, const ezMat3Template<Type>& rhs); // [tested]
 
 #include <Foundation/Math/Implementation/Mat3_inl.h>
-
 
 
 

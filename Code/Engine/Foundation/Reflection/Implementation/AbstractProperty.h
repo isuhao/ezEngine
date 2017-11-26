@@ -6,10 +6,38 @@
 #include <Foundation/Types/Enum.h>
 #include <Foundation/Types/Bitflags.h>
 #include <Foundation/Containers/Set.h>
+#include <Foundation/Containers/HashSet.h>
+#include <Foundation/Containers/Map.h>
+#include <Foundation/Containers/HashTable.h>
 
 class ezRTTI;
 class ezPropertyAttribute;
 
+/// \brief Determines whether a type is ezIsBitflags.
+template<typename T>
+struct ezIsBitflags
+{
+  static const bool value = false;
+};
+
+template<typename T>
+struct ezIsBitflags<ezBitflags<T>>
+{
+  static const bool value = true;
+};
+
+/// \brief Determines whether a type is ezIsBitflags.
+template<typename T>
+struct ezIsEnum
+{
+  static const bool value = std::is_enum<T>::value;
+};
+
+template<typename T>
+struct ezIsEnum<ezEnum<T>>
+{
+  static const bool value = true;
+};
 
 /// \brief Flags used to describe a property and its type.
 struct ezPropertyFlags
@@ -19,30 +47,78 @@ struct ezPropertyFlags
   enum Enum
   {
     StandardType = EZ_BIT(0), ///< Anything that can be stored inside an ezVariant except for pointers and containers.
-    ReadOnly = EZ_BIT(1),     ///< Can only be read but not modified.
-    Pointer = EZ_BIT(2),      ///< Is a pointer to a type.
-    PointerOwner = EZ_BIT(3), ///< This pointer property takes ownership of the passed pointer.
-    IsEnum = EZ_BIT(4),       ///< enum property, cast to ezAbstractEnumerationProperty.
-    Bitflags = EZ_BIT(5),     ///< bitflags property, cast to ezAbstractEnumerationProperty.
-    Constant = EZ_BIT(6),     ///< Property is a constant.
-    Phantom = EZ_BIT(7),
-    Hidden = EZ_BIT(8),
-    Default = 0
+    IsEnum = EZ_BIT(1),       ///< enum property, cast to ezAbstractEnumerationProperty.
+    Bitflags = EZ_BIT(2),     ///< Bitflags property, cast to ezAbstractEnumerationProperty.
+    Class = EZ_BIT(3),        ///< A struct or class. All of the above are mutually exclusive.
+
+    Const = EZ_BIT(4),        ///< Property value is const.
+    Reference = EZ_BIT(5),    ///< Property value is a reference.
+    Pointer = EZ_BIT(6),      ///< Property value is a pointer.
+
+    PointerOwner = EZ_BIT(7), ///< This pointer property takes ownership of the passed pointer.
+    ReadOnly = EZ_BIT(8),     ///< Can only be read but not modified.
+    Hidden = EZ_BIT(9),       ///< This property should not appear in the UI.
+    Phantom = EZ_BIT(10),     ///< Phantom types are mirrored types on the editor side. Ie. they do not exist as actual classes in the process. Also used for data driven types, e.g. by the Visual Shader asset.
+    Default = 0,
+    Void = 0
   };
 
   struct Bits
   {
     StorageType StandardType : 1;
-    StorageType ReadOnly : 1;
-    StorageType Pointer : 1;
-    StorageType PointerOwner : 1;
     StorageType IsEnum : 1;
     StorageType Bitflags : 1;
-    StorageType Constant : 1;
-    StorageType Phantom : 1;
+    StorageType Class : 1;
+
+    StorageType Const : 1;
+    StorageType Reference : 1;
+    StorageType Pointer : 1;
+
+    StorageType PointerOwner : 1;
+    StorageType ReadOnly : 1;
     StorageType Hidden : 1;
+    StorageType Phantom : 1;
   };
+
+  template<class Type>
+  static ezBitflags<ezPropertyFlags> GetParameterFlags()
+  {
+    using CleanType = typename ezTypeTraits<Type>::NonConstReferencePointerType;
+    ezBitflags<ezPropertyFlags> flags;
+    ezVariant::Type::Enum type = static_cast<ezVariant::Type::Enum>(ezVariant::TypeDeduction<CleanType>::value);
+    if (std::is_same<CleanType, ezVariant>::value)
+      flags.Add(ezPropertyFlags::StandardType);
+    else if (std::is_same<Type, const char*>::value)
+      // We treat const char* as a basic type and not a pointer.
+      flags.Add(ezPropertyFlags::StandardType);
+    else if ((type >= ezVariant::Type::FirstStandardType && type <= ezVariant::Type::LastStandardType) || EZ_IS_SAME_TYPE(ezVariant, Type))
+      flags.Add(ezPropertyFlags::StandardType);
+    else if (ezIsEnum<CleanType>::value)
+      flags.Add(ezPropertyFlags::IsEnum);
+    else if (ezIsBitflags<CleanType>::value)
+      flags.Add(ezPropertyFlags::Bitflags);
+    else
+      flags.Add(ezPropertyFlags::Class);
+
+    if (std::is_const<typename ezTypeTraits<Type>::NonReferencePointerType>::value)
+      flags.Add(ezPropertyFlags::Const);
+
+    if (std::is_pointer<Type>::value && !std::is_same<Type, const char*>::value)
+      flags.Add(ezPropertyFlags::Pointer);
+
+    if (std::is_reference<Type>::value)
+      flags.Add(ezPropertyFlags::Reference);
+
+    return flags;
+  }
+
 };
+
+template<>
+inline ezBitflags<ezPropertyFlags> ezPropertyFlags::GetParameterFlags<void>()
+{
+  return ezBitflags<ezPropertyFlags>();
+}
 
 EZ_DECLARE_FLAGS_OPERATORS(ezPropertyFlags)
 
@@ -58,7 +134,7 @@ struct ezPropertyCategory
     Function, ///< The property is a function which can be called. Cast to ezAbstractFunctionProperty.
     Array,    ///< The property is actually an array of values. The array dimensions might be changeable. Cast to ezAbstractArrayProperty.
     Set,      ///< The property is actually a set of values. Cast to ezAbstractArrayProperty.
-    Map,
+    Map,      ///< The property is actually a map from string to values. Cast to ezAbstractArrayProperty.
     Default = Member
   };
 };
@@ -119,20 +195,12 @@ public:
 
   /// \brief Returns the first attribute that derives from the given type, or nullptr if nothing is found.
   template<typename Type>
-  const Type* GetAttributeByType() const
-  {
-    for (const auto* pAttr : m_Attributes)
-    {
-      if (pAttr->GetDynamicRTTI()->IsDerivedFrom<Type>())
-        return static_cast<const Type*>(pAttr);
-    }
-    return nullptr;
-  }
+  const Type* GetAttributeByType() const;
 
 protected:
   ezBitflags<ezPropertyFlags> m_Flags;
   const char* m_szPropertyName;
-  ezHybridArray<ezPropertyAttribute*, 2> m_Attributes;
+  ezHybridArray<ezPropertyAttribute*, 2, ezStaticAllocatorWrapper> m_Attributes; // Do not track RTTI data.
 };
 
 /// \brief This is the base class for all constant properties that are stored inside the RTTI data.
@@ -181,7 +249,7 @@ public:
   /// For example GetSpecificType() might return that a property is of type ezVec3. In that case one might either stop and just use the code to handle
   /// ezVec3 types, or one might continue and enumerate all sub-properties (x, y and z) as well.
   ///
-  /// \note There is no guarantee that this function returns a non-nullptr pointer, independent of the type. When a property uses custom 'accessors' 
+  /// \note There is no guarantee that this function returns a non-nullptr pointer, independent of the type. When a property uses custom 'accessors'
   /// (functions to get / set the property value), it is not possible (or useful) to get the property pointer.
   virtual void* GetPropertyPointer(const void* pInstance) const = 0;
 
@@ -193,23 +261,6 @@ public:
   /// pObject needs to point to an instance of this property's type.
   virtual void SetValuePtr(void* pInstance, void* pObject) = 0;
 
-};
-
-/// \brief The base class for all function properties.
-class EZ_FOUNDATION_DLL ezAbstractFunctionProperty : public ezAbstractProperty
-{
-public:
-
-  /// \brief Passes the property name through to ezAbstractProperty.
-  ezAbstractFunctionProperty(const char* szPropertyName) : ezAbstractProperty(szPropertyName)
-  {
-  }
-
-  /// \brief Returns ezPropertyCategory::Function.
-  virtual ezPropertyCategory::Enum GetCategory() const override { return ezPropertyCategory::Function; }
-
-  /// \brief Calls the function. Provide the instance on which the function is supposed to be called.
-  virtual void Execute(void* pInstance) const = 0;
 };
 
 
@@ -235,7 +286,7 @@ public:
   virtual void SetValue(void* pInstance, ezUInt32 uiIndex, const void* pObject) = 0;
 
   /// \brief Inserts the target of pObject into the array at index uiIndex.
-  virtual void Insert(void* pInstance, ezUInt32 uiIndex, void* pObject) = 0;
+  virtual void Insert(void* pInstance, ezUInt32 uiIndex, const void* pObject) = 0;
 
   /// \brief Removes the element in the array at index uiIndex.
   virtual void Remove(void* pInstance, ezUInt32 uiIndex) = 0;
@@ -261,11 +312,11 @@ public:
 
   }
 
-  /// \brief Returns ezPropertyCategory::Array.
+  /// \brief Returns ezPropertyCategory::Set.
   virtual ezPropertyCategory::Enum GetCategory() const override { return ezPropertyCategory::Set; }
 
-  /// \brief Returns number of elements.
-  virtual ezUInt32 GetCount(const void* pInstance) const = 0;
+  /// \brief Returns whether the set is empty.
+  virtual bool IsEmpty(const void* pInstance) const = 0;
 
   /// \brief Clears the set.
   virtual void Clear(void* pInstance) = 0;
@@ -276,12 +327,100 @@ public:
   /// \brief Removes the target of pObject from the set.
   virtual void Remove(void* pInstance, void* pObject) = 0;
 
-  /// \brief Returns whether the target of pObject is in the set. 
+  /// \brief Returns whether the target of pObject is in the set.
   virtual bool Contains(const void* pInstance, void* pObject) const = 0;
 
   /// \brief Writes the content of the set to out_keys.
   virtual void GetValues(const void* pInstance, ezHybridArray<ezVariant, 16>& out_keys) const = 0;
 
+};
+
+
+/// \brief The base class for a property that represents a set of values.
+///
+/// The element type must either be a standard type or a pointer.
+class EZ_FOUNDATION_DLL ezAbstractMapProperty : public ezAbstractProperty
+{
+public:
+  /// \brief Passes the property name through to ezAbstractProperty.
+  ezAbstractMapProperty(const char* szPropertyName) : ezAbstractProperty(szPropertyName)
+  {
+  }
+
+  /// \brief Returns ezPropertyCategory::Map.
+  virtual ezPropertyCategory::Enum GetCategory() const override { return ezPropertyCategory::Map; }
+
+  /// \brief Returns whether the set is empty.
+  virtual bool IsEmpty(const void* pInstance) const = 0;
+
+  /// \brief Clears the set.
+  virtual void Clear(void* pInstance) = 0;
+
+  /// \brief Inserts the target of pObject into the set.
+  virtual void Insert(void* pInstance, const char* szKey, const void* pObject) = 0;
+
+  /// \brief Removes the target of pObject from the set.
+  virtual void Remove(void* pInstance, const char* szKey) = 0;
+
+  /// \brief Returns whether the target of pObject is in the set.
+  virtual bool Contains(const void* pInstance, const char* szKey) const = 0;
+
+  /// \brief Writes element at index uiIndex to the target of pObject.
+  virtual bool GetValue(const void* pInstance, const char* szKey, void* pObject) const = 0;
+
+  /// \brief Returns a pointer to the value under the key or nullptr if the key is not present. If a valid pointer is returned, that pointer and the information from GetSpecificType() can
+  /// be used to step deeper into the type (if required).
+  virtual const void* GetValue(const void* pInstance, const char* szKey) const = 0;
+
+  /// \brief Writes the content of the set to out_keys.
+  virtual void GetKeys(const void* pInstance, ezHybridArray<ezString, 16>& out_keys) const = 0;
+
+};
+
+/// \brief Use getArgument<N, Args...>::Type to get the type of the Nth argument in Args.
+template<int _Index, class... Args>
+struct getArgument;
+
+template<class Head, class... Tail>
+struct getArgument<0, Head, Tail...>
+{
+  typedef Head Type;
+};
+
+template<int _Index, class Head, class... Tail>
+struct getArgument<_Index, Head, Tail...>
+{
+  typedef typename getArgument<_Index - 1, Tail...>::Type Type;
+};
+
+/// \brief Template that allows to probe a function for a parameter and return type.
+template <int I, typename FUNC>
+struct ezFunctionParameterTypeResolver
+{
+};
+
+template <int I, typename R, typename... P>
+struct ezFunctionParameterTypeResolver<I, R(*)(P...) >
+{
+  enum Constants
+  {
+    Arguments = sizeof...(P),
+  };
+  EZ_CHECK_AT_COMPILETIME_MSG(I < Arguments, "I needs to be smaller than the number of function parameters.");
+  typedef typename getArgument<I, P...>::Type ParameterType;
+  typedef R ReturnType;
+};
+
+template <int I, class Class, typename R, typename... P>
+struct ezFunctionParameterTypeResolver<I, R(Class::*)(P...) >
+{
+  enum Constants
+  {
+    Arguments = sizeof...(P),
+  };
+  EZ_CHECK_AT_COMPILETIME_MSG(I < Arguments, "I needs to be smaller than the number of function parameters.");
+  typedef typename getArgument<I, P...>::Type ParameterType;
+  typedef R ReturnType;
 };
 
 
@@ -303,7 +442,6 @@ template <typename CONTAINER>
 struct ezContainerSubTypeResolver
 {
 };
-
 
 template <typename T>
 struct ezContainerSubTypeResolver<ezArrayPtr<T> >
@@ -333,5 +471,81 @@ template <typename T>
 struct ezContainerSubTypeResolver<ezSet<T> >
 {
   typedef typename ezTypeTraits<T>::NonConstReferenceType Type;
+};
+
+template <typename T>
+struct ezContainerSubTypeResolver<ezHashSet<T> >
+{
+  typedef typename ezTypeTraits<T>::NonConstReferenceType Type;
+};
+
+template <typename K, typename T>
+struct ezContainerSubTypeResolver<ezHashTable<K, T> >
+{
+  typedef typename ezTypeTraits<T>::NonConstReferenceType Type;
+};
+
+template <typename K, typename T>
+struct ezContainerSubTypeResolver<ezMap<K, T> >
+{
+  typedef typename ezTypeTraits<T>::NonConstReferenceType Type;
+};
+
+
+/// \brief Describes what kind of function a property is.
+struct ezFunctionType
+{
+  typedef ezUInt8 StorageType;
+
+  enum Enum
+  {
+    Member, ///< A normal member function, a valid instance pointer must be provided to call.
+    StaticMember, ///< A static member function, instance pointer will be ignored.
+    Constructor, ///< A constructor. Return value is a void* pointing to the new instance allocated with the default allocator.
+    Default = Member
+  };
+};
+
+/// \brief The base class for a property that represents a function.
+class ezAbstractFunctionProperty : public ezAbstractProperty
+{
+public:
+
+  /// \brief Passes the property name through to ezAbstractProperty.
+  ezAbstractFunctionProperty(const char* szPropertyName) : ezAbstractProperty(szPropertyName)
+  {
+  }
+
+  virtual ezPropertyCategory::Enum GetCategory() const override { return ezPropertyCategory::Function; }
+  /// \brief Returns the type of function, see ezFunctionPropertyType::Enum.
+  virtual ezFunctionType::Enum GetFunctionType() const = 0;
+  /// \brief Returns the type of the return value.
+  virtual const ezRTTI* GetReturnType() const = 0;
+  /// \brief Returns property flags of the return value.
+  virtual ezBitflags<ezPropertyFlags> GetReturnFlags() const = 0;
+  /// \brief Returns the number of arguments.
+  virtual ezUInt32 GetArgumentCount() const = 0;
+  /// \brief Returns the type of the given argument.
+  virtual const ezRTTI* GetArgumentType(ezUInt32 uiParamIndex) const = 0;
+  /// \brief Returns the property flags of the given argument.
+  virtual ezBitflags<ezPropertyFlags> GetArgumentFlags(ezUInt32 uiParamIndex) const = 0;
+
+  /// \brief Calls the function. Provide the instance on which the function is supposed to be called.
+  ///
+  /// arguments must be the size of GetArgumentCount, the following rules apply for both arguments and return value:
+  /// Any standard type must be provided by value, even if it is a pointer to one. Types must match exactly, no ConvertTo is called.
+  /// enum and bitflags are supported if ezEnum / ezBitflags is used, value must be provided as ezInt64.
+  /// Out values (&, *) are written back to the variant they were read from.
+  /// Any class is provided by pointer, regardless of whether it is a pointer or not.
+  /// The returnValue must only be valid if the return value is a ref or by value class. In that case
+  /// returnValue must be a ptr to a valid class instance of the returned type.
+  /// An invalid variant is equal to a nullptr, except for if the argument is of type ezVariant, in which case
+  /// it is impossible to pass along a nullptr.
+  virtual void Execute(void* pInstance, ezArrayPtr<ezVariant> arguments, ezVariant& returnValue) const = 0;
+
+  virtual const ezRTTI* GetSpecificType() const override
+  {
+    return GetReturnType();
+  }
 };
 

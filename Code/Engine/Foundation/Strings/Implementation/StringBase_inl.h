@@ -1,28 +1,28 @@
-#pragma once
+﻿#pragma once
 
 template <typename Derived>
-EZ_FORCE_INLINE const char* ezStringBase<Derived>::InternalGetData() const
+EZ_ALWAYS_INLINE const char* ezStringBase<Derived>::InternalGetData() const
 {
   const Derived* pDerived = static_cast<const Derived*>(this);
   return pDerived->GetData();
 }
 
 template <typename Derived>
-EZ_FORCE_INLINE const char* ezStringBase<Derived>::InternalGetDataEnd() const
+EZ_ALWAYS_INLINE const char* ezStringBase<Derived>::InternalGetDataEnd() const
 {
   const Derived* pDerived = static_cast<const Derived*>(this);
   return pDerived->GetData() + pDerived->GetElementCount();
 }
 
 template <typename Derived>
-EZ_FORCE_INLINE ezUInt32 ezStringBase<Derived>::InternalGetElementCount() const
+EZ_ALWAYS_INLINE ezUInt32 ezStringBase<Derived>::InternalGetElementCount() const
 {
   const Derived* pDerived = static_cast<const Derived*>(this);
   return pDerived->GetElementCount();
 }
 
 template <typename Derived>
-EZ_FORCE_INLINE bool ezStringBase<Derived>::IsEmpty() const
+EZ_ALWAYS_INLINE bool ezStringBase<Derived>::IsEmpty() const
 {
   return ezStringUtils::IsNullOrEmpty(InternalGetData()) || (InternalGetData() == InternalGetDataEnd());
 }
@@ -186,109 +186,109 @@ typename ezStringBase<Derived>::reverse_iterator ezStringBase<Derived>::GetItera
 }
 
 template <typename DerivedLhs, typename DerivedRhs>
-EZ_FORCE_INLINE bool operator== (const ezStringBase<DerivedLhs>& lhs, const ezStringBase<DerivedRhs>& rhs) // [tested]
+EZ_ALWAYS_INLINE bool operator== (const ezStringBase<DerivedLhs>& lhs, const ezStringBase<DerivedRhs>& rhs) // [tested]
 {
   return ezStringUtils::IsEqual(lhs.InternalGetData(), rhs.InternalGetData(), lhs.InternalGetDataEnd(), rhs.InternalGetDataEnd());
 }
 
 template <typename DerivedRhs>
-EZ_FORCE_INLINE bool operator== (const char* lhs, const ezStringBase<DerivedRhs>& rhs) // [tested]
+EZ_ALWAYS_INLINE bool operator== (const char* lhs, const ezStringBase<DerivedRhs>& rhs) // [tested]
 {
   return rhs.IsEqual(lhs);
 }
 
 template <typename DerivedLhs>
-EZ_FORCE_INLINE bool operator== (const ezStringBase<DerivedLhs>& lhs, const char* rhs) // [tested]
+EZ_ALWAYS_INLINE bool operator== (const ezStringBase<DerivedLhs>& lhs, const char* rhs) // [tested]
 {
   return lhs.IsEqual(rhs);
 }
 
 template <typename DerivedLhs, typename DerivedRhs>
-EZ_FORCE_INLINE bool operator!= (const ezStringBase<DerivedLhs>& lhs, const ezStringBase<DerivedRhs>& rhs) // [tested]
+EZ_ALWAYS_INLINE bool operator!= (const ezStringBase<DerivedLhs>& lhs, const ezStringBase<DerivedRhs>& rhs) // [tested]
 {
   return !ezStringUtils::IsEqual(lhs.InternalGetData(), rhs.InternalGetData(), lhs.InternalGetDataEnd(), rhs.InternalGetDataEnd());
 }
 
 template <typename DerivedRhs>
-EZ_FORCE_INLINE bool operator!= (const char* lhs, const ezStringBase<DerivedRhs>& rhs) // [tested]
+EZ_ALWAYS_INLINE bool operator!= (const char* lhs, const ezStringBase<DerivedRhs>& rhs) // [tested]
 {
   return !rhs.IsEqual(lhs);
 }
 
 template <typename DerivedLhs>
-EZ_FORCE_INLINE bool operator!= (const ezStringBase<DerivedLhs>& lhs, const char* rhs) // [tested]
+EZ_ALWAYS_INLINE bool operator!= (const ezStringBase<DerivedLhs>& lhs, const char* rhs) // [tested]
 {
   return !lhs.IsEqual(rhs);
 }
 
 template <typename DerivedLhs, typename DerivedRhs>
-EZ_FORCE_INLINE bool operator< (const ezStringBase<DerivedLhs>& lhs, const ezStringBase<DerivedRhs>& rhs) // [tested]
+EZ_ALWAYS_INLINE bool operator< (const ezStringBase<DerivedLhs>& lhs, const ezStringBase<DerivedRhs>& rhs) // [tested]
 {
   return ezStringUtils::Compare(lhs.InternalGetData(), rhs.InternalGetData(), lhs.InternalGetDataEnd(), rhs.InternalGetDataEnd()) < 0;
 }
 
 template <typename DerivedRhs>
-EZ_FORCE_INLINE bool operator< (const char* lhs, const ezStringBase<DerivedRhs>& rhs) // [tested]
+EZ_ALWAYS_INLINE bool operator< (const char* lhs, const ezStringBase<DerivedRhs>& rhs) // [tested]
 {
   return rhs.Compare(lhs) > 0;
 }
 
 template <typename DerivedLhs>
-EZ_FORCE_INLINE bool operator< (const ezStringBase<DerivedLhs>& lhs, const char* rhs) // [tested]
+EZ_ALWAYS_INLINE bool operator< (const ezStringBase<DerivedLhs>& lhs, const char* rhs) // [tested]
 {
   return lhs.Compare(rhs) < 0;
 }
 
 template <typename DerivedLhs, typename DerivedRhs>
-EZ_FORCE_INLINE bool operator> (const ezStringBase<DerivedLhs>& lhs, const ezStringBase<DerivedRhs>& rhs) // [tested]
+EZ_ALWAYS_INLINE bool operator> (const ezStringBase<DerivedLhs>& lhs, const ezStringBase<DerivedRhs>& rhs) // [tested]
 {
   return ezStringUtils::Compare(lhs.InternalGetData(), rhs.InternalGetData(), lhs.InternalGetDataEnd(), rhs.InternalGetDataEnd()) > 0;
 }
 
 template <typename DerivedRhs>
-EZ_FORCE_INLINE bool operator> (const char* lhs, const ezStringBase<DerivedRhs>& rhs) // [tested]
+EZ_ALWAYS_INLINE bool operator> (const char* lhs, const ezStringBase<DerivedRhs>& rhs) // [tested]
 {
   return rhs.Compare(lhs) < 0;
 }
 
 template <typename DerivedLhs>
-EZ_FORCE_INLINE bool operator> (const ezStringBase<DerivedLhs>& lhs, const char* rhs) // [tested]
+EZ_ALWAYS_INLINE bool operator> (const ezStringBase<DerivedLhs>& lhs, const char* rhs) // [tested]
 {
   return lhs.Compare(rhs) > 0;
 }
 
 template <typename DerivedLhs, typename DerivedRhs>
-EZ_FORCE_INLINE bool operator<= (const ezStringBase<DerivedLhs>& lhs, const ezStringBase<DerivedRhs>& rhs) // [tested]
+EZ_ALWAYS_INLINE bool operator<= (const ezStringBase<DerivedLhs>& lhs, const ezStringBase<DerivedRhs>& rhs) // [tested]
 {
   return ezStringUtils::Compare(lhs.InternalGetData(), rhs.InternalGetData(), lhs.InternalGetDataEnd(), rhs.InternalGetDataEnd()) <= 0;
 }
 
 template <typename DerivedRhs>
-EZ_FORCE_INLINE bool operator<= (const char* lhs, const ezStringBase<DerivedRhs>& rhs) // [tested]
+EZ_ALWAYS_INLINE bool operator<= (const char* lhs, const ezStringBase<DerivedRhs>& rhs) // [tested]
 {
   return rhs.Compare(lhs) >= 0;
 }
 
 template <typename DerivedLhs>
-EZ_FORCE_INLINE bool operator<= (const ezStringBase<DerivedLhs>& lhs, const char* rhs) // [tested]
+EZ_ALWAYS_INLINE bool operator<= (const ezStringBase<DerivedLhs>& lhs, const char* rhs) // [tested]
 {
   return lhs.Compare(rhs) <= 0;
 }
 
 template <typename DerivedLhs, typename DerivedRhs>
-EZ_FORCE_INLINE bool operator>= (const ezStringBase<DerivedLhs>& lhs, const ezStringBase<DerivedRhs>& rhs) // [tested]
+EZ_ALWAYS_INLINE bool operator>= (const ezStringBase<DerivedLhs>& lhs, const ezStringBase<DerivedRhs>& rhs) // [tested]
 {
   return ezStringUtils::Compare(lhs.InternalGetData(), rhs.InternalGetData(), lhs.InternalGetDataEnd(), rhs.InternalGetDataEnd()) >= 0;
 }
 
 template <typename DerivedRhs>
-EZ_FORCE_INLINE bool operator>= (const char* lhs, const ezStringBase<DerivedRhs>& rhs) // [tested]
+EZ_ALWAYS_INLINE bool operator>= (const char* lhs, const ezStringBase<DerivedRhs>& rhs) // [tested]
 {
   return rhs.Compare(lhs) <= 0;
 }
 
 template <typename DerivedLhs>
-EZ_FORCE_INLINE bool operator>= (const ezStringBase<DerivedLhs>& lhs, const char* rhs) // [tested]
+EZ_ALWAYS_INLINE bool operator>= (const ezStringBase<DerivedLhs>& lhs, const char* rhs) // [tested]
 {
   return lhs.Compare(rhs) >= 0;
 }

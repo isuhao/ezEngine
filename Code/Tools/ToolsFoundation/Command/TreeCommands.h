@@ -4,10 +4,13 @@
 #include <ToolsFoundation/Command/Command.h>
 #include <ToolsFoundation/Document/Document.h>
 
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
 
-class EZ_TOOLSFOUNDATION_DLL ezAddObjectCommand : public ezCommandBase
+class EZ_TOOLSFOUNDATION_DLL ezAddObjectCommand : public ezCommand
 {
-  EZ_ADD_DYNAMIC_REFLECTION(ezAddObjectCommand);
+  EZ_ADD_DYNAMIC_REFLECTION(ezAddObjectCommand, ezCommand);
 
 public:
   ezAddObjectCommand();
@@ -23,45 +26,123 @@ public: // Properties
   ezUuid m_NewObjectGuid; ///< This is optional. If not filled out, a new guid is assigned automatically.
 
 private:
-  virtual ezStatus Do(bool bRedo) override;
-  virtual ezStatus Undo(bool bFireEvents) override;
-  virtual void Cleanup(CommandState state) override;
+  virtual bool HasReturnValues() const override { return true; }
+  virtual ezStatus DoInternal(bool bRedo) override;
+  virtual ezStatus UndoInternal(bool bFireEvents) override;
+  virtual void CleanupInternal(CommandState state) override;
 
 private:
-  ezDocumentObjectBase* m_pObject;
+  ezDocumentObject* m_pObject;
 };
 
-class EZ_TOOLSFOUNDATION_DLL ezPasteObjectsCommand : public ezCommandBase
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+
+
+class EZ_TOOLSFOUNDATION_DLL ezPasteObjectsCommand : public ezCommand
 {
-  EZ_ADD_DYNAMIC_REFLECTION(ezPasteObjectsCommand);
+  EZ_ADD_DYNAMIC_REFLECTION(ezPasteObjectsCommand, ezCommand);
 
 public:
   ezPasteObjectsCommand();
 
 public: // Properties
   ezUuid m_Parent;
-  ezString m_sJsonGraph;
+  ezString m_sGraphTextFormat;
+  ezString m_sMimeType;
 
 private:
-  virtual ezStatus Do(bool bRedo) override;
-  virtual ezStatus Undo(bool bFireEvents) override;
-  virtual void Cleanup(CommandState state) override;
+  virtual ezStatus DoInternal(bool bRedo) override;
+  virtual ezStatus UndoInternal(bool bFireEvents) override;
+  virtual void CleanupInternal(CommandState state) override;
 
 private:
   struct PastedObject
   {
-    ezDocumentObjectBase* m_pObject;
-    ezDocumentObjectBase* m_pParent;
+    ezDocumentObject* m_pObject;
+    ezDocumentObject* m_pParent;
     ezString m_sParentProperty;
     ezVariant m_Index;
   };
-  
+
   ezHybridArray<PastedObject, 4> m_PastedObjects;
 };
 
-class EZ_TOOLSFOUNDATION_DLL ezRemoveObjectCommand : public ezCommandBase
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+
+class EZ_TOOLSFOUNDATION_DLL ezInstantiatePrefabCommand : public ezCommand
 {
-  EZ_ADD_DYNAMIC_REFLECTION(ezRemoveObjectCommand);
+  EZ_ADD_DYNAMIC_REFLECTION(ezInstantiatePrefabCommand, ezCommand);
+
+public:
+  ezInstantiatePrefabCommand();
+
+public: // Properties
+  ezUuid m_Parent;
+  ezUuid m_CreateFromPrefab;
+  ezUuid m_RemapGuid;
+  ezString m_sBasePrefabGraph;
+  ezString m_sObjectGraph;
+  ezUuid m_CreatedRootObject;
+  bool m_bAllowPickedPosition;
+
+private:
+  virtual bool HasReturnValues() const override { return true; }
+  virtual ezStatus DoInternal(bool bRedo) override;
+  virtual ezStatus UndoInternal(bool bFireEvents) override;
+  virtual void CleanupInternal(CommandState state) override;
+
+private:
+  struct PastedObject
+  {
+    ezDocumentObject* m_pObject;
+    ezDocumentObject* m_pParent;
+    ezString m_sParentProperty;
+    ezVariant m_Index;
+  };
+
+  ezHybridArray<PastedObject, 4> m_PastedObjects;
+
+  ezUuid m_OldCreateFromPrefab;
+  ezUuid m_OldRemapGuid;
+  ezString m_sOldGraphTextFormat;
+};
+
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+
+class EZ_TOOLSFOUNDATION_DLL ezUnlinkPrefabCommand : public ezCommand
+{
+  EZ_ADD_DYNAMIC_REFLECTION(ezUnlinkPrefabCommand, ezCommand);
+
+public:
+  ezUnlinkPrefabCommand() {}
+
+  ezUuid m_Object;
+
+private:
+  virtual bool HasReturnValues() const override { return false; }
+  virtual ezStatus DoInternal(bool bRedo) override;
+  virtual ezStatus UndoInternal(bool bFireEvents) override;
+  virtual void CleanupInternal(CommandState state) override {}
+
+private:
+  ezUuid m_OldCreateFromPrefab;
+  ezUuid m_OldRemapGuid;
+  ezString m_sOldGraphTextFormat;
+};
+
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+
+class EZ_TOOLSFOUNDATION_DLL ezRemoveObjectCommand : public ezCommand
+{
+  EZ_ADD_DYNAMIC_REFLECTION(ezRemoveObjectCommand, ezCommand);
 
 public:
   ezRemoveObjectCommand();
@@ -70,21 +151,24 @@ public: // Properties
   ezUuid m_Object;
 
 private:
-  virtual ezStatus Do(bool bRedo) override;
-  virtual ezStatus Undo(bool bFireEvents) override;
-  virtual void Cleanup(CommandState state) override;
+  virtual ezStatus DoInternal(bool bRedo) override;
+  virtual ezStatus UndoInternal(bool bFireEvents) override;
+  virtual void CleanupInternal(CommandState state) override;
 
 private:
-  ezDocumentObjectBase* m_pParent;
+  ezDocumentObject* m_pParent;
   ezString m_sParentProperty;
   ezVariant m_Index;
-  ezDocumentObjectBase* m_pObject;
+  ezDocumentObject* m_pObject;
 };
 
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
 
-class EZ_TOOLSFOUNDATION_DLL ezMoveObjectCommand : public ezCommandBase
+class EZ_TOOLSFOUNDATION_DLL ezMoveObjectCommand : public ezCommand
 {
-  EZ_ADD_DYNAMIC_REFLECTION(ezMoveObjectCommand);
+  EZ_ADD_DYNAMIC_REFLECTION(ezMoveObjectCommand, ezCommand);
 
 public:
   ezMoveObjectCommand();
@@ -96,21 +180,25 @@ public: // Properties
   ezVariant m_Index;
 
 private:
-  virtual ezStatus Do(bool bRedo) override;
-  virtual ezStatus Undo(bool bFireEvents) override;
-  virtual void Cleanup(CommandState state) override { }
+  virtual ezStatus DoInternal(bool bRedo) override;
+  virtual ezStatus UndoInternal(bool bFireEvents) override;
+  virtual void CleanupInternal(CommandState state) override { }
 
 private:
-  ezDocumentObjectBase* m_pObject;
-  ezDocumentObjectBase* m_pOldParent;
-  ezDocumentObjectBase* m_pNewParent;
+  ezDocumentObject* m_pObject;
+  ezDocumentObject* m_pOldParent;
+  ezDocumentObject* m_pNewParent;
   ezString m_sOldParentProperty;
   ezVariant m_OldIndex;
 };
 
-class EZ_TOOLSFOUNDATION_DLL ezSetObjectPropertyCommand : public ezCommandBase
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+
+class EZ_TOOLSFOUNDATION_DLL ezSetObjectPropertyCommand : public ezCommand
 {
-  EZ_ADD_DYNAMIC_REFLECTION(ezSetObjectPropertyCommand);
+  EZ_ADD_DYNAMIC_REFLECTION(ezSetObjectPropertyCommand, ezCommand);
 
 public:
   ezSetObjectPropertyCommand();
@@ -119,24 +207,50 @@ public: // Properties
   ezUuid m_Object;
   ezVariant m_NewValue;
   ezVariant m_Index;
-  ezString m_sPropertyPath;
-
-  const char* GetPropertyPath() const { return m_sPropertyPath; }
-  void SetPropertyPath(const char* szPath) { m_sPropertyPath = szPath; }
+  ezString m_sProperty;
 
 private:
-  virtual ezStatus Do(bool bRedo) override;
-  virtual ezStatus Undo(bool bFireEvents) override;
-  virtual void Cleanup(CommandState state) override { }
+  virtual ezStatus DoInternal(bool bRedo) override;
+  virtual ezStatus UndoInternal(bool bFireEvents) override;
+  virtual void CleanupInternal(CommandState state) override { }
 
 private:
-  ezDocumentObjectBase* m_pObject;
+  ezDocumentObject* m_pObject;
   ezVariant m_OldValue;
 };
 
-class EZ_TOOLSFOUNDATION_DLL ezInsertObjectPropertyCommand : public ezCommandBase
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+
+class EZ_TOOLSFOUNDATION_DLL ezResizeAndSetObjectPropertyCommand : public ezCommand
 {
-  EZ_ADD_DYNAMIC_REFLECTION(ezInsertObjectPropertyCommand);
+  EZ_ADD_DYNAMIC_REFLECTION(ezResizeAndSetObjectPropertyCommand, ezCommand);
+
+public:
+  ezResizeAndSetObjectPropertyCommand();
+
+public: // Properties
+  ezUuid m_Object;
+  ezVariant m_NewValue;
+  ezVariant m_Index;
+  ezString m_sProperty;
+
+private:
+  virtual ezStatus DoInternal(bool bRedo) override;
+  virtual ezStatus UndoInternal(bool bFireEvents) override { return ezStatus(EZ_SUCCESS); }
+  virtual void CleanupInternal(CommandState state) override { }
+
+  ezDocumentObject* m_pObject;
+};
+
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+
+class EZ_TOOLSFOUNDATION_DLL ezInsertObjectPropertyCommand : public ezCommand
+{
+  EZ_ADD_DYNAMIC_REFLECTION(ezInsertObjectPropertyCommand, ezCommand);
 
 public:
   ezInsertObjectPropertyCommand();
@@ -145,23 +259,24 @@ public: // Properties
   ezUuid m_Object;
   ezVariant m_NewValue;
   ezVariant m_Index;
-  ezString m_sPropertyPath;
-
-  const char* GetPropertyPath() const { return m_sPropertyPath; }
-  void SetPropertyPath(const char* szPath) { m_sPropertyPath = szPath; }
+  ezString m_sProperty;
 
 private:
-  virtual ezStatus Do(bool bRedo) override;
-  virtual ezStatus Undo(bool bFireEvents) override;
-  virtual void Cleanup(CommandState state) override { }
+  virtual ezStatus DoInternal(bool bRedo) override;
+  virtual ezStatus UndoInternal(bool bFireEvents) override;
+  virtual void CleanupInternal(CommandState state) override { }
 
 private:
-  ezDocumentObjectBase* m_pObject;
+  ezDocumentObject* m_pObject;
 };
 
-class EZ_TOOLSFOUNDATION_DLL ezRemoveObjectPropertyCommand : public ezCommandBase
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+
+class EZ_TOOLSFOUNDATION_DLL ezRemoveObjectPropertyCommand : public ezCommand
 {
-  EZ_ADD_DYNAMIC_REFLECTION(ezRemoveObjectPropertyCommand);
+  EZ_ADD_DYNAMIC_REFLECTION(ezRemoveObjectPropertyCommand, ezCommand);
 
 public:
   ezRemoveObjectPropertyCommand();
@@ -169,24 +284,25 @@ public:
 public: // Properties
   ezUuid m_Object;
   ezVariant m_Index;
-  ezString m_sPropertyPath;
-
-  const char* GetPropertyPath() const { return m_sPropertyPath; }
-  void SetPropertyPath(const char* szPath) { m_sPropertyPath = szPath; }
+  ezString m_sProperty;
 
 private:
-  virtual ezStatus Do(bool bRedo) override;
-  virtual ezStatus Undo(bool bFireEvents) override;
-  virtual void Cleanup(CommandState state) override { }
+  virtual ezStatus DoInternal(bool bRedo) override;
+  virtual ezStatus UndoInternal(bool bFireEvents) override;
+  virtual void CleanupInternal(CommandState state) override { }
 
 private:
-  ezDocumentObjectBase* m_pObject;
+  ezDocumentObject* m_pObject;
   ezVariant m_OldValue;
 };
 
-class EZ_TOOLSFOUNDATION_DLL ezMoveObjectPropertyCommand : public ezCommandBase
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+
+class EZ_TOOLSFOUNDATION_DLL ezMoveObjectPropertyCommand : public ezCommand
 {
-  EZ_ADD_DYNAMIC_REFLECTION(ezMoveObjectPropertyCommand);
+  EZ_ADD_DYNAMIC_REFLECTION(ezMoveObjectPropertyCommand, ezCommand);
 
 public:
   ezMoveObjectPropertyCommand();
@@ -195,16 +311,13 @@ public: // Properties
   ezUuid m_Object;
   ezVariant m_OldIndex;
   ezVariant m_NewIndex;
-  ezString m_sPropertyPath;
-
-  const char* GetPropertyPath() const { return m_sPropertyPath; }
-  void SetPropertyPath(const char* szPath) { m_sPropertyPath = szPath; }
+  ezString m_sProperty;
 
 private:
-  virtual ezStatus Do(bool bRedo) override;
-  virtual ezStatus Undo(bool bFireEvents) override;
-  virtual void Cleanup(CommandState state) override { }
+  virtual ezStatus DoInternal(bool bRedo) override;
+  virtual ezStatus UndoInternal(bool bFireEvents) override;
+  virtual void CleanupInternal(CommandState state) override { }
 
 private:
-  ezDocumentObjectBase* m_pObject;
+  ezDocumentObject* m_pObject;
 };

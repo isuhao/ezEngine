@@ -1,4 +1,4 @@
-#cmake
+﻿#cmake
 
 #
 # Copy this file into the folder of an engine library to add it to the solution.
@@ -9,18 +9,26 @@
 
 # Add all the preprocessor definitions that are needed to configure this library
 
-SET (LINK_LIBRARIES 
-  
+SET (LINK_LIBRARIES
+
 )
 
 if(MSVC)
   add_definitions (-DWIN32)
 
-  SET (LINK_LIBRARIES 
-    ${LINK_LIBRARIES}
-    ws2_32.lib
-    winmm.lib
-  )
+  if(BUILDSYSTEM_PLATFORM_WINDOWS_UWP)
+    SET (LINK_LIBRARIES
+      ${LINK_LIBRARIES}
+      OneCore.lib
+    )
+  else()
+    SET (LINK_LIBRARIES
+      ${LINK_LIBRARIES}
+      ws2_32.lib
+      Kernel32.lib
+      runtimeobject.lib
+    )
+  endif()
 endif()
 
 set (BUILDSYSTEM_PREVENT_STATIC_CODE_ANALYSIS true)

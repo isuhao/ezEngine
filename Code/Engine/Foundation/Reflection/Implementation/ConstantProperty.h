@@ -17,6 +17,7 @@ public:
   /// \brief Passes the property name through to ezAbstractMemberProperty.
   ezTypedConstantProperty(const char* szPropertyName) : ezAbstractConstantProperty(szPropertyName)
   {
+    m_Flags = ezPropertyFlags::GetParameterFlags<Type>();
   }
 
   /// \brief Returns the actual type of the property. You can then compare that with known types, eg. compare it to ezGetStaticRTTI<int>() to see whether this is an int property.
@@ -39,6 +40,7 @@ public:
     : ezTypedConstantProperty<Type>(szPropertyName)
     , m_Value(value)
   {
+    EZ_ASSERT_DEBUG(m_Flags.IsSet(ezPropertyFlags::StandardType), "Only constants that can be put in an ezVariant are currently supported!");
   }
 
   /// \brief Returns a pointer to the member property.

@@ -1,5 +1,4 @@
-#include <Foundation/PCH.h>
-#include <Foundation/Types/Variant.h>
+﻿#include <PCH.h>
 #include <Foundation/Reflection/ReflectionUtils.h>
 
 #if EZ_ENABLED(EZ_PLATFORM_64BIT)
@@ -25,7 +24,7 @@ struct ComputeHashFunc
 };
 
 template <>
-EZ_FORCE_INLINE void ComputeHashFunc::operator() < ezString > ()
+EZ_ALWAYS_INLINE void ComputeHashFunc::operator() < ezString > ()
 {
   ezString* pData = (ezString*) m_pData;
 
@@ -33,19 +32,29 @@ EZ_FORCE_INLINE void ComputeHashFunc::operator() < ezString > ()
 }
 
 template <>
-EZ_FORCE_INLINE void ComputeHashFunc::operator() < ezMat3 > ()
+EZ_ALWAYS_INLINE void ComputeHashFunc::operator() < ezMat3 > ()
 {
-  ezMat3* pData = (ezMat3*) m_pData;
-
-  m_uiHash = ezHashing::MurmurHash64(pData, sizeof(ezMat3), m_uiHash);
+  m_uiHash = ezHashing::MurmurHash64(m_pData, sizeof(ezMat3), m_uiHash);
 }
 
 template <>
-EZ_FORCE_INLINE void ComputeHashFunc::operator() < ezMat4 > ()
+EZ_ALWAYS_INLINE void ComputeHashFunc::operator() < ezMat4 > ()
 {
-  ezMat4* pData = (ezMat4*) m_pData;
+  m_uiHash = ezHashing::MurmurHash64(m_pData, sizeof(ezMat4), m_uiHash);
+}
 
-  m_uiHash = ezHashing::MurmurHash64(pData, sizeof(ezMat4), m_uiHash);
+template <>
+EZ_ALWAYS_INLINE void ComputeHashFunc::operator() < ezTransform > ()
+{
+  m_uiHash = ezHashing::MurmurHash64(m_pData, sizeof(ezTransform), m_uiHash);
+}
+
+template <>
+EZ_ALWAYS_INLINE void ComputeHashFunc::operator() < ezDataBuffer > ()
+{
+  ezDataBuffer* pData = (ezDataBuffer*)m_pData;
+
+  m_uiHash = ezHashing::MurmurHash64(pData->GetData(), pData->GetCount(), m_uiHash);
 }
 
 template <>
@@ -69,7 +78,7 @@ EZ_FORCE_INLINE void ComputeHashFunc::operator() < ezVariantDictionary > ()
 struct CompareFunc
 {
   template <typename T>
-  EZ_FORCE_INLINE void operator()()
+  EZ_ALWAYS_INLINE void operator()()
   {
     m_bResult = m_pThis->Cast<T>() == m_pOther->Cast<T>();
   }
@@ -85,11 +94,14 @@ struct IndexFunc
   EZ_FORCE_INLINE ezVariant Impl(ezTraitInt<1>)
   {
     const ezRTTI* pRtti = ezGetStaticRTTI<T>();
-    return ezReflectionUtils::GetMemberPropertyValue(ezReflectionUtils::GetMemberProperty(pRtti, m_uiIndex), m_pThis->GetData());
+    ezAbstractMemberProperty* pProp = ezReflectionUtils::GetMemberProperty(pRtti, m_uiIndex);
+    if (!pProp)
+      return ezVariant();
+    return ezReflectionUtils::GetMemberPropertyValue(pProp, m_pThis->GetData());
   }
 
   template <typename T>
-  EZ_FORCE_INLINE ezVariant Impl(ezTraitInt<0>)
+  EZ_ALWAYS_INLINE ezVariant Impl(ezTraitInt<0>)
   {
     return ezVariant();
   }
@@ -111,17 +123,20 @@ struct KeyFunc
   EZ_FORCE_INLINE ezVariant Impl(ezTraitInt<1>)
   {
     const ezRTTI* pRtti = ezGetStaticRTTI<T>();
-    return ezReflectionUtils::GetMemberPropertyValue(ezReflectionUtils::GetMemberProperty(pRtti, m_szKey), m_pThis->GetData());
+    ezAbstractMemberProperty* pProp = ezReflectionUtils::GetMemberProperty(pRtti, m_szKey);
+    if (!pProp)
+      return ezVariant();
+    return ezReflectionUtils::GetMemberPropertyValue(pProp, m_pThis->GetData());
   }
 
   template <typename T>
-  EZ_FORCE_INLINE ezVariant Impl(ezTraitInt<0>)
+  EZ_ALWAYS_INLINE ezVariant Impl(ezTraitInt<0>)
   {
     return ezVariant();
   }
 
   template <typename T>
-  EZ_FORCE_INLINE void operator()()
+  EZ_ALWAYS_INLINE void operator()()
   {
     m_Result = Impl<T>(ezTraitInt<ezVariant::TypeDeduction<T>::hasReflectedMembers>());
   }
@@ -134,7 +149,7 @@ struct KeyFunc
 struct ConvertFunc
 {
   template <typename T>
-  EZ_FORCE_INLINE void operator()()
+  EZ_ALWAYS_INLINE void operator()()
   {
     T result;
     ezVariantHelper::To(*m_pThis, result, m_bSuccessful);
@@ -188,7 +203,10 @@ ezVariant ezVariant::operator[](ezUInt32 uiIndex) const
   {
     ezReflectedClass* pObject = Cast<ezReflectedClass*>();
     const ezRTTI* pRtti = pObject->GetDynamicRTTI();
-    return ezReflectionUtils::GetMemberPropertyValue(ezReflectionUtils::GetMemberProperty(pRtti, uiIndex), pObject);
+    ezAbstractMemberProperty* pProp = ezReflectionUtils::GetMemberProperty(pRtti, uiIndex);
+    if (!pProp)
+      return ezVariant();
+    return ezReflectionUtils::GetMemberPropertyValue(pProp, pObject);
   }
   else if (IsValid())
   {
@@ -216,7 +234,10 @@ ezVariant ezVariant::operator[](ezHashing::StringWrapper szKey) const
   {
     ezReflectedClass* pObject = Cast<ezReflectedClass*>();
     const ezRTTI* pRtti = pObject->GetDynamicRTTI();
-    return ezReflectionUtils::GetMemberPropertyValue(ezReflectionUtils::GetMemberProperty(pRtti, szKey.m_str), pObject);
+    ezAbstractMemberProperty* pProp = ezReflectionUtils::GetMemberProperty(pRtti, szKey.m_str);
+    if (!pProp)
+      return ezVariant();
+    return ezReflectionUtils::GetMemberPropertyValue(pProp, pObject);
   }
   else if (IsValid())
   {
@@ -243,7 +264,13 @@ bool ezVariant::CanConvertTo(Type::Enum type) const
   if (IsNumber(type) && (IsNumber(m_Type) || m_Type == Type::String))
     return true;
 
-  if (type == Type::String && m_Type < Type::VariantArray)
+  if (type == Type::String && m_Type < Type::LastStandardType && m_Type != Type::DataBuffer)
+    return true;
+  if (type == Type::String && m_Type == Type::VariantArray)
+    return true;
+  if (type == Type::Color && m_Type == Type::ColorGamma)
+    return true;
+  if (type == Type::ColorGamma && m_Type == Type::Color)
     return true;
 
   if (type == Type::VoidPointer && m_Type == Type::ReflectedPointer)

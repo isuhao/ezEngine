@@ -1,4 +1,4 @@
-#cmake
+﻿#cmake
 
 #
 # Copy this file into the folder of an engine library to add it to the solution.
@@ -30,17 +30,24 @@ SET (LINK_LIBRARIES
   Foundation
   EditorFramework
   ToolsFoundation
-
+  ThirdParty
   Core
   System
   RendererFoundation
   RendererDX11
   RendererCore
-  CoreUtils
+  GameEngine
+  SharedPluginAssets
+  ModelImporter
+  Utilities
+)
+
+SET (ADDITIONAL_DEPENDENCIES
+  EnginePluginAssets
 )
 
 if (BUILDSYSTEM_PLATFORM_64BIT)
-  
+
 SET (LINK_LIBRARIES
     ${LINK_LIBRARIES}
     debug ${CMAKE_SOURCE_DIR}/Code/ThirdParty/AssImp/lib64/assimp.lib
@@ -58,3 +65,22 @@ SET (LINK_LIBRARIES
 endif()
 
 include (${CMAKE_SOURCE_DIR}/Code/BuildSystem/CMake/CMAKE_Plugin.txt)
+
+if (BUILDSYSTEM_PLATFORM_64BIT)
+
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+          COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          ${CMAKE_SOURCE_DIR}/Code/ThirdParty/AssImp/bin64/assimp.dll
+          $<TARGET_FILE_DIR:${PROJECT_NAME}>)
+
+else()
+
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+          COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          ${CMAKE_SOURCE_DIR}/Code/ThirdParty/AssImp/bin32/assimp.dll
+          $<TARGET_FILE_DIR:${PROJECT_NAME}>)
+
+endif()
+
+
+

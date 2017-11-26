@@ -1,11 +1,22 @@
 #pragma once
 
-#include <unistd.h>
 #include <errno.h>
 #include <sys/stat.h>
+#include <Foundation/Logging/Log.h>
+#include <Utilities/CommandLineUtils.h>
+
+#if EZ_ENABLED(EZ_PLATFORM_WINDOWS)
+  #include <direct.h>
+  #define EZ_USE_OLD_POSIX_FUNCTIONS EZ_ON
+#else
+  #include <unistd.h>
+  #include <sys/types.h>
+  #include <pwd.h>
+  #define EZ_USE_OLD_POSIX_FUNCTIONS EZ_OFF
+#endif
 
 #if EZ_ENABLED(EZ_PLATFORM_OSX)
-#include <CoreFoundation/CoreFoundation.h>
+  #include <CoreFoundation/CoreFoundation.h>
 #endif
 
 ezResult ezOSFile::InternalOpen(const char* szFile, ezFileMode::Enum OpenMode)
@@ -94,11 +105,29 @@ ezUInt64 ezOSFile::InternalRead(void* pBuffer, ezUInt64 uiBytes)
 
 ezUInt64 ezOSFile::InternalGetFilePosition() const
 {
+#if EZ_ENABLED(EZ_USE_OLD_POSIX_FUNCTIONS)
+  return static_cast<ezUInt64>(ftell(m_FileData.m_pFileHandle));
+#else
   return static_cast<ezUInt64>(ftello(m_FileData.m_pFileHandle));
+#endif
 }
 
 void ezOSFile::InternalSetFilePosition(ezInt64 iDistance, ezFilePos::Enum Pos) const
 {
+#if EZ_ENABLED(EZ_USE_OLD_POSIX_FUNCTIONS)
+  switch (Pos)
+  {
+  case ezFilePos::FromStart:
+    EZ_VERIFY(fseek(m_FileData.m_pFileHandle, (long)iDistance, SEEK_SET) == 0, "Seek Failed");
+    break;
+  case ezFilePos::FromEnd:
+    EZ_VERIFY(fseek(m_FileData.m_pFileHandle, (long)iDistance, SEEK_END) == 0, "Seek Failed");
+    break;
+  case ezFilePos::FromCurrent:
+    EZ_VERIFY(fseek(m_FileData.m_pFileHandle, (long)iDistance, SEEK_CUR) == 0, "Seek Failed");
+    break;
+  }
+#else
   switch (Pos)
   {
   case ezFilePos::FromStart:
@@ -111,6 +140,7 @@ void ezOSFile::InternalSetFilePosition(ezInt64 iDistance, ezFilePos::Enum Pos) c
     EZ_VERIFY(fseeko(m_FileData.m_pFileHandle, iDistance, SEEK_CUR) == 0, "Seek Failed");
     break;
   }
+#endif
 }
 
 bool ezOSFile::InternalExistsFile(const char* szFile)
@@ -124,6 +154,11 @@ bool ezOSFile::InternalExistsFile(const char* szFile)
   return true;
 }
 
+// this might not be defined on Windows
+#ifndef S_ISDIR
+#define S_ISDIR(m) (((m) & S_IFMT) == S_IFDIR)
+#endif
+
 bool ezOSFile::InternalExistsDirectory(const char* szDirectory)
 {
   struct stat sb;
@@ -132,11 +167,15 @@ bool ezOSFile::InternalExistsDirectory(const char* szDirectory)
 
 ezResult ezOSFile::InternalDeleteFile(const char* szFile)
 {
+#if EZ_ENABLED(EZ_PLATFORM_WINDOWS)
+  int iRes = _unlink(szFile);
+#else
   int iRes = unlink(szFile);
-  
+#endif
+
   if (iRes == 0 || (iRes == -1 && errno == ENOENT))
     return EZ_SUCCESS;
-  
+
   return EZ_FAILURE;
 }
 
@@ -145,71 +184,104 @@ ezResult ezOSFile::InternalCreateDirectory(const char* szDirectory)
   // handle drive letters as always successful
   if (ezStringUtils::GetCharacterCount(szDirectory) <= 1) // '/'
     return EZ_SUCCESS;
-  
+
+#if EZ_ENABLED(EZ_PLATFORM_WINDOWS)
+  int iRes = _mkdir(szDirectory);
+#else
   int iRes = mkdir(szDirectory, 0777);
-  
+#endif
+
   if (iRes == 0 || (iRes == -1 && errno == EEXIST))
     return EZ_SUCCESS;
-    
+
+  // If we were not allowed to access the folder but it alreay exists, we treat the operation as successful.
+  // Note that this is espcially relevant for calls to ezOSFile::CreateDirectoryStructure where we may call mkdir on top level directories that are not accessible.
+  if (errno == EACCES && InternalExistsDirectory(szDirectory))
+    return EZ_SUCCESS;
+
   return EZ_FAILURE;
 }
 
-#if EZ_ENABLED(EZ_SUPPORTS_FILE_STATS)
+#if EZ_ENABLED(EZ_SUPPORTS_FILE_STATS) && EZ_DISABLED(EZ_PLATFORM_WINDOWS_UWP)
 ezResult ezOSFile::InternalGetFileStats(const char* szFileOrFolder, ezFileStats& out_Stats)
 {
-  stat tempStat;
+  struct stat tempStat;
   int iRes = stat(szFileOrFolder, &tempStat);
-  
+
   if (iRes != 0)
     return EZ_FAILURE;
-  
+
   out_Stats.m_bIsDirectory = S_ISDIR(tempStat.st_mode);
   out_Stats.m_uiFileSize = tempStat.st_size;
-  out_Stats.m_sFileName = "";
+  out_Stats.m_sFileName = ezPathUtils::GetFileNameAndExtension(szFileOrFolder); // no OS support, so just pass it through
   out_Stats.m_LastModificationTime.SetInt64(tempStat.st_mtime, ezSIUnitOfTime::Second);
-  
+
   return EZ_SUCCESS;
 }
 #endif
 
+#if EZ_DISABLED(EZ_PLATFORM_WINDOWS_UWP)
+
 const char* ezOSFile::GetApplicationDirectory()
 {
-#if EZ_ENABLED(EZ_PLATFORM_OSX)
-  
   static ezString256 s_Path;
-  
+
   if(s_Path.IsEmpty())
   {
+#if EZ_ENABLED(EZ_PLATFORM_OSX)
+
     CFBundleRef appBundle = CFBundleGetMainBundle();
     CFURLRef bundleURL = CFBundleCopyBundleURL(appBundle);
     CFStringRef bundlePath = CFURLCopyFileSystemPath( bundleURL, kCFURLPOSIXPathStyle );
-    
+
     if(bundlePath != nullptr)
     {
       CFIndex length = CFStringGetLength(bundlePath);
       CFIndex maxSize = CFStringGetMaximumSizeForEncoding(length, kCFStringEncodingUTF8) + 1;
-      
+
       ezArrayPtr<char> temp = EZ_DEFAULT_NEW_ARRAY(char, maxSize);
-      
+
       if(CFStringGetCString(bundlePath, temp.GetPtr(), maxSize, kCFStringEncodingUTF8))
       {
         s_Path = temp.GetPtr();
       }
-      
+
       EZ_DEFAULT_DELETE_ARRAY(temp);
     }
-    
+
     CFRelease(bundlePath);
     CFRelease(bundleURL);
     CFRelease(appBundle);
-  }
-  
-  return s_Path.GetData();
-  
-#else
-  #warning Not yet implemented.
-#endif
 
-  return nullptr;
+#else
+
+    EZ_ASSERT_DEV(ezCommandLineUtils::GetGlobalInstance()->GetParameterCount() > 0, "Command line arguments have not been passed along to ezCommandLineUtils");
+    ezStringBuilder path = ezCommandLineUtils::GetGlobalInstance()->GetParameter(0);
+    s_Path = path.GetFileDirectory();
+
+#endif
+  }
+
+  return s_Path.GetData();
 }
+
+ezString ezOSFile::GetUserDataFolder(const char* szSubFolder)
+{
+  if (s_UserDataPath.IsEmpty())
+  {
+    s_UserDataPath = getenv("HOME");
+
+    if (s_UserDataPath.IsEmpty())
+      s_UserDataPath = getpwuid(getuid())->pw_dir;
+  }
+
+  ezStringBuilder s = s_UserDataPath;
+  s.AppendPath(szSubFolder);
+  s.MakeCleanPath();
+  return s;
+}
+
+#endif // EZ_DISABLED(EZ_PLATFORM_WINDOWS_UWP)
+
+
 

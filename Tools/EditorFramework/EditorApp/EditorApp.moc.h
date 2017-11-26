@@ -1,65 +1,93 @@
 #pragma once
 
 #include <EditorFramework/Plugin.h>
-#include <ToolsFoundation/Settings/Settings.h>
 #include <GuiFoundation/ContainerWindow/ContainerWindow.moc.h>
 #include <ToolsFoundation/Project/ToolsProject.h>
-#include <EditorFramework/EngineProcess/EngineProcessConnection.h>
+#include <ToolsFoundation/Basics/RecentFilesList.h>
+#include <EditorFramework/IPC/EngineProcessConnection.h>
 #include <Foundation/Containers/Set.h>
 #include <Foundation/Strings/String.h>
 #include <Foundation/Communication/Event.h>
 #include <QApplication>
 #include <Foundation/Logging/HTMLWriter.h>
-#include <EditorFramework/Assets/AssetCurator.h>
 #include <Core/Application/Config/FileSystemConfig.h>
 #include <Core/Application/Config/PluginConfig.h>
+#include <Foundation/Types/UniquePtr.h>
+#include <EditorFramework/EditorApp/Configuration/Plugins.h>
+#include <Foundation/Configuration/Singleton.h>
+#include <EditorFramework/TestFramework/EditorTests.h>
 
 class QMainWindow;
 class QWidget;
+class ezProgress;
+class ezQtProgressbar;
+class ezQtEditorApp;
+class ezEditorTests;
+class QStringList;
 
-struct EZ_EDITORFRAMEWORK_DLL ezPluginSet
+struct EZ_EDITORFRAMEWORK_DLL ezEditorAppEvent
 {
-  ezSet<ezString> m_Plugins;
+  enum class Type
+  {
+    BeforeApplyDataDirectories, ///< Sent after data directory config was loaded, but before it is applied. Allows to add custom dependencies at the right moment.
+    ReloadResources, ///< Sent when 'ReloadResources' has been triggered (and a message was sent to the engine)
+  };
 
-  bool operator==(const ezPluginSet& rhs) const { return m_Plugins == rhs.m_Plugins; }
-  bool operator!=(const ezPluginSet& rhs) const { return !(*this == rhs); }
+  Type m_Type;
 };
 
-class EZ_EDITORFRAMEWORK_DLL ezRecentFilesList
-{
-public:
-  ezRecentFilesList(ezUInt32 uiMaxElements) { m_uiMaxElements = uiMaxElements; }
-
-  void Insert(const char* szFile);
-  const ezDeque<ezString>& GetFileList() const { return m_Files; }
-  void Clear() { m_Files.Clear(); }
-
-  void Save(const char* szFile);
-  void Load(const char* szFile);
-
-private:
-  ezUInt32 m_uiMaxElements;
-  ezDeque<ezString> m_Files;
-};
-
-class EZ_EDITORFRAMEWORK_DLL ezEditorApp : public QObject
+class EZ_EDITORFRAMEWORK_DLL ezQtEditorApp : public QObject
 {
   Q_OBJECT
 
-  static ezEditorApp* s_pInstance;
+  EZ_DECLARE_SINGLETON(ezQtEditorApp);
 
 public:
-  ezEditorApp();
-  ~ezEditorApp();
+  ezQtEditorApp();
+  ~ezQtEditorApp();
 
-  static ezEditorApp* GetInstance() { return s_pInstance; }
+  ezEvent<const ezEditorAppEvent&> m_Events;
 
-  const ezString& GetApplicationUserName() { return s_sUserName; }
+  //
+  // External Tools
+  // 
 
-  const ezPluginSet& GetEditorPluginsAvailable();
-  const ezPluginSet& GetEditorPluginsActive() { return s_EditorPluginsActive; }
-  const ezPluginSet& GetEditorPluginsToBeLoaded() { return s_EditorPluginsToBeLoaded; }
-  void SetEditorPluginsToBeLoaded(const ezPluginSet& plugins);
+  /// \brief Returns the folder in which the tools binaries can be found. If enabled in the preferences, it uses the pre-compiled tools, otherwise the currently compiled ones.
+  /// If bForceUseCustomTools is true, it always returns the folder in which custom compiled tools are stored (app binary dir)
+  ezString GetExternalToolsFolder(bool bForceUseCustomTools = false);
+
+  /// \brief Searches for an external tool by calling GetExternalToolsFolder(). Falls back to the currently compiled tools, if a tool cannot be found in the precompiled folder.
+  ezString FindToolApplication(const char* szToolName);
+
+  /// \brief Executes an external tool as found by FindToolApplication().
+  ///
+  /// The applications output is parsed and forwarded to the given log interface. A custom log level is applied first.
+  /// If the tool cannot be found or it takes longer to execute than the allowed timeout, the function returns failure.
+  ezStatus ExecuteTool(const char* szTool, const QStringList& arguments, ezUInt32 uiSecondsTillTimeout, ezLogInterface* pLogOutput = nullptr, ezLogMsgType::Enum LogLevel = ezLogMsgType::WarningMsg);
+
+  /// \brief Creates the string with which to run Fileserve for the currently open project.
+  ezString BuildFileserveCommandLine() const;
+
+  /// \brief Launches Fileserve with the settings for the current project.
+  void RunFileserve();
+
+  //
+  //
+  //
+
+  /// \brief Can be set via the command line option '-safe'. In this mode the editor will not automatically load recent documents
+  bool IsInSafeMode() const { return m_bSafeMode; }
+  /// \brief Returns true if StartupEditor was called with true. This is the case in an EditorProcessor.
+  bool IsInHeadlessMode() const { return m_bHeadless; }
+
+  const ezPluginSet& GetEditorPlugins() const { return s_EditorPlugins; }
+  const ezPluginSet& GetEnginePlugins() const { return s_EnginePlugins; }
+
+  ezPluginSet& GetEditorPlugins() { return s_EditorPlugins; }
+  ezPluginSet& GetEnginePlugins() { return s_EnginePlugins; }
+
+  void StoreEditorPluginsToBeLoaded();
+  void StoreEnginePluginsToBeLoaded();
 
   void AddRestartRequiredReason(const char* szReason);
   const ezSet<ezString>& GetRestartRequiredReasons() { return s_RestartRequiredReasons; }
@@ -67,25 +95,25 @@ public:
   void AddReloadProjectRequiredReason(const char* szReason);
   const ezSet<ezString>& GetReloadProjectRequiredReason() { return s_ReloadProjectRequiredReasons; }
 
-  void RegisterPluginNameForSettings(const char* szPluginName);
-  const ezSet<ezString>& GetRegisteredPluginNamesForSettings() { return s_SettingsPluginNames; }
-  ezSettings& GetEditorSettings(const char* szPluginName = "-Main-");
-  ezSettings& GetProjectSettings(const char* szPluginName = "-Main-");
-  ezSettings& GetDocumentSettings(const ezDocumentBase* pDocument, const char* szPluginName = "-Main-");
-  ezSettings& GetDocumentSettings(const char* szDocument, const char* szPlugin = "-Main-");
   void SaveSettings();
 
-  void StartupEditor(const char* szAppName, const char* szUserName, int argc, char** argv);
+  /// \brief Writes a file containing all the currently open documents
+  void SaveOpenDocumentsList();
+
+  /// \brief Reads the list of last open documents in the current project.
+  ezRecentFilesList LoadOpenDocumentsList();
+
+  void InitQt(int argc, char** argv);
+  void StartupEditor(bool bHeadless);
   void ShutdownEditor();
   ezInt32 RunEditor();
+  void DeInitQt();
 
-  void LoadPlugins();
-  void UnloadPlugins();
+  void LoadEditorPlugins();
+  void UnloadEditorPlugins();
 
   ezRecentFilesList& GetRecentProjectsList()   { return s_RecentProjects;  }
   ezRecentFilesList& GetRecentDocumentsList()  { return s_RecentDocuments; }
-
-  ezString GetDocumentDataFolder(const char* szDocument);
 
   ezEditorEngineProcessConnection* GetEngineViewProcess() { return s_pEngineViewProcess; }
 
@@ -101,68 +129,96 @@ public:
   void GuiCreateProject();
   void GuiOpenProject();
 
-  void OpenDocument(const char* szDocument);
-  ezDocumentBase* OpenDocumentImmediate(const char* szDocument, bool bRequestWindow = true);
-  
+  void OpenDocument(const char* szDocument, const ezDocumentObject* pOpenContext = nullptr);
+  ezDocument* OpenDocumentImmediate(const char* szDocument, bool bRequestWindow = true, bool bAddToRecentFilesList = true);
+
+  ezDocument* CreateOrOpenDocument(bool bCreate, const char* szFile, bool bRequestWindow = true, bool bAddToRecentFilesList = true, const ezDocumentObject* pOpenContext = nullptr);
+  void CreateOrOpenProject(bool bCreate, const char* szFile);
+
+  /// \brief Starts at szStartDirectory and goes up until it finds a folder that contains the given sub folder structure.
+  /// Returns an empty string if nothing is found. Otherwise the returned path concatenated with szSubPath will be a valid, existing path.
+  ezString FindFolderWithSubPath(const char* szStartDirectory, const char* szSubPath) const;
+
+  /// \brief Adds a data directory as a hard dependency to the project. Should be used by plugins to ensure their required data is available.
+  /// The path must be relative to the SdkRoot folder.
+  void AddPluginDataDirDependency(const char* szSdkRootRelativePath, const char* szRootName = nullptr, bool bWriteable = false);
 
   const ezApplicationFileSystemConfig& GetFileSystemConfig() const { return m_FileSystemConfig; }
   const ezApplicationPluginConfig& GetEnginePluginConfig() const { return m_EnginePluginConfig; }
 
   void SetFileSystemConfig(const ezApplicationFileSystemConfig& cfg);
-  void SetEnginePluginConfig(const ezApplicationPluginConfig& cfg);
 
+  bool MakeDataDirectoryRelativePathAbsolute(ezStringBuilder& sPath) const;
   bool MakeDataDirectoryRelativePathAbsolute(ezString& sPath) const;
+  bool MakePathDataDirectoryRelative(ezStringBuilder& sPath) const;
   bool MakePathDataDirectoryRelative(ezString& sPath) const;
+
+  bool MakePathDataDirectoryParentRelative(ezStringBuilder& sPath) const;
+  bool MakeParentDataDirectoryRelativePathAbsolute(ezStringBuilder& sPath, bool bCheckExists) const;
+
+  void AddRuntimePluginDependency(const char* szEditorPluginName, const char* szRuntimeDependency);
+
+  ezStatus SaveTagRegistry();
+
+  /// \brief Reads the known input slots from disk and adds them to the existing list.
+  ///
+  /// All input slots to be exposed by the editor are stored in 'Shared/Tools/ezEditor/InputSlots'
+  /// as txt files. Each line names one input slot.
+  void GetKnownInputSlots(ezDynamicArray<ezString>& slots) const;
+
+  void ExecuteTests();
+
+signals:
+  void IdleEvent();
 
 private:
   ezString BuildDocumentTypeFileFilter(bool bForCreation);
-  
+
   void GuiCreateOrOpenDocument(bool bCreate);
   void GuiCreateOrOpenProject(bool bCreate);
-
-  ezDocumentBase* CreateOrOpenDocument(bool bCreate, const char* szFile, bool bRequestWindow = true);
-  void CreateOrOpenProject(bool bCreate, const char* szFile);
 
 private slots:
   void SlotTimedUpdate();
   void SlotQueuedCloseProject();
   void SlotQueuedOpenProject(QString sProject);
-  void SlotQueuedOpenDocument(QString sProject);
-  void SlotQueuedCreateOrOpenProject(bool bCreate);
+  void SlotQueuedOpenDocument(QString sProject, void* pOpenContext);
+  void SlotQueuedGuiCreateOrOpenProject(bool bCreate);
 
 private:
-  ezSettings& GetSettings(ezMap<ezString, ezSettings>& SettingsMap, const char* szPlugin, const char* szSearchPath);
-
   void UpdateGlobalStatusBarMessage();
 
-  void DocumentManagerRequestHandler(ezDocumentManagerBase::Request& r);
-  void DocumentManagerEventHandler(const ezDocumentManagerBase::Event& r);
-  void DocumentEventHandler(const ezDocumentBase::Event& e);
-  void DocumentWindowEventHandler(const ezDocumentWindow::Event& e);
-  void ProjectRequestHandler(ezToolsProject::Request& r);
-  void ProjectEventHandler(const ezToolsProject::Event& r);
+  void DocumentManagerRequestHandler(ezDocumentManager::Request& r);
+  void DocumentManagerEventHandler(const ezDocumentManager::Event& r);
+  void DocumentEventHandler(const ezDocumentEvent& e);
+  void DocumentWindowEventHandler(const ezQtDocumentWindowEvent& e);
+  void ProjectRequestHandler(ezToolsProjectRequest& r);
+  void ProjectEventHandler(const ezToolsProjectEvent& r);
   void EngineProcessMsgHandler(const ezEditorEngineProcessConnection::Event& e);
 
-  void ReadPluginsToBeLoaded();
+  void LoadEditorPreferences();
+  void LoadProjectPreferences();
+  void DetectAvailableEditorPlugins();
+  void DetectAvailableEnginePlugins();
+  void ReadEditorPluginsToBeLoaded();
+  void ReadEnginePluginConfig();
+
+  void ValidateEnginePluginConfig();
+
+  void ReadTagRegistry();
+
   void SetupDataDirectories();
+  void SetStyleSheet();
   void CreatePanels();
 
-  ezString s_sUserName;
+  bool m_bSafeMode;
+  bool m_bHeadless;
+  bool m_bSavePreferencesAfterOpenProject;
 
   ezSet<ezString> s_RestartRequiredReasons;
   ezSet<ezString> s_ReloadProjectRequiredReasons;
 
-  ezPluginSet s_EditorPluginsAvailable;
-  ezPluginSet s_EditorPluginsActive;
-  ezPluginSet s_EditorPluginsToBeLoaded;
-
-  ezSet<ezString> s_SettingsPluginNames;
-  ezMap<ezString, ezSettings> s_EditorSettings;
-  ezMap<ezString, ezSettings> s_ProjectSettings;
-  ezMap<ezString, ezMap<ezString, ezSettings> > s_DocumentSettings;
-
-  void StoreSettings(const ezMap<ezString, ezSettings>& settings, const char* szFolder);
-  void SaveDocumentSettings(const ezDocumentBase* pDocument);
+  ezPluginSet s_EditorPlugins;
+  ezPluginSet s_EnginePlugins;
 
   void SaveRecentFiles();
   void LoadRecentFiles();
@@ -176,12 +232,18 @@ private:
 
   ezLogWriter::HTML m_LogHTML;
 
-  ezAssetCurator m_AssetCurator;
-
   ezApplicationFileSystemConfig m_FileSystemConfig;
   ezApplicationPluginConfig m_EnginePluginConfig;
+
+  ezMap<ezString, ezSet<ezString> > m_AdditionalRuntimePluginDependencies;
 
   // *** Recent Paths ***
   ezString m_sLastDocumentFolder;
   ezString m_sLastProjectFolder;
+
+  // *** Progress Bar ***
+  ezProgress* m_pProgressbar;
+  ezQtProgressbar* m_pQtProgressbar;
+
+  ezUniquePtr<ezEditorTests> m_TestFramework;
 };

@@ -14,7 +14,16 @@
    <string>Form</string>
   </property>
   <layout class="QHBoxLayout" name="RootLayout" stretch="0">
-   <property name="margin">
+   <property name="leftMargin">
+    <number>0</number>
+   </property>
+   <property name="topMargin">
+    <number>0</number>
+   </property>
+   <property name="rightMargin">
+    <number>0</number>
+   </property>
+   <property name="bottomMargin">
     <number>0</number>
    </property>
    <item>
@@ -32,48 +41,32 @@
       <bool>false</bool>
      </property>
      <widget class="QWidget" name="layoutWidget">
-      <layout class="QVBoxLayout" name="verticalLayout" stretch="0,1,3">
+      <layout class="QVBoxLayout" name="verticalLayout" stretch="0,1">
        <item>
-        <layout class="QHBoxLayout" name="horizontalLayout">
-         <item>
-          <widget class="QLineEdit" name="LineSearchFilter">
-           <property name="placeholderText">
-            <string>Search Assets</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QPushButton" name="ButtonClearSearch">
-           <property name="text">
-            <string/>
-           </property>
-           <property name="icon">
-            <iconset resource="../../../Code/Tools/GuiFoundation/QtResources/resources.qrc">
-             <normaloff>:/GuiFoundation/Icons/Delete16.png</normaloff>:/GuiFoundation/Icons/Delete16.png</iconset>
-           </property>
-          </widget>
-         </item>
-        </layout>
+        <widget class="ezQtSearchWidget" name="SearchWidget" native="true"/>
        </item>
        <item>
-        <widget class="QListWidget" name="ListTypeFilter"/>
-       </item>
-       <item>
-        <widget class="QTreeWidget" name="TreeFolderFilter">
-         <property name="uniformRowHeights">
-          <bool>true</bool>
+        <widget class="QSplitter" name="LeftSplitter">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
          </property>
-         <property name="sortingEnabled">
-          <bool>true</bool>
-         </property>
-         <property name="headerHidden">
-          <bool>true</bool>
-         </property>
-         <column>
-          <property name="text">
-           <string notr="true">1</string>
+         <widget class="QListWidget" name="ListTypeFilter"/>
+         <widget class="QTreeWidget" name="TreeFolderFilter">
+          <property name="uniformRowHeights">
+           <bool>true</bool>
           </property>
-         </column>
+          <property name="sortingEnabled">
+           <bool>true</bool>
+          </property>
+          <property name="headerHidden">
+           <bool>true</bool>
+          </property>
+          <column>
+           <property name="text">
+            <string notr="true">1</string>
+           </property>
+          </column>
+         </widget>
         </widget>
        </item>
       </layout>
@@ -90,7 +83,7 @@
            <property name="sizeHint" stdset="0">
             <size>
              <width>40</width>
-             <height>20</height>
+             <height>0</height>
             </size>
            </property>
           </spacer>
@@ -129,8 +122,8 @@
             <string/>
            </property>
            <property name="icon">
-            <iconset resource="../../../Code/Tools/GuiFoundation/QtResources/resources.qrc">
-             <normaloff>:/GuiFoundation/Icons/ListView16.png</normaloff>:/GuiFoundation/Icons/ListView16.png</iconset>
+            <iconset resource="../QtResources/resources.qrc">
+             <normaloff>:/EditorFramework/Icons/ListView16.png</normaloff>:/EditorFramework/Icons/ListView16.png</iconset>
            </property>
            <property name="checkable">
             <bool>true</bool>
@@ -146,8 +139,8 @@
             <string/>
            </property>
            <property name="icon">
-            <iconset resource="../../../Code/Tools/GuiFoundation/QtResources/resources.qrc">
-             <normaloff>:/GuiFoundation/Icons/IconView16.png</normaloff>:/GuiFoundation/Icons/IconView16.png</iconset>
+            <iconset resource="../QtResources/resources.qrc">
+             <normaloff>:/EditorFramework/Icons/IconView16.png</normaloff>:/EditorFramework/Icons/IconView16.png</iconset>
            </property>
            <property name="checkable">
             <bool>true</bool>
@@ -157,7 +150,7 @@
         </layout>
        </item>
        <item>
-        <widget class="ezAssetBrowserView" name="ListAssets">
+        <widget class="ezQtAssetBrowserView" name="ListAssets">
          <property name="editTriggers">
           <set>QAbstractItemView::NoEditTriggers</set>
          </property>
@@ -186,13 +179,28 @@
  </widget>
  <customwidgets>
   <customwidget>
-   <class>ezAssetBrowserView</class>
+   <class>ezQtAssetBrowserView</class>
    <extends>QListView</extends>
    <header location="global">EditorFramework/Assets/AssetBrowserView.moc.h</header>
   </customwidget>
+  <customwidget>
+   <class>ezQtSearchWidget</class>
+   <extends>QWidget</extends>
+   <header location="global">GuiFoundation/Widgets/SearchWidget.moc.h</header>
+   <container>1</container>
+  </customwidget>
  </customwidgets>
+ <tabstops>
+  <tabstop>ListAssets</tabstop>
+  <tabstop>ListTypeFilter</tabstop>
+  <tabstop>TreeFolderFilter</tabstop>
+  <tabstop>IconSizeSlider</tabstop>
+  <tabstop>ButtonListMode</tabstop>
+  <tabstop>ButtonIconMode</tabstop>
+ </tabstops>
  <resources>
   <include location="../../../Code/Tools/GuiFoundation/QtResources/resources.qrc"/>
+  <include location="../QtResources/resources.qrc"/>
  </resources>
  <connections/>
 </ui>

@@ -1,5 +1,7 @@
 #pragma once
 
+#ifdef EZ_SUPPORT_EZARCHIVE
+
 #include <Foundation/Containers/Set.h>
 #include <Foundation/Reflection/Reflection.h>
 #include <Foundation/IO/ChunkStream.h>
@@ -32,7 +34,7 @@ class EZ_FOUNDATION_DLL ezArchiveWriter : public ezChunkStreamWriter
 {
 public:
   /// \brief The constructor takes another stream to which all write requests are passed along.
-  ezArchiveWriter(ezStreamWriterBase& stream);
+  ezArchiveWriter(ezStreamWriter& stream);
 
   /// \brief Destructor
   ~ezArchiveWriter();
@@ -135,7 +137,7 @@ private:
   ezMap<const ezRTTI*, TypeInfo> m_WrittenTypes;
   ezDeque<const ezRTTI*> m_RttiToWrite;
 
-  ezStreamWriterBase& m_OutputStream;
+  ezStreamWriter& m_OutputStream;
 
   struct Temp
   {
@@ -161,7 +163,7 @@ class EZ_FOUNDATION_DLL ezArchiveReader : public ezChunkStreamReader
 {
 public:
   /// \brief The constructor takes another stream to which all read requests are passed along.
-  ezArchiveReader(ezStreamReaderBase& stream);
+  ezArchiveReader(ezStreamReader& stream);
 
   /// \brief Destructor
   ~ezArchiveReader();
@@ -302,7 +304,7 @@ private:
   ezDeque<ObjectMapping> m_ObjectsToMap;
 
   ezDynamicArray<RttiData> m_Types;
-  ezStreamReaderBase& m_InputStream;
+  ezStreamReader& m_InputStream;
 
   ezDeque<ezReflectedClass*> m_DeserializedReflected;
 
@@ -351,4 +353,6 @@ enum ezArchiveVersion : ezUInt8
   ENUM_COUNT,
   CurrentVersion = ENUM_COUNT - 1 // automatically the highest version number
 };
+
+#endif
 

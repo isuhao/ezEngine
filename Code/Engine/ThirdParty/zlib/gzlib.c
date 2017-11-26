@@ -3,6 +3,8 @@
  * For conditions of distribution and use, see copyright notice in zlib.h
  */
 
+#ifdef BUILDSYSTEM_ENABLE_ZLIB_SUPPORT
+
 #include "gzguts.h"
 
 #if defined(_WIN32) && !defined(__BORLANDC__)
@@ -242,7 +244,7 @@ local gzFile gz_open(path, fd, mode)
 #ifdef _WIN32
         fd == -2 ? _wopen(path, oflag, 0666) :
 #endif
-        open((const char *)path, oflag, 0666));
+        _open((const char *)path, oflag, 0666));
     if (state->fd == -1) {
         free(state->path);
         free(state);
@@ -632,3 +634,6 @@ unsigned ZLIB_INTERNAL gz_intmax()
     return q >> 1;
 }
 #endif
+
+#endif // BUILDSYSTEM_ENABLE_ZLIB_SUPPORT
+

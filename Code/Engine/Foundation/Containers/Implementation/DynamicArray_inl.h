@@ -30,7 +30,7 @@ ezDynamicArrayBase<T>::ezDynamicArrayBase(const ezArrayPtr<const T>& other, ezAl
   this->m_uiCapacity = 0;
   m_pAllocator = pAllocator;
 
-  ezArrayBase<T, ezDynamicArrayBase<T>>::operator=((ezArrayPtr<const T>)other);
+  ezArrayBase<T, ezDynamicArrayBase<T>>::operator=(other);
 }
 
 template <typename T>
@@ -42,18 +42,19 @@ ezDynamicArrayBase<T>::~ezDynamicArrayBase()
 }
 
 template <typename T>
-EZ_FORCE_INLINE void ezDynamicArrayBase<T>::operator= (const ezDynamicArrayBase<T>& rhs)
+EZ_ALWAYS_INLINE void ezDynamicArrayBase<T>::operator= (const ezDynamicArrayBase<T>& rhs)
 {
   ezArrayBase<T, ezDynamicArrayBase<T>>::operator=((ezArrayPtr<const T>)rhs); // redirect this to the ezArrayPtr version
 }
 
 template <typename T>
-EZ_FORCE_INLINE void ezDynamicArrayBase<T>::operator= (ezDynamicArrayBase<T>&& rhs)
+inline void ezDynamicArrayBase<T>::operator= (ezDynamicArrayBase<T>&& rhs)
 {
+  // Clear any existing data (calls destructors if necessary)
+  this->Clear();
+
   if (this->m_pAllocator == rhs.m_pAllocator)
   {
-    // clear any existing data
-    this->Clear();
     EZ_DELETE_RAW_BUFFER(this->m_pAllocator, this->m_pElements);
 
     // move the data over from the other array
@@ -68,9 +69,22 @@ EZ_FORCE_INLINE void ezDynamicArrayBase<T>::operator= (ezDynamicArrayBase<T>&& r
   }
   else
   {
-    ezArrayBase<T, ezDynamicArrayBase<T>>::operator=((ezArrayPtr<const T>)rhs); // redirect this to the ezArrayPtr version
+    // Ensure we have enough data.
+    this->SetCountUninitialized(rhs.m_uiCount);
+    this->m_uiCount = rhs.m_uiCount;
+
+    ezMemoryUtils::RelocateConstruct(this->m_pElements, rhs.m_pElements, rhs.m_uiCount);
+
+    // Strictly speaking, clearing the other array is optional, but it makes it a bit more consistent to do so.
     rhs.Clear();
   }
+}
+
+template <typename T>
+void ezDynamicArrayBase<T>::Swap(ezDynamicArrayBase<T>& other)
+{
+  ezMath::Swap(this->m_pAllocator, other.m_pAllocator);
+  this->DoSwap(other);
 }
 
 template <typename T>
@@ -177,5 +191,23 @@ template <typename T, typename A>
 void ezDynamicArray<T, A>::operator=(ezDynamicArrayBase<T>&& rhs)
 {
   ezDynamicArrayBase<T>::operator=(std::move(rhs));
+}
+
+template<typename T, typename AllocatorWrapper>
+ezArrayPtr<const T* const> ezMakeArrayPtr(const ezDynamicArray<T*, AllocatorWrapper>& dynArray)
+{
+  return ezArrayPtr<const T* const>(dynArray.GetData(), dynArray.GetCount());
+}
+
+template<typename T, typename AllocatorWrapper>
+ezArrayPtr<const T> ezMakeArrayPtr(const ezDynamicArray<T, AllocatorWrapper>& dynArray)
+{
+  return ezArrayPtr<const T>(dynArray.GetData(), dynArray.GetCount());
+}
+
+template<typename T, typename AllocatorWrapper>
+ezArrayPtr<T> ezMakeArrayPtr(ezDynamicArray<T, AllocatorWrapper>& dynArray)
+{
+  return ezArrayPtr<T>(dynArray.GetData(), dynArray.GetCount());
 }
 

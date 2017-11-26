@@ -1,23 +1,19 @@
 #pragma once
 
 #include <Foundation/Basics.h>
-#include <EditorFramework/GUI/RawDocumentTreeWidget.moc.h>
-#include <GuiFoundation/DockPanels/DocumentPanel.moc.h>
-#include <EditorPluginScene/Scene/SceneDocument.h>
+#include <EditorFramework/Panels/GameObjectPanel/GameObjectPanel.moc.h>
 
+class ezQtSearchWidget;
+class ezQtDocumentTreeView;
 
-class ezScenegraphPanel : public ezDocumentPanel
+class ezQtScenegraphPanel : public ezQtGameObjectPanel
 {
   Q_OBJECT
 
 public:
-  ezScenegraphPanel(QWidget* pParent, ezSceneDocument* pDocument);
-  ~ezScenegraphPanel();
-
+  ezQtScenegraphPanel(QWidget* pParent, ezSceneDocument* pDocument);
+  ~ezQtScenegraphPanel();
 
 private:
-  void DocumentSceneEventHandler(const ezSceneDocument::SceneEvent& e);
-
-  ezSceneDocument* m_pDocument;
-  ezRawDocumentTreeWidget* m_pTreeWidget;
+  ezSceneDocument* m_pSceneDocument;
 };

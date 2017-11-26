@@ -1,16 +1,16 @@
-#pragma once
+﻿#pragma once
 
 // ***** Definition of types *****
 
-typedef unsigned char     ezUInt8;
-typedef unsigned short    ezUInt16;
-typedef unsigned int      ezUInt32;
-// ezUInt64 is defined in the compiler specific header
+typedef unsigned char      ezUInt8;
+typedef unsigned short     ezUInt16;
+typedef unsigned int       ezUInt32;
+typedef unsigned long long ezUInt64;
 
 typedef char              ezInt8;
 typedef short             ezInt16;
 typedef int               ezInt32;
-// ezInt64 is defined in the compiler specific header
+typedef long long         ezInt64;
 
 // no float-types, since those are well portable
 
@@ -57,12 +57,32 @@ public:
   bool operator== (ezResultEnum cmp) const { return e == cmp; }
   bool operator!= (ezResultEnum cmp) const { return e != cmp; }
 
-  bool Succeeded() const { return e == EZ_SUCCESS; }
-  bool Failed() const { return e == EZ_FAILURE; }
+  EZ_ALWAYS_INLINE bool Succeeded() const { return e == EZ_SUCCESS; }
+  EZ_ALWAYS_INLINE bool Failed() const { return e == EZ_FAILURE; }
 
 private:
   ezResultEnum e;
 };
+
+/// \brief Explicit conversion to ezResult, can be overloaded for arbitrary types.
+///
+/// This is intentionally not done via casting operator overload (or even additional constructors) since this usually comes with a considerable data loss.
+inline ezResult ezToResult(ezResult result)
+{
+  return result;
+}
+
+/// \brief Helper macro to call functions that return ezStatus or ezResult in a function that returns ezStatus (or ezResult) as well.
+/// If the called function fails, its return value is returned from the calling scope.
+#define EZ_SUCCEED_OR_RETURN(code) \
+  do { auto s = (code); if (ezToResult(s).Failed()) return s; } while(false)
+
+/// \brief Like EZ_SUCCEED_OR_RETURN, but with error logging.
+#define EZ_SUCCEED_OR_RETURN_LOG(code) \
+  do { auto s = (code); if (ezToResult(s).Failed()) { ezLog::Error("Call '{0}' failed with: {1}", EZ_STRINGIZE(code), s); return s; } } while(false)
+
+
+//////////////////////////////////////////////////////////////////////////
 
 class ezRTTI;
 
@@ -115,3 +135,4 @@ template <> struct ezSizeToType<6> { typedef ezUInt64 Type; };
 template <> struct ezSizeToType<7> { typedef ezUInt64 Type; };
 template <> struct ezSizeToType<8> { typedef ezUInt64 Type; };
 /// \endcond
+

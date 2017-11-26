@@ -1,6 +1,6 @@
 #include <Core/ResourceManager/ResourceManager.h>
-#include <CoreUtils/Geometry/GeomUtils.h>
-#include <CoreUtils/Graphics/Camera.h>
+#include <Core/Graphics/Geometry.h>
+#include <Core/Graphics/Camera.h>
 #include <Core/Input/InputManager.h>
 #include <Foundation/Logging/Log.h>
 #include <RendererCore/Meshes/MeshComponent.h>
@@ -11,63 +11,15 @@
 #include "AsteroidComponent.h"
 #include "CollidableComponent.h"
 #include <Foundation/IO/FileSystem/FileSystem.h>
+#include <RendererCore/Lights/DirectionalLightComponent.h>
+#include <RendererCore/Lights/AmbientLightComponent.h>
+#include <GameEngine/Collection/CollectionResource.h>
 
 extern const char* szPlayerActions[MaxPlayerActions];
-
-static ezMeshResourceHandle CreateAsteroidMesh()
-{
-  ezGeometry geom;
-  geom.AddGeodesicSphere(1.0f, 1, ezColor::White);
-  geom.ComputeFaceNormals();
-  geom.ComputeSmoothVertexNormals();
-
-  ezMeshResourceDescriptor mfb;
-
-  mfb.MeshBufferDesc().AddStream(ezGALVertexAttributeSemantic::Position, ezGALResourceFormat::XYZFloat);
-  mfb.MeshBufferDesc().AddStream(ezGALVertexAttributeSemantic::Normal, ezGALResourceFormat::XYZFloat);
-  mfb.MeshBufferDesc().AddStream(ezGALVertexAttributeSemantic::TexCoord0, ezGALResourceFormat::UVFloat);
-
-  const ezDeque<ezGeometry::Vertex>& vertices = geom.GetVertices();
-  const ezDeque<ezGeometry::Polygon>& polygons = geom.GetPolygons();
-
-  mfb.MeshBufferDesc().AllocateStreams(vertices.GetCount(), polygons.GetCount());
-
-  for (ezUInt32 v = 0; v < vertices.GetCount(); ++v)
-  {
-    mfb.MeshBufferDesc().SetVertexData<ezVec3>(0, v, vertices[v].m_vPosition);
-    mfb.MeshBufferDesc().SetVertexData<ezVec3>(1, v, vertices[v].m_vNormal);
-    mfb.MeshBufferDesc().SetVertexData<ezVec2>(2, v, ezVec2(0, 0));
-  }
-
-  for (ezUInt32 p = 0; p < polygons.GetCount(); ++p)
-  {
-    mfb.MeshBufferDesc().SetTriangleIndices(p, polygons[p].m_Vertices[0], polygons[p].m_Vertices[1], polygons[p].m_Vertices[2]);
-  }
-
-  mfb.AddSubMesh(polygons.GetCount(), 0, 0);
-  mfb.SetMaterial(0, "Materials/Asteroid.ezMaterial");
-
-  return ezResourceManager::CreateResource<ezMeshResource>("AsteroidMesh", mfb);
-}
-
-static ezMaterialResourceHandle CreateAsteroidMaterial()
-{
-  ezMaterialResourceDescriptor desc;
-  desc.m_hShader = ezResourceManager::LoadResource<ezShaderResource>("Shaders/Materials/Fullbright.ezShader");
-
-  ezMaterialResourceHandle hMaterial = ezResourceManager::CreateResource<ezMaterialResource>("AsteroidMaterial", desc);
-
-  return hMaterial;
-}
 
 Level::Level()
 {
   m_pWorld = nullptr;
-}
-
-Level::~Level()
-{
-  EZ_DEFAULT_DELETE(m_pWorld);
 }
 
 void Level::SetupLevel(ezWorld* pWorld)
@@ -75,11 +27,29 @@ void Level::SetupLevel(ezWorld* pWorld)
   m_pWorld = pWorld;
   EZ_LOCK(m_pWorld->GetWriteMarker());
 
-  m_pWorld->CreateComponentManager<ezMeshComponentManager>();
-  m_pWorld->CreateComponentManager<ShipComponentManager>();
-  m_pWorld->CreateComponentManager<ProjectileComponentManager>();
-  m_pWorld->CreateComponentManager<AsteroidComponentManager>();
-  m_pWorld->CreateComponentManager<CollidableComponentManager>();
+  // Load the collection that holds all assets and allows us to access them with nice names
+  {
+    m_hAssetCollection = ezResourceManager::LoadResource<ezCollectionResource>("{ c475e948-2e1d-4af0-b69b-d7c0bbad9130 }");
+
+    ezResourceLock<ezCollectionResource> pCollection(m_hAssetCollection, ezResourceAcquireMode::NoFallback);
+    pCollection->RegisterNames();
+  }
+
+  // Lights
+  {
+    ezGameObjectDesc obj;
+    obj.m_sName.Assign("DirLight");
+    obj.m_LocalRotation.SetFromAxisAndAngle(ezVec3(0.0f, 1.0f, 0.0f), -ezAngle::Degree(120.0f));
+
+    ezGameObject* pObj;
+    pWorld->CreateObject(obj, pObj);
+
+    ezDirectionalLightComponent* pDirLight;
+    ezDirectionalLightComponent::CreateComponent(pObj, pDirLight);
+
+    ezAmbientLightComponent* pAmbLight;
+    ezAmbientLightComponent::CreateComponent(pObj, pAmbLight);
+  }
 
   for (ezInt32 iPlayer = 0; iPlayer < MaxPlayers; ++iPlayer)
     CreatePlayerShip(iPlayer);
@@ -88,7 +58,7 @@ void Level::SetupLevel(ezWorld* pWorld)
     CreateAsteroid();
 
   m_Camera.LookAt(ezVec3(0.0f, 0.0f, 100.0f), ezVec3(0.0f), ezVec3(0, 1, 0));
-  m_Camera.SetCameraMode(ezCamera::OrthoFixedWidth, 45.0f, 0.0f, 500.0f);
+  m_Camera.SetCameraMode(ezCameraMode::OrthoFixedWidth, 45.0f, 0.0f, 500.0f);
 }
 
 void Level::UpdatePlayerInput(ezInt32 iPlayer)
@@ -105,39 +75,39 @@ void Level::UpdatePlayerInput(ezInt32 iPlayer)
 
   ezVec3 vVelocity(0.0f);
 
-  const ezQuat qRot = pShip->GetLocalRotation();
-  const ezVec3 vShipDir = qRot * ezVec3(0, 1, 0);
+  //const ezQuat qRot = pShip->GetLocalRotation();
+  //const ezVec3 vShipDir = qRot * ezVec3(0, 1, 0);
 
   ezStringBuilder sControls[MaxPlayerActions];
 
   for (ezInt32 iAction = 0; iAction < MaxPlayerActions; ++iAction)
-    sControls[iAction].Format("Player%i_%s", iPlayer, szPlayerActions[iAction]);
+    sControls[iAction].Format("Player{0}_{1}", iPlayer, szPlayerActions[iAction]);
 
 
   if (ezInputManager::GetInputActionState("Game", sControls[0].GetData(), &fVal) != ezKeyState::Up)
   {
-    ezVec3 vPos = pShip->GetLocalPosition();
+    //ezVec3 vPos = pShip->GetLocalPosition();
     //vVelocity += 0.1f * vShipDir * fVal;
     vVelocity += 0.1f * ezVec3(0, 1, 0) * fVal * 60.0f;
   }
 
   if (ezInputManager::GetInputActionState("Game", sControls[1].GetData(), &fVal) != ezKeyState::Up)
   {
-    ezVec3 vPos = pShip->GetLocalPosition();
+    //ezVec3 vPos = pShip->GetLocalPosition();
     //vVelocity -= 0.1f * vShipDir * fVal;
     vVelocity += 0.1f * ezVec3(0, -1, 0) * fVal * 60.0f;
   }
 
   if (ezInputManager::GetInputActionState("Game", sControls[2].GetData(), &fVal) != ezKeyState::Up)
   {
-    ezVec3 vPos = pShip->GetLocalPosition();
+    //ezVec3 vPos = pShip->GetLocalPosition();
     //vVelocity += 0.1f * vShipDir * fVal;
     vVelocity += 0.1f * ezVec3(-1, 0, 0) * fVal * 60.0f;
   }
 
   if (ezInputManager::GetInputActionState("Game", sControls[3].GetData(), &fVal) != ezKeyState::Up)
   {
-    ezVec3 vPos = pShip->GetLocalPosition();
+    //ezVec3 vPos = pShip->GetLocalPosition();
     //vVelocity -= 0.1f * vShipDir * fVal;
     vVelocity += 0.1f * ezVec3(1, 0, 0) * fVal * 60.0f;
   }
@@ -163,7 +133,6 @@ void Level::UpdatePlayerInput(ezInt32 iPlayer)
   if (!vVelocity.IsZero())
     pShipComponent->SetVelocity(vVelocity);
 
-
   if (ezInputManager::GetInputActionState("Game", sControls[6].GetData(), &fVal) != ezKeyState::Up)
     pShipComponent->SetIsShooting(true);
   else
@@ -182,20 +151,28 @@ void Level::CreatePlayerShip(ezInt32 iPlayer)
   m_hPlayerShips[iPlayer] = m_pWorld->CreateObject(desc, pGameObject);
 
   {
+    ezMeshComponent* pMeshComponent = nullptr;
+    ezMeshComponent::CreateComponent(pGameObject, pMeshComponent);
+
+    pMeshComponent->SetMesh(ezResourceManager::LoadResource<ezMeshResource>("ShipMesh"));
+
+    // this only works because the materials are part of the Asset Collection and get a name like this from there
+    // otherwise we would need to have the GUIDs of the 4 different material assets available
+    ezStringBuilder sMaterialName;
+    sMaterialName.Format("MaterialPlayer{0}", iPlayer + 1);
+    pMeshComponent->SetMaterial(0, ezResourceManager::LoadResource<ezMaterialResource>(sMaterialName));
+  }
+  {
     ShipComponent* pShipComponent = nullptr;
-    ezComponentHandle hShipComponent = ShipComponent::CreateComponent(m_pWorld, pShipComponent);
+    ezComponentHandle hShipComponent = ShipComponent::CreateComponent(pGameObject, pShipComponent);
 
     pShipComponent->m_iPlayerIndex = iPlayer;
-
-    pGameObject->AddComponent(hShipComponent);
   }
   {
     CollidableComponent* pCollidableComponent = nullptr;
-    ezComponentHandle hCollidableomponent = CollidableComponent::CreateComponent(m_pWorld, pCollidableComponent);
+    ezComponentHandle hCollidableomponent = CollidableComponent::CreateComponent(pGameObject, pCollidableComponent);
 
     pCollidableComponent->m_fCollisionRadius = 1.0f;
-
-    pGameObject->AddComponent(hCollidableomponent);
   }
 }
 
@@ -208,47 +185,24 @@ void Level::CreateAsteroid()
   desc.m_LocalScaling = ezVec3(1.0f + ((rand() % 1000) / 999.0f));
 
   ezGameObject* pGameObject = nullptr;
-  ezGameObjectHandle hAsteroid = m_pWorld->CreateObject(desc, pGameObject);
+  m_pWorld->CreateObject(desc, pGameObject);
 
   {
     ezMeshComponent* pMeshComponent = nullptr;
-    ezMeshComponent::CreateComponent(m_pWorld, pMeshComponent);
+    ezMeshComponent::CreateComponent(pGameObject, pMeshComponent);
 
-    if (!m_hAsteroidMesh.IsValid())
-      m_hAsteroidMesh = CreateAsteroidMesh();
-
-    if (!m_hAsteroidMaterial.IsValid())
-      m_hAsteroidMaterial = CreateAsteroidMaterial();
-
-    pMeshComponent->SetMesh(m_hAsteroidMesh);
-    pMeshComponent->SetMaterial(0, m_hAsteroidMaterial);
-
-    pGameObject->AddComponent(pMeshComponent);
+    pMeshComponent->SetMesh(ezResourceManager::LoadResource<ezMeshResource>("AsteroidMesh"));
   }
   {
     AsteroidComponent* pAsteroidComponent = nullptr;
-    AsteroidComponent::CreateComponent(m_pWorld, pAsteroidComponent);
-
-    pGameObject->AddComponent(pAsteroidComponent);
+    AsteroidComponent::CreateComponent(pGameObject, pAsteroidComponent);
   }
   {
     CollidableComponent* pCollidableComponent = nullptr;
-    CollidableComponent::CreateComponent(m_pWorld, pCollidableComponent);
+    CollidableComponent::CreateComponent(pGameObject, pCollidableComponent);
 
     pCollidableComponent->m_fCollisionRadius = desc.m_LocalScaling.x;
-
-    pGameObject->AddComponent(pCollidableComponent);
   }
 }
 
-#if 0
-void Level::Update()
-{
-  m_pWorld->TransferThreadOwnership();
 
-  m_pWorld->Update();
-
-  for (ezInt32 iPlayer = 0; iPlayer < MaxPlayers; ++iPlayer)
-    UpdatePlayerInput(iPlayer);
-}
-#endif

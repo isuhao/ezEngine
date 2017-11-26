@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <Foundation/Types/Bitflags.h>
 #include <Core/Basics.h>
@@ -38,7 +38,7 @@ struct ezInputSlotFlags
     ValueBinaryZeroOrOne      = EZ_BIT(1),  ///< The input slot will either be zero or one. Used for all buttons and keys.
     ValueRangeZeroToOne       = EZ_BIT(2),  ///< The input slot has analog values between zero and one. Used for analog axis like the xbox triggers or thumb-sticks.
     ValueRangeZeroToInf       = EZ_BIT(3),  ///< The input slot has unbounded values larger than zero. Used for all absolute positions, such as the mouse position.
-    Pressable                 = EZ_BIT(4),  ///< The slot can be pressed (e.g. a key). This is not possible for an axis, such as the mouse of an analog stick.
+    Pressable                 = EZ_BIT(4),  ///< The slot can be pressed (e.g. a key). This is not possible for an axis, such as the mouse or an analog stick.
     Holdable                  = EZ_BIT(5),  ///< The user can hold down the key. Possible for buttons, but not for axes or for wheels such as the mouse wheel.
     HalfAxis                  = EZ_BIT(6),  ///< The input slot represents one half of the actually possible data. Used for all axes (pos / neg mouse movement, thumb-sticks).
     FullAxis                  = EZ_BIT(7),  ///< The input slot represents one full axis. Mostly used for devices that report absolute values, such as the mouse position or touch input positions (values between zero and one) 
@@ -56,9 +56,10 @@ struct ezInputSlotFlags
     IsMouseAxisMove           = ReportsRelativeValues | ValueRangeZeroToInf  |                        HalfAxis |                    NeverTimeScale,
     IsAnalogStick             =                         ValueRangeZeroToOne  |             Holdable | HalfAxis | RequiresDeadZone,
     IsDoubleClick             =                         ValueBinaryZeroOrOne | Pressable |                                          NeverTimeScale,
-    IsTouchPosition           =                         ValueRangeZeroToOne  |                        FullAxis |                    NeverTimeScale |        ValuesAreNonContinuous,
-    IsTouchPoint              =                         ValueBinaryZeroOrOne | Pressable | Holdable |                                                       ActivationDependsOnOthers,
+    IsTouchPosition           =                         ValueRangeZeroToOne  |                        FullAxis |                    NeverTimeScale | ValuesAreNonContinuous,
+    IsTouchPoint              =                         ValueBinaryZeroOrOne | Pressable | Holdable |                                                ActivationDependsOnOthers,
     IsDPad                    =                         ValueBinaryZeroOrOne | Pressable | Holdable | HalfAxis,
+    IsTrackedValue            =                         ValueRangeZeroToInf  |                        HalfAxis                                     | ValuesAreNonContinuous,
 
     Default                   = None
   };
@@ -82,6 +83,10 @@ struct ezInputSlotFlags
 EZ_DECLARE_FLAGS_OPERATORS(ezInputSlotFlags);
 
 #define ezInputSlot_None                  ""
+
+//
+// Touchpads
+//
 
 #define ezInputSlot_TouchPoint0           "touchpoint_0"
 #define ezInputSlot_TouchPoint0_PositionX "touchpoint_0_position_x"
@@ -122,6 +127,10 @@ EZ_DECLARE_FLAGS_OPERATORS(ezInputSlotFlags);
 #define ezInputSlot_TouchPoint9           "touchpoint_9"
 #define ezInputSlot_TouchPoint9_PositionX "touchpoint_9_position_x"
 #define ezInputSlot_TouchPoint9_PositionY "touchpoint_9_position_y"
+
+//
+// Standard Controllers
+//
 
 #define ezInputSlot_Controller0_ButtonA         "controller0_button_a"
 #define ezInputSlot_Controller0_ButtonB         "controller0_button_b"
@@ -223,7 +232,9 @@ EZ_DECLARE_FLAGS_OPERATORS(ezInputSlotFlags);
 #define ezInputSlot_Controller3_RightStick_NegY "controller3_rightstick_negy"
 #define ezInputSlot_Controller3_RightStick_PosY "controller3_rightstick_posy"
 
-
+//
+// Keyboard
+//
 
 #define ezInputSlot_KeyLeft           "keyboard_left"
 #define ezInputSlot_KeyRight          "keyboard_right"
@@ -338,6 +349,10 @@ EZ_DECLARE_FLAGS_OPERATORS(ezInputSlotFlags);
 #define ezInputSlot_KeyVolumeDown     "keyboard_volume_down"
 #define ezInputSlot_KeyMute           "keyboard_mute"
 
+//
+// Mouse
+//
+
 #define ezInputSlot_MouseWheelUp      "mouse_wheel_up"
 #define ezInputSlot_MouseWheelDown    "mouse_wheel_down"
 #define ezInputSlot_MouseMoveNegX     "mouse_move_negx"
@@ -355,3 +370,45 @@ EZ_DECLARE_FLAGS_OPERATORS(ezInputSlotFlags);
 #define ezInputSlot_MousePositionX    "mouse_position_x"
 #define ezInputSlot_MousePositionY    "mouse_position_y"
 
+//
+// Spatial Input Data (Tracked Hands or Controllers)
+//
+
+#define ezInputSlot_Spatial_Hand0_Tracked "spatial_hand0_tracked"
+#define ezInputSlot_Spatial_Hand0_Pressed "spatial_hand0_pressed"
+#define ezInputSlot_Spatial_Hand0_PositionPosX "spatial_hand0_position_posx"
+#define ezInputSlot_Spatial_Hand0_PositionPosY "spatial_hand0_position_posy"
+#define ezInputSlot_Spatial_Hand0_PositionPosZ "spatial_hand0_position_posz"
+#define ezInputSlot_Spatial_Hand0_PositionNegX "spatial_hand0_position_negx"
+#define ezInputSlot_Spatial_Hand0_PositionNegY "spatial_hand0_position_negy"
+#define ezInputSlot_Spatial_Hand0_PositionNegZ "spatial_hand0_position_negz"
+
+#define ezInputSlot_Spatial_Hand1_Tracked "spatial_hand1_tracked"
+#define ezInputSlot_Spatial_Hand1_Pressed "spatial_hand1_pressed"
+#define ezInputSlot_Spatial_Hand1_PositionPosX "spatial_hand1_position_posx"
+#define ezInputSlot_Spatial_Hand1_PositionPosY "spatial_hand1_position_posy"
+#define ezInputSlot_Spatial_Hand1_PositionPosZ "spatial_hand1_position_posz"
+#define ezInputSlot_Spatial_Hand1_PositionNegX "spatial_hand1_position_negx"
+#define ezInputSlot_Spatial_Hand1_PositionNegY "spatial_hand1_position_negy"
+#define ezInputSlot_Spatial_Hand1_PositionNegZ "spatial_hand1_position_negz"
+
+#define ezInputSlot_Spatial_Head_PositionPosX "spatial_head_position_posx"
+#define ezInputSlot_Spatial_Head_PositionPosY "spatial_head_position_posy"
+#define ezInputSlot_Spatial_Head_PositionPosZ "spatial_head_position_posz"
+#define ezInputSlot_Spatial_Head_PositionNegX "spatial_head_position_negx"
+#define ezInputSlot_Spatial_Head_PositionNegY "spatial_head_position_negy"
+#define ezInputSlot_Spatial_Head_PositionNegZ "spatial_head_position_negz"
+
+#define ezInputSlot_Spatial_Head_ForwardPosX "spatial_head_forward_posx"
+#define ezInputSlot_Spatial_Head_ForwardPosY "spatial_head_forward_posy"
+#define ezInputSlot_Spatial_Head_ForwardPosZ "spatial_head_forward_posz"
+#define ezInputSlot_Spatial_Head_ForwardNegX "spatial_head_forward_negx"
+#define ezInputSlot_Spatial_Head_ForwardNegY "spatial_head_forward_negy"
+#define ezInputSlot_Spatial_Head_ForwardNegZ "spatial_head_forward_negz"
+
+#define ezInputSlot_Spatial_Head_UpPosX "spatial_head_up_posx"
+#define ezInputSlot_Spatial_Head_UpPosY "spatial_head_up_posy"
+#define ezInputSlot_Spatial_Head_UpPosZ "spatial_head_up_posz"
+#define ezInputSlot_Spatial_Head_UpNegX "spatial_head_up_negx"
+#define ezInputSlot_Spatial_Head_UpNegY "spatial_head_up_negy"
+#define ezInputSlot_Spatial_Head_UpNegZ "spatial_head_up_negz"

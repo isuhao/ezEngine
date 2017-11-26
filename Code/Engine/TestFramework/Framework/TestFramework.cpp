@@ -1,23 +1,39 @@
-#include <TestFramework/PCH.h>
-#include <TestFramework/Framework/TestFramework.h>
+﻿#include <PCH.h>
 #include <TestFramework/Utilities/TestOrder.h>
-#include <Foundation/Logging/Log.h>
-#include <Foundation/Time/Timestamp.h>
-#include <Foundation/Configuration/Startup.h>
-#include <Foundation/IO/OSFile.h>
-#include <Foundation/Utilities/CommandLineUtils.h>
-#include <Foundation/Strings/StringBuilder.h>
-#include <CoreUtils/Image/Image.h>
-#include <CoreUtils/Image/ImageUtils.h>
-#include <CoreUtils/Image/ImageConversion.h>
+#include <Foundation/Logging/VisualStudioWriter.h>
+#include <Foundation/Utilities/StackTracer.h>
+
+#ifdef EZ_TESTFRAMEWORK_USE_FILESERVE
+#include <FileservePlugin/Plugin.h>
+#include <FileservePlugin/Client/FileserveClient.h>
+#include <FileservePlugin/Client/FileserveDataDir.h>
+#endif
 
 ezTestFramework* ezTestFramework::s_pInstance = nullptr;
 
 const char* ezTestFramework::s_szTestBlockName = "";
 int ezTestFramework::s_iAssertCounter = 0;
+bool ezTestFramework::s_bCallstackOnAssert = false;
+
+static void PrintCallstack(const char* szText)
+{
+  printf("%s", szText);
+#if EZ_ENABLED(EZ_PLATFORM_WINDOWS)
+  OutputDebugStringW(ezStringWChar(szText).GetData());
+#endif
+  fflush(stdout);
+  fflush(stderr);
+};
 
 static bool TestAssertHandler(const char* szSourceFile, ezUInt32 uiLine, const char* szFunction, const char* szExpression, const char* szAssertMsg)
 {
+  if (ezTestFramework::s_bCallstackOnAssert)
+  {
+    void* pBuffer[64];
+    ezArrayPtr<void*> tempTrace(pBuffer);
+    const ezUInt32 uiNumTraces = ezStackTracer::GetStackTrace(tempTrace, nullptr);
+    ezStackTracer::ResolveStackTrace(tempTrace.GetSubArray(0, uiNumTraces), &PrintCallstack);
+  }
   ezTestFramework::Error(szExpression, szSourceFile, (ezInt32)uiLine, szFunction, szAssertMsg);
 
 #if EZ_ENABLED(EZ_PLATFORM_WINDOWS)
@@ -34,11 +50,35 @@ static bool TestAssertHandler(const char* szSourceFile, ezUInt32 uiLine, const c
 ////////////////////////////////////////////////////////////////////////
 
 ezTestFramework::ezTestFramework(const char* szTestName, const char* szAbsTestDir, int argc, const char** argv)
-  : m_sTestName(szTestName), m_sAbsTestDir(szAbsTestDir), m_iErrorCount(0), m_iTestsFailed(0), m_iTestsPassed(0), m_PreviousAssertHandler(nullptr), m_iCurrentTestIndex(-1), m_iCurrentSubTestIndex(-1), m_bTestsRunning(false)
+  : m_sTestName(szTestName), m_sAbsTestDir(szAbsTestDir), m_iErrorCount(0), m_iTestsFailed(0), m_iTestsPassed(0), m_PreviousAssertHandler(nullptr), m_iCurrentTestIndex(-1), m_iCurrentSubTestIndex(-1), m_bTestsRunning(false), m_bIsInitialized(false)
 {
   s_pInstance = this;
 
+  ezCommandLineUtils::GetGlobalInstance()->SetCommandLine(argc, argv);
+
   GetTestSettingsFromCommandLine(argc, argv);
+}
+
+ezTestFramework::~ezTestFramework()
+{
+  if (m_bIsInitialized)
+    DeInitialize();
+  s_pInstance = nullptr;
+}
+
+void ezTestFramework::Initialize()
+{
+  // Don't do this, it will spam the log with sub-system messages
+  //ezGlobalLog::AddLogWriter(ezLogWriter::Console::LogMessageHandler);
+  //ezGlobalLog::AddLogWriter(ezLogWriter::VisualStudio::LogMessageHandler);
+
+  ezStartup::AddApplicationTag("testframework");
+  ezStartup::StartupCore();
+
+  // if tests need to write data back through Fileserve (e.g. image comparison results), they can do that through a data dir mounted with this path
+  ezFileSystem::SetSpecialDirectory("eztest", ezTestFramework::GetInstance()->GetAbsOutputPath());
+
+  CreateOutputFolder();
 
   // figure out which tests exist
   GatherAllTests();
@@ -48,11 +88,15 @@ ezTestFramework::ezTestFramework(const char* szTestName, const char* szAbsTestDi
 
   // save the current order back to the same file
   SaveTestOrder();
+
+  m_bIsInitialized = true;
+
+  ezFileSystem::DetectSdkRootDirectory();
 }
 
-ezTestFramework::~ezTestFramework()
+void ezTestFramework::DeInitialize()
 {
-  s_pInstance = nullptr;
+  m_bIsInitialized = false;
 }
 
 const char* ezTestFramework::GetTestName() const
@@ -143,28 +187,25 @@ void ezTestFramework::GatherAllTests()
 
 void ezTestFramework::GetTestSettingsFromCommandLine(int argc, const char** argv)
 {
-  ezStartup::StartupBase();
-  {
-    ezCommandLineUtils cmd;
-    cmd.SetCommandLine(argc, argv);
+  ezCommandLineUtils cmd;
+  cmd.SetCommandLine(argc, argv);
 
-    m_Settings.m_bRunTests         = cmd.GetBoolOption("-run", false);
-    m_Settings.m_bNoSaving         = cmd.GetBoolOption("-nosave", false);
-    m_Settings.m_bCloseOnSuccess   = cmd.GetBoolOption("-close", false);
-    m_Settings.m_bNoGUI            = cmd.GetBoolOption("-nogui", false);
+  m_Settings.m_bRunTests = cmd.GetBoolOption("-run", false);
+  m_Settings.m_bNoSaving = cmd.GetBoolOption("-nosave", false);
+  m_Settings.m_bCloseOnSuccess = cmd.GetBoolOption("-close", false);
+  m_Settings.m_bNoGUI = cmd.GetBoolOption("-nogui", false);
 
-    m_Settings.m_bAssertOnTestFail = cmd.GetBoolOption("-assert", m_Settings.m_bAssertOnTestFail);
-    m_Settings.m_bOpenHtmlOutput   = cmd.GetBoolOption("-html", m_Settings.m_bOpenHtmlOutput);
-    m_Settings.m_bKeepConsoleOpen  = cmd.GetBoolOption("-console", m_Settings.m_bKeepConsoleOpen);
-    m_Settings.m_bShowMessageBox   = cmd.GetBoolOption("-msgbox", m_Settings.m_bShowMessageBox);
-    m_Settings.m_iRevision         = cmd.GetIntOption("-rev", -1);
-    m_Settings.m_bEnableAllTests   = cmd.GetBoolOption("-all", false);
-    m_Settings.m_uiFullPasses      = cmd.GetIntOption("-passes", 1, false);
-    if (cmd.GetStringOptionArguments("-json") == 1)
-      m_Settings.m_sJsonOutput     = cmd.GetStringOption("-json", 0, "");
+  m_Settings.m_bAssertOnTestFail = cmd.GetBoolOption("-assert", m_Settings.m_bAssertOnTestFail);
+  m_Settings.m_bOpenHtmlOutput = cmd.GetBoolOption("-html", m_Settings.m_bOpenHtmlOutput);
+  m_Settings.m_bKeepConsoleOpen = cmd.GetBoolOption("-console", m_Settings.m_bKeepConsoleOpen);
+  m_Settings.m_bShowMessageBox = cmd.GetBoolOption("-msgbox", m_Settings.m_bShowMessageBox);
+  m_Settings.m_iRevision = cmd.GetIntOption("-rev", -1);
+  m_Settings.m_bEnableAllTests = cmd.GetBoolOption("-all", false);
+  m_Settings.m_uiFullPasses = cmd.GetIntOption("-passes", 1, false);
+  if (cmd.GetStringOptionArguments("-json") == 1)
+    m_Settings.m_sJsonOutput = cmd.GetStringOption("-json", 0, "");
 
-    m_uiPassesLeft = m_Settings.m_uiFullPasses;
-  }
+  m_uiPassesLeft = m_Settings.m_uiFullPasses;
 }
 
 void ezTestFramework::LoadTestOrder()
@@ -177,16 +218,15 @@ void ezTestFramework::LoadTestOrder()
 
 void ezTestFramework::CreateOutputFolder()
 {
-  ezStartup::StartupBase();
   ezOSFile::CreateDirectoryStructure(m_sAbsTestDir.c_str());
+
+  EZ_ASSERT_RELEASE(ezOSFile::ExistsDirectory(m_sAbsTestDir.c_str()), "Failed to create output directory '{0}'", m_sAbsTestDir.c_str());
 }
 
 void ezTestFramework::SaveTestOrder()
 {
   if (m_Settings.m_bNoSaving)
     return;
-
-  CreateOutputFolder();
 
   std::string sTestSettingsFile = m_sAbsTestDir + std::string("/TestSettings.txt");
   ::SaveTestOrder(sTestSettingsFile.c_str(), m_TestEntries, m_Settings);
@@ -206,6 +246,25 @@ void ezTestFramework::SetAllTestsEnabledStatus(bool bEnable)
   }
 }
 
+void ezTestFramework::SetAllFailedTestsEnabledStatus()
+{
+  const auto& LastResult = GetTestResult();
+
+  const ezUInt32 uiTestCount = GetTestCount();
+  for (ezUInt32 uiTestIdx = 0; uiTestIdx < uiTestCount; ++uiTestIdx)
+  {
+    const auto& TestRes = LastResult.GetTestResultData(uiTestIdx, -1);
+    m_TestEntries[uiTestIdx].m_bEnableTest = TestRes.m_bExecuted && !TestRes.m_bSuccess;
+
+    const ezUInt32 uiSubTestCount = (ezUInt32)m_TestEntries[uiTestIdx].m_SubTests.size();
+    for (ezUInt32 uiSubTest = 0; uiSubTest < uiSubTestCount; ++uiSubTest)
+    {
+      const auto& SubTestRes = LastResult.GetTestResultData(uiTestIdx, uiSubTest);
+      m_TestEntries[uiTestIdx].m_SubTests[uiSubTest].m_bEnableTest = SubTestRes.m_bExecuted && !SubTestRes.m_bSuccess;
+    }
+  }
+}
+
 void ezTestFramework::ResetTests()
 {
   m_iErrorCount = 0;
@@ -221,6 +280,34 @@ void ezTestFramework::ResetTests()
 
 ezTestAppRun ezTestFramework::RunTestExecutionLoop()
 {
+  if (!m_bIsInitialized)
+  {
+    Initialize();
+
+#ifdef EZ_TESTFRAMEWORK_USE_FILESERVE
+    if (ezFileserveClient::GetSingleton() == nullptr)
+    {
+      EZ_DEFAULT_NEW(ezFileserveClient);
+
+      if (ezFileserveClient::GetSingleton()->SearchForServerAddress().Failed())
+      {
+        ezFileserveClient::GetSingleton()->WaitForServerInfo();
+      }
+    }
+
+    if (ezFileserveClient::GetSingleton()->EnsureConnected(ezTime::Seconds(-30)).Failed())
+    {
+      Error("Failed to establish a Fileserve connection", "", 0, "ezTestFramework::RunTestExecutionLoop", "");
+      return ezTestAppRun::Quit;
+    }
+#endif
+  }
+
+#ifdef EZ_TESTFRAMEWORK_USE_FILESERVE
+  ezFileserveClient::GetSingleton()->UpdateClient();
+#endif
+
+
   if (m_iExecutingTest < 0)
   {
     StartTests();
@@ -231,7 +318,7 @@ ezTestAppRun ezTestFramework::RunTestExecutionLoop()
 
   ExecuteNextTest();
 
-  if (m_iExecutingTest >= (ezInt32) m_TestEntries.size())
+  if (m_iExecutingTest >= (ezInt32)m_TestEntries.size())
   {
     EndTests();
 
@@ -244,6 +331,14 @@ ezTestAppRun ezTestFramework::RunTestExecutionLoop()
 
       return ezTestAppRun::Continue;
     }
+
+#ifdef EZ_TESTFRAMEWORK_USE_FILESERVE
+    if (ezFileserveClient* pClient = ezFileserveClient::GetSingleton())
+    {
+      // shutdown the fileserve client
+      EZ_DEFAULT_DELETE(pClient);
+    }
+#endif
 
     return ezTestAppRun::Quit;
   }
@@ -315,7 +410,7 @@ void ezTestFramework::ExecuteNextTest()
     {
       if (m_bAbortTests)
       {
-        m_iExecutingTest = (ezInt32) m_TestEntries.size(); // skip to the end of all tests
+        m_iExecutingTest = (ezInt32)m_TestEntries.size(); // skip to the end of all tests
         m_iExecutingSubTest = -1;
         return;
       }
@@ -336,11 +431,11 @@ void ezTestFramework::ExecuteNextTest()
       // *** Test Initialization ***
       if (pTestClass->DoTestInitialization().Failed())
       {
-        m_iExecutingSubTest = (ezInt32) TestEntry.m_SubTests.size(); // make sure all subtests are skipped
+        m_iExecutingSubTest = (ezInt32)TestEntry.m_SubTests.size(); // make sure all subtests are skipped
       }
     }
 
-    if (m_iExecutingSubTest < (ezInt32) TestEntry.m_SubTests.size())
+    if (m_iExecutingSubTest < (ezInt32)TestEntry.m_SubTests.size())
     {
       ezSubTestEntry& subTest = TestEntry.m_SubTests[m_iExecutingSubTest];
       ezInt32 iSubTestIdentifier = subTest.m_iSubTestIdentifier;
@@ -359,7 +454,7 @@ void ezTestFramework::ExecuteNextTest()
         {
           // tests shall be aborted, so do not start a new one
 
-          m_iExecutingTest = (ezInt32) m_TestEntries.size(); // skip to the end of all tests
+          m_iExecutingTest = (ezInt32)m_TestEntries.size(); // skip to the end of all tests
           m_iExecutingSubTest = -1;
           return;
         }
@@ -413,7 +508,7 @@ void ezTestFramework::ExecuteNextTest()
       }
     }
 
-    if (m_iExecutingSubTest >= (ezInt32) TestEntry.m_SubTests.size())
+    if (m_iExecutingSubTest >= (ezInt32)TestEntry.m_SubTests.size())
     {
       // *** Test De-Initialization ***
       pTestClass->DoTestDeInitialization();
@@ -619,9 +714,9 @@ void ezTestFramework::TestResultImpl(ezInt32 iSubTestIndex, bool bSuccess, doubl
 {
   m_Result.TestResult(m_iCurrentTestIndex, iSubTestIndex, bSuccess, fDuration);
 
-  const ezUInt32 uiMin = (ezUInt32) (fDuration / 1000.0 / 60.0);
-  const ezUInt32 uiSec = (ezUInt32) (fDuration / 1000.0 - uiMin * 60.0);
-  const ezUInt32 uiMS  = (ezUInt32) (fDuration - uiSec * 1000.0);
+  const ezUInt32 uiMin = (ezUInt32)(fDuration / 1000.0 / 60.0);
+  const ezUInt32 uiSec = (ezUInt32)(fDuration / 1000.0 - uiMin * 60.0);
+  const ezUInt32 uiMS = (ezUInt32)(fDuration - uiSec * 1000.0);
 
   ezTestFramework::Output(ezTestOutput::Duration, "%i:%02i:%03i", uiMin, uiSec, uiMS);
 
@@ -666,7 +761,7 @@ bool ezTestFramework::CompareImages(ezUInt32 uiMaxError, char* szErrorMsg)
   const char* szSubTestName = GetTest(GetCurrentTestIndex())->m_SubTests[GetCurrentSubTestIndex()].m_szSubTestName;
 
   ezStringBuilder sImgName, sImgPathReference, sImgPathResult;
-  sImgName.Format("%s_%s_%03i", szTestName, szSubTestName, m_iImageCounter);
+  sImgName.Format("{0}_{1}_{2}", szTestName, szSubTestName, ezArgI(m_iImageCounter, 3, true));
   ++m_iImageCounter;
 
   ezImage img, imgRGB, imgSmall;
@@ -676,7 +771,7 @@ bool ezTestFramework::CompareImages(ezUInt32 uiMaxError, char* szErrorMsg)
     return false;
   }
 
-  if (ezImageConversionBase::Convert(img, imgRGB, ezImageFormat::B8G8R8_UNORM).Failed())
+  if (ezImageConversion::Convert(img, imgRGB, ezImageFormat::B8G8R8_UNORM).Failed())
   {
     safeprintf(szErrorMsg, 512, "Captured Image '%s' could not be converted to BGR8", sImgName.GetData());
     return false;
@@ -684,8 +779,8 @@ bool ezTestFramework::CompareImages(ezUInt32 uiMaxError, char* szErrorMsg)
 
   ezImageUtils::ScaleDownHalf(imgRGB, imgSmall);
 
-  sImgPathReference.Format("Images_Reference/%s.tga", sImgName.GetData());
-  sImgPathResult.Format("Images_Result/%s.tga", sImgName.GetData());
+  sImgPathReference.Format("Images_Reference/{0}.tga", sImgName);
+  sImgPathResult.Format(":imgout/Images_Result/{0}.tga", sImgName);
 
   ezImage imgExp, imgExpRGB;
   if (imgExp.LoadFrom(sImgPathReference).Failed())
@@ -696,12 +791,19 @@ bool ezTestFramework::CompareImages(ezUInt32 uiMaxError, char* szErrorMsg)
     return false;
   }
 
-  if (ezImageConversionBase::Convert(imgExp, imgExpRGB, ezImageFormat::B8G8R8_UNORM).Failed())
+  if (ezImageConversion::Convert(imgExp, imgExpRGB, ezImageFormat::B8G8R8_UNORM).Failed())
   {
     imgSmall.SaveTo(sImgPathResult);
 
     safeprintf(szErrorMsg, 512, "Comparison Image '%s' could not be converted to BGR8", sImgPathReference.GetData());
     return false;
+  }
+
+  if (imgSmall.GetWidth() != imgExpRGB.GetWidth() || imgSmall.GetHeight() != imgExpRGB.GetHeight())
+  {
+    ezImage imgSameSize;
+    ezImageUtils::ScaleDownArbitrary(imgSmall, imgExpRGB.GetWidth(), imgExpRGB.GetHeight(), imgSameSize);
+    imgSmall = imgSameSize;
   }
 
   ezImage imgDiff;
@@ -714,7 +816,7 @@ bool ezTestFramework::CompareImages(ezUInt32 uiMaxError, char* szErrorMsg)
     imgSmall.SaveTo(sImgPathResult);
 
     ezStringBuilder sImgDiffName;
-    sImgDiffName.Format("Images_Diff/%s.tga", sImgName.GetData());
+    sImgDiffName.Format(":imgout/Images_Diff/{0}.tga", sImgName);
 
     imgDiff.SaveTo(sImgDiffName);
 

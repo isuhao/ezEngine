@@ -8,10 +8,11 @@
 /// Works on all platforms that provide the XINPUT API.
 class EZ_INPUTXBOX360_DLL ezInputDeviceXBox360 : public ezInputDeviceController
 {
-  EZ_ADD_DYNAMIC_REFLECTION(ezInputDeviceXBox360);
+  EZ_ADD_DYNAMIC_REFLECTION(ezInputDeviceXBox360, ezInputDeviceController);
 
 public:
   ezInputDeviceXBox360();
+  ~ezInputDeviceXBox360();
 
   /// \brief Returns an ezInputDeviceXBox360 device.
   static ezInputDeviceXBox360* GetDevice();

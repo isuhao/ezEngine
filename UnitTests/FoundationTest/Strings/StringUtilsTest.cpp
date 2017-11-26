@@ -134,13 +134,15 @@ EZ_CREATE_SIMPLE_TEST(Strings, StringUtils)
     EZ_TEST_INT(ezStringUtils::Copy(szDest, 10, szUTF8), 9);
     EZ_TEST_BOOL(ezStringUtils::IsEqual(szDest, szUTF8));
 
+    // These tests are disabled as previously valid behavior was now turned into an assert.
+    // Comment them in to test the assert.
     // too small 1
-    EZ_TEST_INT(ezStringUtils::Copy(szDest, 9, szUTF8), 7);
+    /*EZ_TEST_INT(ezStringUtils::Copy(szDest, 9, szUTF8), 7);
     EZ_TEST_BOOL(ezStringUtils::IsEqualN(szDest, szUTF8, 5)); // one character less
 
     // too small 2
     EZ_TEST_INT(ezStringUtils::Copy(szDest, 7, szUTF8), 4);
-    EZ_TEST_BOOL(ezStringUtils::IsEqualN(szDest, szUTF8, 4)); // two characters less
+    EZ_TEST_BOOL(ezStringUtils::IsEqualN(szDest, szUTF8, 4)); // two characters less*/
 
 
     // copy only from a subset
@@ -597,7 +599,7 @@ EZ_CREATE_SIMPLE_TEST(Strings, StringUtils)
     const char* sz = "abc def ghi";
     EZ_TEST_BOOL(ezStringUtils::EndsWith_NoCase(sz, "ABC", sz + 3) == true);
     EZ_TEST_BOOL(ezStringUtils::EndsWith_NoCase(sz, "DEF", sz + 7) == true);
-    EZ_TEST_BOOL(ezStringUtils::EndsWith_NoCase(sz, "DEF", sz + 8) == false);  
+    EZ_TEST_BOOL(ezStringUtils::EndsWith_NoCase(sz, "DEF", sz + 8) == false);
   }
 
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "FindSubString")
@@ -628,7 +630,7 @@ EZ_CREATE_SIMPLE_TEST(Strings, StringUtils)
     EZ_TEST_BOOL(ezStringUtils::FindSubString(s.GetData(), "abc2", s.GetData() + 34) == &s.GetData()[30]);
     EZ_TEST_BOOL(ezStringUtils::FindSubString(s.GetData(), "abc2", s.GetData() + 33) == nullptr);
   }
-  
+
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "FindSubString_NoCase")
   {
     ezStringUtf8 s(L"abc def ghi äöü jkl ßßß abc2 def2 ghi2 äöü2 ß");
@@ -767,15 +769,10 @@ EZ_CREATE_SIMPLE_TEST(Strings, StringUtils)
     EZ_TEST_BOOL(ezStringUtils::IsWhiteSpace('\r'));
     EZ_TEST_BOOL(ezStringUtils::IsWhiteSpace('\v'));
 
-    for (ezUInt32 i = 0; i < 256; ++i)
-    {
-      if (i == ' ' ||
-          i == '\t' ||
-          i == '\v' ||
-          i == '\n' ||
-          i == '\r')
-          continue;
+    EZ_TEST_BOOL(ezStringUtils::IsWhiteSpace('\0') == false);
 
+    for (ezUInt32 i = 33; i < 256; ++i)
+    {
       EZ_TEST_BOOL(ezStringUtils::IsWhiteSpace(i) == false);
     }
   }
@@ -792,7 +789,7 @@ EZ_CREATE_SIMPLE_TEST(Strings, StringUtils)
 
       const bool bCode = alpha || alpha2 || num || underscore;
       const bool bWord = bCode || dash;
-      
+
 
       EZ_TEST_BOOL(ezStringUtils::IsWordDelimiter_English(i) == !bWord);
       EZ_TEST_BOOL(ezStringUtils::IsIdentifierDelimiter_C_Code(i) == !bCode);

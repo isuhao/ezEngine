@@ -1,9 +1,9 @@
-#pragma once
+﻿#pragma once
 
 #include <Foundation/Math/Mat4.h>
 
 template<typename Type>
-EZ_FORCE_INLINE ezBoundingBoxTemplate<Type>::ezBoundingBoxTemplate()
+EZ_ALWAYS_INLINE ezBoundingBoxTemplate<Type>::ezBoundingBoxTemplate()
 {
 }
 
@@ -19,7 +19,7 @@ EZ_FORCE_INLINE void ezBoundingBoxTemplate<Type>::SetElements(const ezVec3Templa
   m_vMin = vMin;
   m_vMax = vMax;
 
-  EZ_ASSERT_DEBUG(IsValid(), "The given values did not create a valid bounding box (%.2f | %.2f | %.2f - %.2f | %.2f | %.2f)", vMin.x, vMin.y, vMin.z, vMax.x, vMax.y, vMax.z);
+  EZ_ASSERT_DEBUG(IsValid(), "The given values did not create a valid bounding box ({0} | {1} | {2} - {3} | {4} | {5})", ezArgF(vMin.x, 2), ezArgF(vMin.y, 2), ezArgF(vMin.z, 2), ezArgF(vMax.x, 2), ezArgF(vMax.y, 2), ezArgF(vMax.z, 2));
 }
 
 template<typename Type>
@@ -52,7 +52,7 @@ EZ_FORCE_INLINE const ezVec3Template<Type> ezBoundingBoxTemplate<Type>::GetCente
 }
 
 template<typename Type>
-EZ_FORCE_INLINE const ezVec3Template<Type> ezBoundingBoxTemplate<Type>::GetExtents() const
+EZ_ALWAYS_INLINE const ezVec3Template<Type> ezBoundingBoxTemplate<Type>::GetExtents() const
 {
   return m_vMax - m_vMin;
 }
@@ -221,7 +221,7 @@ bool ezBoundingBoxTemplate<Type>::Overlaps(const ezVec3Template<Type>* pPoints, 
 }
 
 template<typename Type>
-EZ_FORCE_INLINE bool ezBoundingBoxTemplate<Type>::IsIdentical(const ezBoundingBoxTemplate<Type>& rhs) const
+EZ_ALWAYS_INLINE bool ezBoundingBoxTemplate<Type>::IsIdentical(const ezBoundingBoxTemplate<Type>& rhs) const
 {
   return (m_vMin == rhs.m_vMin && m_vMax == rhs.m_vMax);
 }
@@ -233,13 +233,13 @@ bool ezBoundingBoxTemplate<Type>::IsEqual(const ezBoundingBoxTemplate<Type>& rhs
 }
 
 template<typename Type>
-EZ_FORCE_INLINE bool operator== (const ezBoundingBoxTemplate<Type>& lhs, const ezBoundingBoxTemplate<Type>& rhs)
+EZ_ALWAYS_INLINE bool operator== (const ezBoundingBoxTemplate<Type>& lhs, const ezBoundingBoxTemplate<Type>& rhs)
 {
   return lhs.IsIdentical(rhs);
 }
 
 template<typename Type>
-EZ_FORCE_INLINE bool operator!= (const ezBoundingBoxTemplate<Type>& lhs, const ezBoundingBoxTemplate<Type>& rhs)
+EZ_ALWAYS_INLINE bool operator!= (const ezBoundingBoxTemplate<Type>& lhs, const ezBoundingBoxTemplate<Type>& rhs)
 {
   return !lhs.IsIdentical(rhs);
 }
@@ -255,15 +255,15 @@ template<typename Type>
 void ezBoundingBoxTemplate<Type>::ScaleFromCenter(const ezVec3Template<Type>& vScale)
 {
   const ezVec3Template<Type> vCenter = GetCenter();
-  m_vMin = vCenter + (m_vMin - vCenter).CompMult(vScale);
-  m_vMax = vCenter + (m_vMax - vCenter).CompMult(vScale);
+  m_vMin = vCenter + (m_vMin - vCenter).CompMul(vScale);
+  m_vMax = vCenter + (m_vMax - vCenter).CompMul(vScale);
 }
 
 template<typename Type>
 EZ_FORCE_INLINE void ezBoundingBoxTemplate<Type>::ScaleFromOrigin(const ezVec3Template<Type>& vScale)
 {
-  m_vMin = m_vMin.CompMult(vScale);
-  m_vMax = m_vMax.CompMult(vScale);
+  m_vMin = m_vMin.CompMul(vScale);
+  m_vMax = m_vMax.CompMul(vScale);
 }
 
 template<typename Type>

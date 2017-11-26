@@ -1,5 +1,5 @@
-
-#include <System/PCH.h>
+﻿
+#include <PCH.h>
 #include <System/Window/Window.h>
 #include <Foundation/Math/Size.h>
 
@@ -38,11 +38,13 @@ ezResult ezWindow::Initialize()
   context.antialiasingLevel = 0;
 
   m_WindowHandle->create(Mode, m_CreationDescription.m_Title.GetData(), uiStyle, context);
-  
+
   m_bInitialized = true;
   ezLog::Success("Created window successfully.");
 
   m_pInputDevice = EZ_DEFAULT_NEW(ezStandardInputDevice)(m_WindowHandle, m_CreationDescription.m_uiWindowNumber);
+  m_pInputDevice->SetClipMouseCursor(m_CreationDescription.m_bClipMouseCursor);
+  m_pInputDevice->SetShowMouseCursor(m_CreationDescription.m_bShowMouseCursor);
 
   // make sure the system knows about the actual window dimensions (especially for fullscreen windows)
   OnResizeMessage(ezSizeU32(m_WindowHandle->getSize().x, m_WindowHandle->getSize().y));
@@ -52,7 +54,7 @@ ezResult ezWindow::Initialize()
 
 ezResult ezWindow::Destroy()
 {
-  EZ_DEFAULT_DELETE(m_pInputDevice);
+  m_pInputDevice = nullptr;
 
   DestroyGraphicsContext();
 
@@ -131,4 +133,10 @@ ezResult ezWindow::DestroyGraphicsContext()
 
   return EZ_FAILURE;
 }
+
+void ezWindow::OnResizeMessage(const ezSizeU32& newWindowSize)
+{
+  ezLog::Info("Window resized to ({0}, {1})", newWindowSize.width, newWindowSize.height);
+}
+
 

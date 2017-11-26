@@ -5,9 +5,9 @@
 #include <Foundation/IO/OSFile.h>
 #include <qgraphicsitem.h>
 
-ezFileWidget* ezFileWidget::s_pWidget = nullptr;
+ezQtFileWidget* ezQtFileWidget::s_pWidget = nullptr;
 
-ezFileWidget::ezFileWidget(QWidget* parent) : QDockWidget (parent)
+ezQtFileWidget::ezQtFileWidget(QWidget* parent) : QDockWidget (parent)
 {
   s_pWidget = this;
 
@@ -16,7 +16,7 @@ ezFileWidget::ezFileWidget(QWidget* parent) : QDockWidget (parent)
   ResetStats();
 }
 
-void ezFileWidget::ResetStats()
+void ezQtFileWidget::ResetStats()
 {
   m_iMaxID = 0;
   m_bUpdateTable = true;
@@ -44,7 +44,7 @@ void ezFileWidget::ResetStats()
   Table->sortByColumn(0, Qt::DescendingOrder);
 }
 
-void ezFileWidget::ProcessTelemetry(void* pUnuseed)
+void ezQtFileWidget::ProcessTelemetry(void* pUnuseed)
 {
   if (!s_pWidget)
     return;
@@ -85,7 +85,7 @@ void ezFileWidget::ProcessTelemetry(void* pUnuseed)
           data.m_State = bSuccess ? OpenReading: OpenReadingFailed;
           break;
         default:
-          EZ_REPORT_FAILURE("Unknown File Open Mode %i", uiMode);
+          EZ_REPORT_FAILURE("Unknown File Open Mode {0}", uiMode);
           break;
         }
       }
@@ -148,7 +148,7 @@ void ezFileWidget::ProcessTelemetry(void* pUnuseed)
       }
       break;
 
-    case 'DEL':
+    case ' DEL':
       {
         bool bSuccess;
 
@@ -180,7 +180,7 @@ void ezFileWidget::ProcessTelemetry(void* pUnuseed)
         Msg.GetReader() >> bSuccess;
 
         ezStringBuilder s;
-        s.Format("'%s' -> '%s'", sFile1.GetData(), sFile2.GetData());
+        s.Format("'{0}' -> '{1}'", sFile1, sFile2);
         data.m_sFile = s.GetData();
 
         data.m_State = bSuccess ? FileCopy : FileCopyFailed;
@@ -221,7 +221,7 @@ void ezFileWidget::ProcessTelemetry(void* pUnuseed)
   }
 }
 
-QTableWidgetItem* ezFileWidget::GetStateString(FileOpState State) const
+QTableWidgetItem* ezQtFileWidget::GetStateString(FileOpState State) const
 {
   QTableWidgetItem* pItem = new QTableWidgetItem();
   pItem->setTextAlignment(Qt::AlignCenter);
@@ -305,14 +305,14 @@ QTableWidgetItem* ezFileWidget::GetStateString(FileOpState State) const
     pItem->setTextColor(Qt::red);
     break;
   default:
-    EZ_REPORT_FAILURE("Unknown File Operation %i", (ezInt32) State);
+    EZ_REPORT_FAILURE("Unknown File Operation {0}", (ezInt32) State);
     break;
   }
 
   return pItem;
 }
 
-void ezFileWidget::UpdateTable()
+void ezQtFileWidget::UpdateTable()
 {
   if (!m_bUpdateTable)
     return;
@@ -363,7 +363,7 @@ void ezFileWidget::UpdateTable()
 
     if (!sFilter.IsEmpty() && (it.Value().m_sFile.FindSubString_NoCase(sFilter.GetData()) == nullptr))
       continue;
-    
+
     if (uiRow >= (ezUInt32) Table->rowCount())
       Table->insertRow(Table->rowCount());
 
@@ -391,7 +391,7 @@ void ezFileWidget::UpdateTable()
 
     if ((it.Value().m_uiThreadTypes & (1 << 0)) != 0) // Main Thread
       pItem->setTextColor(QColor::fromRgb(255, 64, 0));
-    else 
+    else
     if ((it.Value().m_uiThreadTypes & (1 << 2)) != 0) // Other Thread
       pItem->setTextColor(QColor::fromRgb(160, 90, 255));
     else // Task Loading Thread
@@ -419,7 +419,7 @@ void ezFileWidget::UpdateTable()
   Table->blockSignals(false);
 }
 
-void ezFileWidget::UpdateStats()
+void ezQtFileWidget::UpdateStats()
 {
   if (!m_bUpdateTable)
     return;
@@ -427,22 +427,22 @@ void ezFileWidget::UpdateStats()
   UpdateTable();
 }
 
-void ezFileWidget::on_SpinLimitToRecent_valueChanged(int val)
+void ezQtFileWidget::on_SpinLimitToRecent_valueChanged(int val)
 {
   m_bUpdateTable = true;
 }
 
-void ezFileWidget::on_SpinMinDuration_valueChanged(double val)
+void ezQtFileWidget::on_SpinMinDuration_valueChanged(double val)
 {
   m_bUpdateTable = true;
 }
 
-void ezFileWidget::on_LineFilterByName_textChanged()
+void ezQtFileWidget::on_LineFilterByName_textChanged()
 {
   m_bUpdateTable = true;
 }
 
-void ezFileWidget::on_ComboThread_currentIndexChanged(int state)
+void ezQtFileWidget::on_ComboThread_currentIndexChanged(int state)
 {
   m_bUpdateTable = true;
 }

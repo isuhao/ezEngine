@@ -7,7 +7,7 @@
 # *** Modify this file as required ***
 #
 
-BUILD_CONDITIONAL(EZ_BUILD_UNITTESTS)
+BUILD_CONDITIONAL(BUILDSYSTEM_PLATFORM_WINDOWS_DESKTOP)
 
 # Add all the preprocessor definitions that are needed to configure this library
 # add_definitions (-DMY_PREPROCESS_DEFINITION_1)

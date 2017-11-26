@@ -1,8 +1,11 @@
 #include <PCH.h>
+#include <Foundation/Containers/HybridArray.h>
 
 struct ezConstructTest
 {
 public:
+  static ezHybridArray<void*, 10> s_dtorList;
+
   ezConstructTest()
   {
     m_iData = 42;
@@ -10,11 +13,16 @@ public:
 
   ~ezConstructTest()
   {
-    m_iData = 23;
+    s_dtorList.PushBack(this);
   }
 
   ezInt32 m_iData;
+
 };
+ezHybridArray<void*, 10> ezConstructTest::s_dtorList;
+
+EZ_CHECK_AT_COMPILETIME(sizeof(ezConstructTest) == 4);
+
 
 struct PODTest
 {
@@ -32,6 +40,8 @@ static const ezUInt32 uiSize = sizeof(ezConstructTest);
 
 EZ_CREATE_SIMPLE_TEST(Memory, MemoryUtils)
 {
+  ezConstructTest::s_dtorList.Clear();
+
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "Construct")
   {
     ezUInt8 uiRawData[uiSize * 5] = { 0 };
@@ -96,7 +106,7 @@ EZ_CREATE_SIMPLE_TEST(Memory, MemoryUtils)
     copy[0].m_iData = 43;
     copy[1].m_iData = 44;
 
-    ezMemoryUtils::CopyConstruct<ezConstructTest>(pTest + 1, copy, 2);
+    ezMemoryUtils::CopyConstructArray<ezConstructTest>(pTest + 1, copy, 2);
 
     EZ_TEST_INT(pTest[0].m_iData, 0);
     EZ_TEST_INT(pTest[1].m_iData, 43);
@@ -157,13 +167,18 @@ EZ_CREATE_SIMPLE_TEST(Memory, MemoryUtils)
     EZ_TEST_INT(pTest[3].m_iData, 0);
     EZ_TEST_INT(pTest[4].m_iData, 0);
 
+    ezConstructTest::s_dtorList.Clear();
     ezMemoryUtils::Destruct<ezConstructTest>(pTest, 4);
+    EZ_TEST_INT(4, ezConstructTest::s_dtorList.GetCount());
 
-    EZ_TEST_INT(pTest[0].m_iData, 23);
-    EZ_TEST_INT(pTest[1].m_iData, 23);
-    EZ_TEST_INT(pTest[2].m_iData, 23);
-    EZ_TEST_INT(pTest[3].m_iData, 23);
-    EZ_TEST_INT(pTest[4].m_iData, 0);
+    if (ezConstructTest::s_dtorList.GetCount() == 4)
+    {
+      EZ_TEST_BOOL(ezConstructTest::s_dtorList[0] == &pTest[3]);
+      EZ_TEST_BOOL(ezConstructTest::s_dtorList[1] == &pTest[2]);
+      EZ_TEST_BOOL(ezConstructTest::s_dtorList[2] == &pTest[1]);
+      EZ_TEST_BOOL(ezConstructTest::s_dtorList[3] == &pTest[0]);
+      EZ_TEST_INT(pTest[4].m_iData, 0);
+    }
   }
 
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "MakeDestructorFunction")
@@ -177,9 +192,14 @@ EZ_CREATE_SIMPLE_TEST(Memory, MemoryUtils)
     ezMemoryUtils::Construct(pTest, 1);
     EZ_TEST_INT(pTest->m_iData, 42);
 
+    ezConstructTest::s_dtorList.Clear();
     (*func)(pTest);
+    EZ_TEST_INT(1, ezConstructTest::s_dtorList.GetCount());
 
-    EZ_TEST_INT(pTest->m_iData, 23);
+    if (ezConstructTest::s_dtorList.GetCount() == 1)
+    {
+      EZ_TEST_BOOL(ezConstructTest::s_dtorList[0] == pTest);
+    }
 
     func = ezMemoryUtils::MakeDestructorFunction<PODTest>();
     EZ_TEST_BOOL(func == nullptr);
@@ -192,7 +212,7 @@ EZ_CREATE_SIMPLE_TEST(Memory, MemoryUtils)
   {
     ezUInt8 uiRawData[5]  = { 1, 2, 3, 4, 5 };
     ezUInt8 uiRawData2[5] = { 6, 7, 8, 9, 0 };
-    
+
     EZ_TEST_INT(uiRawData[0], 1);
     EZ_TEST_INT(uiRawData[1], 2);
     EZ_TEST_INT(uiRawData[2], 3);
@@ -211,7 +231,7 @@ EZ_CREATE_SIMPLE_TEST(Memory, MemoryUtils)
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "Move")
   {
     ezUInt8 uiRawData[5]  = { 1, 2, 3, 4, 5 };
-    
+
     EZ_TEST_INT(uiRawData[0], 1);
     EZ_TEST_INT(uiRawData[1], 2);
     EZ_TEST_INT(uiRawData[2], 3);
@@ -249,7 +269,7 @@ EZ_CREATE_SIMPLE_TEST(Memory, MemoryUtils)
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "ZeroFill")
   {
     ezUInt8 uiRawData[5] = { 1, 2, 3, 4, 5 };
-    
+
     EZ_TEST_INT(uiRawData[0], 1);
     EZ_TEST_INT(uiRawData[1], 2);
     EZ_TEST_INT(uiRawData[2], 3);
@@ -269,7 +289,7 @@ EZ_CREATE_SIMPLE_TEST(Memory, MemoryUtils)
   {
     ezUInt32 uiRawDataA[3] = { 1, 2, 3 };
     ezUInt32 uiRawDataB[3] = { 3, 4, 5 };
-    
+
     EZ_TEST_INT(uiRawDataA[0], 1);
     EZ_TEST_INT(uiRawDataA[1], 2);
     EZ_TEST_INT(uiRawDataA[2], 3);

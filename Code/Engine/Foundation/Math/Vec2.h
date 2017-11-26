@@ -141,7 +141,7 @@ public:
 // *** Common vector operations ***
 public:
 
-  /// \brief Returns the positive angle between *this and rhs (in degree).
+  /// \brief Returns the positive angle between *this and rhs.
   ezAngle GetAngleBetween(const ezVec2Template<Type>& rhs) const; // [tested]
 
   /// \brief Returns the Dot-product of the two vectors (commutative, order does not matter)
@@ -154,7 +154,7 @@ public:
   const ezVec2Template<Type> CompMax(const ezVec2Template<Type>& rhs) const; // [tested]
 
   /// \brief Returns the component-wise multiplication of *this and rhs
-  const ezVec2Template<Type> CompMult(const ezVec2Template<Type>& rhs) const; // [tested]
+  const ezVec2Template<Type> CompMul(const ezVec2Template<Type>& rhs) const; // [tested]
 
   /// \brief Returns the component-wise division of *this and rhs
   const ezVec2Template<Type> CompDiv(const ezVec2Template<Type>& rhs) const; // [tested]
@@ -211,7 +211,6 @@ template<typename Type>
 bool operator< (const ezVec2Template<Type>& v1, const ezVec2Template<Type>& v2);
 
 #include <Foundation/Math/Implementation/Vec2_inl.h>
-
 
 
 

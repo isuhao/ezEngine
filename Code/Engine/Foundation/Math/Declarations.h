@@ -40,8 +40,8 @@ struct ezMatrixLayout
 {
   enum Enum
   {
-    RowMajor,     ///< The matrix is store in row-major format.
-    ColumnMajor   ///< The matrix is store in column-major format.
+    RowMajor,     ///< The matrix is stored in row-major format.
+    ColumnMajor   ///< The matrix is stored in column-major format.
   };
 };
 
@@ -64,10 +64,12 @@ struct EZ_FOUNDATION_DLL ezProjectionDepthRange
 };
 
 
+/// \brief An enum that allows to select on of the six main axis (positive / negative)
 struct EZ_FOUNDATION_DLL ezBasisAxis
 {
   typedef ezInt8 StorageType;
 
+  /// \brief An enum that allows to select on of the six main axis (positive / negative)
   enum Enum
   {
     PositiveX,
@@ -160,3 +162,10 @@ class ezTransformTemplate;
 
 typedef ezTransformTemplate<float> ezTransform;
 typedef ezTransformTemplate<double> ezTransformd;
+
+class ezColor;
+class ezColorLinearUB;
+class ezColorGammaUB;
+
+class ezRandom;
+

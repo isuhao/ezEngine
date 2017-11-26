@@ -4,7 +4,6 @@
 #include <Foundation/Containers/List.h>
 #include <Foundation/Containers/DynamicArray.h>
 #include <Foundation/Threading/Mutex.h>
-#include <Foundation/Profiling/Profiling.h>
 #include <Foundation/Strings/StringBuilder.h>
 #include <Foundation/Threading/ThreadSignal.h>
 #include <Foundation/Time/Time.h>
@@ -117,6 +116,9 @@ class EZ_FOUNDATION_DLL ezTaskGroupID
 {
 public:
   ezTaskGroupID();
+
+  /// \brief Returns false, if the object has not been initialized before
+  bool IsValid() const;
 
 private:
   friend class ezTaskSystem;

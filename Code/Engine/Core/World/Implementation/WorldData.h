@@ -2,17 +2,13 @@
 
 #include <Foundation/Communication/MessageQueue.h>
 #include <Foundation/Containers/HashTable.h>
-#include <Foundation/Containers/IdTable.h>
-
-#include <Foundation/Memory/BlockStorage.h>
-#include <Foundation/Memory/CommonAllocators.h>
-
+#include <Foundation/Math/Random.h>
+#include <Foundation/Memory/FrameAllocator.h>
 #include <Foundation/Threading/DelegateTask.h>
+#include <Foundation/Time/Clock.h>
 
-#include <Foundation/Types/UniquePtr.h>
-
-#include <Core/World/CoordinateSystem.h>
 #include <Core/World/GameObject.h>
+#include <Core/World/WorldDesc.h>
 
 namespace ezInternal
 {
@@ -21,13 +17,14 @@ namespace ezInternal
     friend class ::ezWorld;
     friend class ::ezComponentManagerBase;
 
-    WorldData(const char* szWorldName);
+    WorldData(ezWorldDesc& desc);
     ~WorldData();
 
     ezHashedString m_sName;
-    ezProxyAllocator m_Allocator;
+    mutable ezProxyAllocator m_Allocator;
     ezLocalAllocatorWrapper m_AllocatorWrapper;
     ezInternal::WorldLargeBlockAllocator m_BlockAllocator;
+    ezDoubleBufferedStackAllocator m_StackAllocator;
 
     enum
     {
@@ -36,11 +33,11 @@ namespace ezInternal
     };
 
     // object storage
-    typedef ezBlockStorage<ezGameObject, ezInternal::DEFAULT_BLOCK_SIZE, true> ObjectStorage;
-    ezIdTable<ezGameObjectId, ObjectStorage::Entry, ezLocalAllocatorWrapper> m_Objects;
+    typedef ezBlockStorage<ezGameObject, ezInternal::DEFAULT_BLOCK_SIZE, ezBlockStorageType::Compact> ObjectStorage;
+    ezIdTable<ezGameObjectId, ezGameObject*, ezLocalAllocatorWrapper> m_Objects;
     ObjectStorage m_ObjectStorage;
 
-    ezDynamicArray<ObjectStorage::Entry, ezLocalAllocatorWrapper> m_DeadObjects;
+    ezDynamicArray<ezGameObject*, ezLocalAllocatorWrapper> m_DeadObjects;
 
     // hierarchy structures
     struct Hierarchy
@@ -63,74 +60,106 @@ namespace ezInternal
 
     Hierarchy m_Hierarchies[HierarchyType::COUNT];
 
-    ezUInt32 CreateTransformationData(const ezBitflags<ezObjectFlags>& objectFlags, ezUInt32 uiHierarchyLevel,
-      ezGameObject::TransformationData*& out_pData);
+    static HierarchyType::Enum GetHierarchyType(bool bDynamic);
 
-    void DeleteTransformationData(const ezBitflags<ezObjectFlags>& objectFlags, ezUInt32 uiHierarchyLevel, 
-      ezUInt32 uiIndex);
+    ezGameObject::TransformationData* CreateTransformationData(bool bDynamic, ezUInt32 uiHierarchyLevel);
+
+    void DeleteTransformationData(bool bDynamic, ezUInt32 uiHierarchyLevel, ezGameObject::TransformationData* pData);
 
     template <typename VISITOR>
-    static bool TraverseHierarchyLevel(Hierarchy::DataBlockArray& blocks, void* pUserData = nullptr);
+    static ezVisitorExecution::Enum TraverseHierarchyLevel(Hierarchy::DataBlockArray& blocks, void* pUserData = nullptr);
 
-    typedef ezDelegate<bool(ezGameObject*)> VisitorFunc;
+    typedef ezDelegate<ezVisitorExecution::Enum(ezGameObject*)> VisitorFunc;
     void TraverseBreadthFirst(VisitorFunc& func);
     void TraverseDepthFirst(VisitorFunc& func);
-    static bool TraverseObjectDepthFirst(ezGameObject* pObject, VisitorFunc& func);
+    static ezVisitorExecution::Enum TraverseObjectDepthFirst(ezGameObject* pObject, VisitorFunc& func);
 
-    static void UpdateGlobalTransform(ezGameObject::TransformationData* pData, float fInvDeltaSeconds);
-    static void UpdateGlobalTransformWithParent(ezGameObject::TransformationData* pData, float fInvDeltaSeconds);
+    static void UpdateGlobalTransform(ezGameObject::TransformationData* pData, const ezSimdFloat& fInvDeltaSeconds);
+    static void UpdateGlobalTransformWithParent(ezGameObject::TransformationData* pData, const ezSimdFloat& fInvDeltaSeconds);
 
-    void UpdateGlobalTransforms();
+    void UpdateGlobalTransforms(float fInvDeltaSeconds);
 
     // game object lookups
-    /// \todo
-    //ezHashTable<ezUInt64, ezGameObjectId, ezHashHelper<ezUInt64>, ezLocalAllocatorWrapper> m_PersistentToInternalTable;
+    ezHashTable<ezUInt32, ezGameObjectId, ezHashHelper<ezUInt32>, ezLocalAllocatorWrapper> m_GlobalKeyToIdTable;
+    ezHashTable<ezUInt32, ezHashedString, ezHashHelper<ezUInt32>, ezLocalAllocatorWrapper> m_IdToGlobalKeyTable;
 
-    // component manager
-    ezDynamicArray<ezComponentManagerBase*, ezLocalAllocatorWrapper> m_ComponentManagers;
+    // modules
+    ezDynamicArray<ezWorldModule*, ezLocalAllocatorWrapper> m_Modules;
+    ezDynamicArray<ezWorldModule*, ezLocalAllocatorWrapper> m_ModulesToStartSimulation;
 
-    ezDynamicArray<ezComponentManagerBase::ComponentStorageEntry, ezLocalAllocatorWrapper> m_DeadComponents;
+    // component management
+    ezDynamicArray<ezComponent*, ezLocalAllocatorWrapper> m_DeadComponents;
 
-    typedef ezComponentManagerBase::UpdateFunction UpdateFunction;
+    ezDynamicArray<ezComponentHandle, ezLocalAllocatorWrapper> m_ComponentsToInitialize;
+    ezDynamicArray<ezComponentHandle, ezLocalAllocatorWrapper> m_ComponentsToStartSimulation;
+
     struct RegisteredUpdateFunction
     {
-      EZ_DECLARE_POD_TYPE();
+      ezWorldModule::UpdateFunction m_Function;
+      ezHashedString m_sFunctionName;
+      float m_fPriority;
+      ezUInt16 m_uiGranularity;
+      bool m_bOnlyUpdateWhenSimulating;
 
-      UpdateFunction m_Function;
-      const char* m_szFunctionName;
-      ezUInt32 m_uiGranularity;
+      void FillFromDesc(const ezWorldModule::UpdateFunctionDesc& desc);
+      bool operator<(const RegisteredUpdateFunction& other) const;
     };
-  
+
     struct UpdateTask : public ezTask
     {
       virtual void Execute() override;
 
-      UpdateFunction m_Function;
+      ezWorldModule::UpdateFunction m_Function;
       ezUInt32 m_uiStartIndex;
       ezUInt32 m_uiCount;
     };
 
-    ezDynamicArray<RegisteredUpdateFunction, ezLocalAllocatorWrapper> m_UpdateFunctions[ezComponentManagerBase::UpdateFunctionDesc::PHASE_COUNT];
-    ezDynamicArray<ezComponentManagerBase::UpdateFunctionDesc, ezLocalAllocatorWrapper> m_UnresolvedUpdateFunctions;
+    ezDynamicArray<RegisteredUpdateFunction, ezLocalAllocatorWrapper> m_UpdateFunctions[ezWorldModule::UpdateFunctionDesc::Phase::COUNT];
+    ezDynamicArray<ezWorldModule::UpdateFunctionDesc, ezLocalAllocatorWrapper> m_UnresolvedUpdateFunctions;
 
     ezDynamicArray<UpdateTask*, ezLocalAllocatorWrapper> m_UpdateTasks;
 
+    ezUniquePtr<ezSpatialSystem> m_pSpatialSystem;
     ezUniquePtr<ezCoordinateSystemProvider> m_pCoordinateSystemProvider;
+
+    ezClock m_Clock;
+    ezRandom m_Random;
 
     struct QueuedMsgMetaData
     {
-      ezGameObjectHandle m_ReceiverObject;
-      ezObjectMsgRouting::Enum m_Routing;
+      EZ_DECLARE_POD_TYPE();
+
+      EZ_ALWAYS_INLINE QueuedMsgMetaData()
+        : m_uiReceiverData(0)
+      {
+      }
+
+      union
+      {
+        ezUInt32 m_uiReceiverObject;
+
+        struct
+        {
+          ezUInt64 m_uiReceiverComponent : 62;
+          ezUInt64 m_uiReceiverIsComponent : 1;
+          ezUInt64 m_uiRecursive : 1;
+        };
+
+        ezUInt64 m_uiReceiverData;
+      };
+
       ezTime m_Due;
     };
 
     typedef ezMessageQueue<QueuedMsgMetaData, ezLocalAllocatorWrapper> MessageQueue;
-    MessageQueue m_MessageQueues[ezObjectMsgQueueType::COUNT];
-    MessageQueue m_TimedMessageQueues[ezObjectMsgQueueType::COUNT];
+    mutable MessageQueue m_MessageQueues[ezObjectMsgQueueType::COUNT];
+    mutable MessageQueue m_TimedMessageQueues[ezObjectMsgQueueType::COUNT];
 
     ezThreadID m_WriteThreadID;
     ezInt32 m_iWriteCounter;
     mutable ezAtomicInteger32 m_iReadCounter;
+
+    bool m_bSimulateWorld;
 
   public:
     class ReadMarker
@@ -144,7 +173,7 @@ namespace ezInternal
 
       ReadMarker(const WorldData& data);
       const WorldData& m_Data;
-    };    
+    };
 
     class WriteMarker
     {

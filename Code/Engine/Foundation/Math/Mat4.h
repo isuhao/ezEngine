@@ -146,7 +146,7 @@ public:
   ezResult Invert(Type fEpsilon = ezMath::BasicType<Type>::SmallEpsilon()); // [tested]
 
   /// \brief Returns the inverse of this matrix.
-  const ezMat4Template<Type> GetInverse() const; // [tested]
+  const ezMat4Template<Type> GetInverse(Type fEpsilon = ezMath::BasicType<Type>::SmallEpsilon()) const; // [tested]
 
 // *** Checks ***
 public:
@@ -193,7 +193,7 @@ public:
   /// \brief Sets the 3x3 rotational part of the matrix.
   void SetRotationalPart(const ezMat3Template<Type>& Rotation); // [tested]
 
-  /// \brief Returns the 3x3 rotational part of the matrix.
+  /// \brief Returns the 3x3 rotational and scaling part of the matrix.
   const ezMat3Template<Type> GetRotationalPart() const; // [tested]
 
   /// \brief Returns the 3 scaling factors that are encoded in the matrix.
@@ -280,7 +280,6 @@ template<typename Type>
 bool operator!= (const ezMat4Template<Type>& lhs, const ezMat4Template<Type>& rhs); // [tested]
 
 #include <Foundation/Math/Implementation/Mat4_inl.h>
-
 
 
 

@@ -7,7 +7,7 @@ void OnUnloadPlugin(bool bReloading)  { }
 
 ezPlugin g_Plugin(false, OnLoadPlugin, OnUnloadPlugin);
 
-EZ_DYNAMIC_PLUGIN_IMPLEMENTATION(ezInspectorPlugin);
+EZ_DYNAMIC_PLUGIN_IMPLEMENTATION(EZ_INSPECTORPLUGIN_DLL, ezInspectorPlugin);
 
 void AddLogWriter();
 void RemoveLogWriter();
@@ -53,7 +53,7 @@ void RemoveResourceManagerEventHandler();
 
 void SetAppStats();
 
-EZ_BEGIN_SUBSYSTEM_DECLARATION(InspectorPlugin, Main)
+EZ_BEGIN_SUBSYSTEM_DECLARATION(InspectorPlugin, InspectorPluginMain)
 
   BEGIN_SUBSYSTEM_DEPENDENCIES
     "Foundation"
@@ -96,7 +96,7 @@ EZ_BEGIN_SUBSYSTEM_DECLARATION(InspectorPlugin, Main)
     RemoveLogWriter();
     RemoveTelemetryAssertHandler();
 
-    ezTelemetry::AcceptMessagesForSystem('APP', false);
+    ezTelemetry::AcceptMessagesForSystem(' APP', false);
   }
 
 EZ_END_SUBSYSTEM_DECLARATION

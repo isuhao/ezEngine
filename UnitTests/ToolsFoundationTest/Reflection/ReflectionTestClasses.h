@@ -48,6 +48,7 @@ public:
     m_fFloat = 1.0f;
     m_fDouble = 1.0;
     m_Time = ezTime::Seconds(1.0);
+    m_Angle = ezAngle::Degree(45.0f);
   }
 
   void SetFloat(float f) { m_fFloat = f; }
@@ -56,18 +57,21 @@ public:
   double GetDouble() const { return m_fDouble; }
   void SetTime(ezTime t) { m_Time = t; }
   ezTime GetTime() const { return m_Time; }
+  ezAngle GetAngle() const { return m_Angle; }
+  void SetAngle(ezAngle t) { m_Angle = t; }
 
 private:
   float m_fFloat;
   double m_fDouble;
   ezTime m_Time;
+  ezAngle m_Angle;
 };
 EZ_DECLARE_REFLECTABLE_TYPE(EZ_NO_LINKAGE, ezFloatStruct);
 
 
 class ezPODClass : public ezReflectedClass
 {
-  EZ_ADD_DYNAMIC_REFLECTION(ezPODClass);
+  EZ_ADD_DYNAMIC_REFLECTION(ezPODClass, ezReflectedClass);
 
 public:
   ezPODClass()
@@ -75,6 +79,9 @@ public:
     m_bBool = true;
     m_Color = ezColor(1.0f, 0.0f, 0.0f, 0.0f);
     m_sString = "Test";
+    m_Buffer.PushBack(0xFF);
+    m_Buffer.PushBack(0x0);
+    m_Buffer.PushBack(0xCD);
   }
 
   ezIntegerStruct m_IntegerStruct;
@@ -87,16 +94,20 @@ public:
   const char* GetString() const { return m_sString.GetData(); }
   void SetString(const char* sz) { m_sString = sz; }
 
+  const ezDataBuffer& GetBuffer() const { return m_Buffer; }
+  void SetBuffer(const ezDataBuffer& data) { m_Buffer = data; }
+
 private:
   bool m_bBool;
   ezColor m_Color;
   ezString m_sString;
+  ezDataBuffer m_Buffer;
 };
 
 
 class ezMathClass : public ezPODClass
 {
-  EZ_ADD_DYNAMIC_REFLECTION(ezMathClass);
+  EZ_ADD_DYNAMIC_REFLECTION(ezMathClass, ezPODClass);
 
 public:
   ezMathClass()
@@ -104,6 +115,9 @@ public:
     m_Vec2 = ezVec2(1.0f, 1.0f);
     m_Vec3 = ezVec3(1.0f, 1.0f, 1.0f);
     m_Vec4 = ezVec4(1.0f, 1.0f, 1.0f, 1.0f);
+    m_Vec2I = ezVec2I32(1, 1);
+    m_Vec3I = ezVec3I32(1, 1, 1);
+    m_Vec4I = ezVec4I32(1, 1, 1, 1);
     m_Quat = ezQuat(1.0f, 1.0f, 1.0f, 1.0f);
     m_Mat3.SetZero();
     m_Mat4.SetZero();
@@ -122,6 +136,9 @@ public:
   void SetMat4(ezMat4 m) { m_Mat4 = m; }
   ezMat4 GetMat4() const { return m_Mat4; }
 
+  ezVec2I32 m_Vec2I;
+  ezVec3I32 m_Vec3I;
+  ezVec4I32 m_Vec4I;
 private:
   ezVec2 m_Vec2;
   ezVec3 m_Vec3;
@@ -171,7 +188,7 @@ EZ_DECLARE_REFLECTABLE_TYPE(EZ_NO_LINKAGE, ezExampleBitflags);
 
 class ezEnumerationsClass : public ezReflectedClass
 {
-  EZ_ADD_DYNAMIC_REFLECTION(ezEnumerationsClass);
+  EZ_ADD_DYNAMIC_REFLECTION(ezEnumerationsClass, ezReflectedClass);
 
 public:
   ezEnumerationsClass()
@@ -193,6 +210,7 @@ private:
 
 struct InnerStruct
 {
+  EZ_DECLARE_POD_TYPE();
 public:
   float m_fP1;
 };
@@ -201,22 +219,44 @@ EZ_DECLARE_REFLECTABLE_TYPE(EZ_NO_LINKAGE, InnerStruct);
 
 class OuterClass : public ezReflectedClass
 {
-  EZ_ADD_DYNAMIC_REFLECTION(OuterClass);
+  EZ_ADD_DYNAMIC_REFLECTION(OuterClass, ezReflectedClass);
 
 public:
   InnerStruct m_Inner1;
   float m_fP1;
 };
 
+class ExtendedOuterClass : public OuterClass
+{
+  EZ_ADD_DYNAMIC_REFLECTION(ExtendedOuterClass, OuterClass);
+
+public:
+  ezString m_more;
+};
 
 class ezObjectTest : public ezReflectedClass
 {
-  EZ_ADD_DYNAMIC_REFLECTION(ezObjectTest);
+  EZ_ADD_DYNAMIC_REFLECTION(ezObjectTest, ezReflectedClass);
 
 public:
   ezObjectTest()
   {
 
+  }
+  ~ezObjectTest()
+  {
+    for (OuterClass* pTest : m_ClassPtrArray)
+    {
+      ezGetStaticRTTI<OuterClass>()->GetAllocator()->Deallocate(pTest);
+    }
+    for (ezObjectTest* pTest : m_SubObjectSet)
+    {
+      ezGetStaticRTTI<ezObjectTest>()->GetAllocator()->Deallocate(pTest);
+    }
+    for (auto it = m_ClassPtrMap.GetIterator(); it.IsValid(); ++it)
+    {
+      ezGetStaticRTTI<OuterClass>()->GetAllocator()->Deallocate(it.Value());
+    }
   }
 
   ezArrayPtr<const ezString> GetStandardTypeSet() const;
@@ -225,13 +265,28 @@ public:
 
   OuterClass m_MemberClass;
 
-  ezHybridArray<double, 5> m_StandardTypeArray;
+  ezDynamicArray<double> m_StandardTypeArray;
   ezDynamicArray<OuterClass> m_ClassArray;
-  ezDeque<ezReflectedClass*> m_ClassPtrArray;
+  ezDeque<OuterClass*> m_ClassPtrArray;
 
   ezDynamicArray<ezString> m_StandardTypeSet;
   ezSet<ezObjectTest*> m_SubObjectSet;
 
+  ezMap<ezString, double> m_StandardTypeMap;
+  ezHashTable<ezString, OuterClass> m_ClassMap;
+  ezMap<ezString, OuterClass*> m_ClassPtrMap;
+};
 
 
+class ezMirrorTest : public ezReflectedClass
+{
+  EZ_ADD_DYNAMIC_REFLECTION(ezMirrorTest, ezReflectedClass);
+
+public:
+  ezMirrorTest()
+  {
+  }
+
+  ezMathClass m_math;
+  ezObjectTest m_object;
 };

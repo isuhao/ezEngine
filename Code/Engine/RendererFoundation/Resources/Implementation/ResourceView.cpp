@@ -1,11 +1,13 @@
 
-#include <RendererFoundation/PCH.h>
+#include <PCH.h>
 #include <RendererFoundation/Resources/ResourceView.h>
 
 
-ezGALResourceView::ezGALResourceView(const ezGALResourceViewCreationDescription& Description)
-  : ezGALObjectBase(Description)
+ezGALResourceView::ezGALResourceView(ezGALResourceBase* pResource, const ezGALResourceViewCreationDescription& description)
+  : ezGALObject(description)
+  , m_pResource(pResource)
 {
+  EZ_ASSERT_DEV(m_pResource != nullptr, "Resource must not be null");
 }
 
 ezGALResourceView::~ezGALResourceView()

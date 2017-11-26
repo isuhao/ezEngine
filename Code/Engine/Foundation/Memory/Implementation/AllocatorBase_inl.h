@@ -1,9 +1,9 @@
 
-EZ_FORCE_INLINE ezAllocatorBase::ezAllocatorBase()
+EZ_ALWAYS_INLINE ezAllocatorBase::ezAllocatorBase()
 {
 }
 
-EZ_FORCE_INLINE ezAllocatorBase::~ezAllocatorBase()
+EZ_ALWAYS_INLINE ezAllocatorBase::~ezAllocatorBase()
 {
 }
 
@@ -12,19 +12,24 @@ namespace ezInternal
   template <typename T>
   struct NewInstance
   {
-    EZ_FORCE_INLINE NewInstance(T* pInstance, ezAllocatorBase* pAllocator)
+    EZ_ALWAYS_INLINE NewInstance(T* pInstance, ezAllocatorBase* pAllocator)
     {
       m_pInstance = pInstance;
       m_pAllocator = pAllocator;
     }
 
-    EZ_FORCE_INLINE operator T*() const
+    EZ_ALWAYS_INLINE operator T*()
+    {
+      return m_pInstance;
+    }
+
+    EZ_ALWAYS_INLINE T* operator->()
     {
       return m_pInstance;
     }
 
     T* m_pInstance;
-    ezAllocatorBase* m_pAllocator;    
+    ezAllocatorBase* m_pAllocator;
   };
 
 
@@ -100,9 +105,9 @@ namespace ezInternal
   {
     EZ_ASSERT_DEV(uiCurrentCount < uiNewCount, "Shrinking of a buffer is not implemented yet");
     EZ_ASSERT_DEV(!(uiCurrentCount == uiNewCount), "Same size passed in twice.");
-    if (ptr == NULL)
+    if (ptr == nullptr)
     {
-      EZ_ASSERT_DEV(uiCurrentCount == 0, "current count must be 0 if ptr is NULL");
+      EZ_ASSERT_DEV(uiCurrentCount == 0, "current count must be 0 if ptr is nullptr");
 
       return CreateRawBuffer<T>(pAllocator, uiNewCount);
     }
@@ -110,3 +115,4 @@ namespace ezInternal
   }
 
 }
+

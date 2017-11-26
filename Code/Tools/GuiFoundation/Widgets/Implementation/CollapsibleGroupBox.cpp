@@ -1,49 +1,43 @@
-#include <GuiFoundation/PCH.h>
+#include <PCH.h>
 #include <GuiFoundation/Widgets/CollapsibleGroupBox.moc.h>
 #include <GuiFoundation/UIServices/UIServices.moc.h>
-#include <ToolsFoundation/CommandHistory/CommandHistory.h>
-#include <ToolsFoundation/Command/TreeCommands.h>
-#include <ToolsFoundation/Object/DocumentObjectManager.h>
-#include <QStyleOptionToolButton>
-#include <QStyle>
 #include <QPainter>
 #include <QMouseEvent>
 #include <QScrollArea>
-#include <QRect>
-#include <QRectF>
 
-ezCollapsibleGroupBox::ezCollapsibleGroupBox(QWidget* pParent) : QWidget(pParent), m_bCollapsed(false)
+ezQtCollapsibleGroupBox::ezQtCollapsibleGroupBox(QWidget* pParent)
+  : ezQtGroupBoxBase(pParent, true)
+  , m_bCollapsed(false)
 {
   setupUi(this);
 
-  Icon->installEventFilter(this);
-  Caption->installEventFilter(this);
-
-  m_FillColor;
+  Header->installEventFilter(this);
 }
 
-void ezCollapsibleGroupBox::setTitle(QString sTitle)
+void ezQtCollapsibleGroupBox::SetTitle(const char* szTitle)
 {
-  Caption->setText(sTitle);
-}
-
-QString ezCollapsibleGroupBox::title() const
-{
-  return Caption->text();
-}
-
-void ezCollapsibleGroupBox::SetFillColor(const QColor& color)
-{
-  m_FillColor = color;
+  ezQtGroupBoxBase::SetTitle(szTitle);
   update();
 }
 
-void ezCollapsibleGroupBox::SetCollapseState(bool bCollapsed)
+void ezQtCollapsibleGroupBox::SetIcon(const QIcon& icon)
+{
+  ezQtGroupBoxBase::SetIcon(icon);
+  update();
+}
+
+void ezQtCollapsibleGroupBox::SetFillColor(const QColor& color)
+{
+  ezQtGroupBoxBase::SetFillColor(color);
+  update();
+}
+
+void ezQtCollapsibleGroupBox::SetCollapseState(bool bCollapsed)
 {
   if (bCollapsed == m_bCollapsed)
     return;
 
-  QtScopedUpdatesDisabled sud(this);
+  ezQtScopedUpdatesDisabled sud(this);
 
   m_bCollapsed = bCollapsed;
   Content->setVisible(!bCollapsed);
@@ -56,61 +50,72 @@ void ezCollapsibleGroupBox::SetCollapseState(bool bCollapsed)
     pCur = pCur->parentWidget();
   }
 
-  Icon->setPixmap(QPixmap(QLatin1String(Content->isVisible() ? ":/GuiFoundation/Icons/groupOpen.png" : ":/GuiFoundation/Icons/groupClosed.png")));
-
   emit CollapseStateChanged(bCollapsed);
 }
 
-bool ezCollapsibleGroupBox::GetCollapseState() const
+bool ezQtCollapsibleGroupBox::GetCollapseState() const
 {
   return m_bCollapsed;
 }
 
-bool ezCollapsibleGroupBox::eventFilter(QObject* object, QEvent* event)
+QWidget* ezQtCollapsibleGroupBox::GetContent()
 {
-  if (event->type() == QEvent::Type::MouseButtonPress || event->type() == QEvent::Type::MouseButtonDblClick)
+  return Content;
+}
+
+QWidget* ezQtCollapsibleGroupBox::GetHeader()
+{
+  return Header;
+}
+
+bool ezQtCollapsibleGroupBox::eventFilter(QObject* object, QEvent* event)
+{
+  switch (event->type())
   {
-    QMouseEvent* pMouseEvent = static_cast<QMouseEvent*>(event);
-
-    if (pMouseEvent->button() == Qt::MouseButton::LeftButton)
-    {
-      SetCollapseState(!m_bCollapsed);
-      return true;
-    }
+  case QEvent::Type::MouseButtonPress:
+    HeaderMousePress(static_cast<QMouseEvent*>(event));
+    return true;
+  case QEvent::Type::MouseMove:
+    HeaderMouseMove(static_cast<QMouseEvent*>(event));
+    return true;
+  case QEvent::Type::MouseButtonRelease:
+    HeaderMouseRelease(static_cast<QMouseEvent*>(event));
+    return true;
+  default:
+    break;
   }
-
   return false;
 }
 
-void ezCollapsibleGroupBox::paintEvent(QPaintEvent* event)
+void ezQtCollapsibleGroupBox::paintEvent(QPaintEvent* event)
 {
   const QPalette& pal = palette();
   QWidget::paintEvent(event);
 
   QPainter p(this);
   p.setRenderHint(QPainter::Antialiasing);
-  ezInt32 iRounding = 4;
   QRect wr = contentsRect();
-
   QRect hr = Header->contentsRect();
   hr.moveTopLeft(Header->pos());
 
   QRect cr = wr;
   cr.setTop(hr.height());
-  cr.adjust(2, 0, 0, -2);
+  cr.adjust(Rounding / 2, 0, 0, -Rounding / 2);
 
   if (m_FillColor.isValid())
   {
     QRectF wrAdjusted = wr;
-    wrAdjusted.adjust(0.5, 0.5, iRounding, -0.5);
+    wrAdjusted.adjust(0.5, 0.5, Rounding, -0.5);
     QPainterPath oPath;
-    oPath.addRoundedRect(wrAdjusted, iRounding, iRounding);
+    oPath.addRoundedRect(wrAdjusted, Rounding, Rounding);
     p.fillPath(oPath, pal.alternateBase());
-   
+
     QRectF crAdjusted = cr;
-    crAdjusted.adjust(0.5, 0.5, iRounding, -0.5);   
+    crAdjusted.adjust(0.5, 0.5, Rounding, -0.5);
     QPainterPath path;
-    path.addRoundedRect(crAdjusted, iRounding, iRounding);
+    path.addRoundedRect(crAdjusted, Rounding, Rounding);
     p.fillPath(path, pal.window());
   }
+
+  DrawHeader(p, hr);
 }

@@ -1,77 +1,156 @@
-#include <RendererCore/PCH.h>
+﻿#include <PCH.h>
+#include <RendererCore/Debug/DebugRenderer.h>
+#include <RendererCore/GPUResourcePool/GPUResourcePool.h>
 #include <RendererCore/Meshes/MeshComponent.h>
 #include <RendererCore/Meshes/MeshRenderer.h>
 #include <RendererCore/RenderContext/RenderContext.h>
+#include <RendererCore/Pipeline/InstanceDataProvider.h>
 #include <RendererCore/Pipeline/RenderPipeline.h>
-#include <RendererCore/ConstantBuffers/ConstantBufferResource.h>
-#include <Core/ResourceManager/ResourceManager.h>
+#include <RendererCore/Pipeline/RenderPipelinePass.h>
 
-#include <RendererCore/../../../Shared/Data/Shaders/Common/ObjectConstants.h>
+#include <RendererCore/../../../Data/Base/Shaders/Common/ObjectConstants.h>
 
-EZ_BEGIN_DYNAMIC_REFLECTED_TYPE(ezMeshRenderer, ezRenderer, 1, ezRTTINoAllocator);
-EZ_END_DYNAMIC_REFLECTED_TYPE();
+EZ_BEGIN_DYNAMIC_REFLECTED_TYPE(ezMeshRenderer, 1, ezRTTIDefaultAllocator<ezMeshRenderer>);
+EZ_END_DYNAMIC_REFLECTED_TYPE
+
+ezMeshRenderer::ezMeshRenderer()
+{
+  m_iInstancingThreshold = 4;
+}
+
+ezMeshRenderer::~ezMeshRenderer()
+{
+}
 
 void ezMeshRenderer::GetSupportedRenderDataTypes(ezHybridArray<const ezRTTI*, 8>& types)
 {
   types.PushBack(ezGetStaticRTTI<ezMeshRenderData>());
 }
 
-ezUInt32 ezMeshRenderer::Render(const ezRenderViewContext& renderViewContext, ezRenderPipelinePass* pPass, const ezArrayPtr<const ezRenderData* const>& renderData)
+void ezMeshRenderer::RenderBatch(const ezRenderViewContext& renderViewContext, ezRenderPipelinePass* pPass, const ezRenderDataBatch& batch)
 {
-  if (!m_hObjectTransformCB.IsValid())
+  ezGALDevice* pDevice = ezGALDevice::GetDefaultDevice();
+  ezRenderContext* pContext = renderViewContext.m_pRenderContext;
+  ezGALContext* pGALContext = pContext->GetGALContext();
+
+  const ezMeshRenderData* pRenderData = batch.GetFirstData<ezMeshRenderData>();
+
+  const ezMeshResourceHandle& hMesh = pRenderData->m_hMesh;
+  const ezMaterialResourceHandle& hMaterial = pRenderData->m_hMaterial;
+  const ezUInt32 uiPartIndex = pRenderData->m_uiPartIndex;
+
+  ezResourceLock<ezMeshResource> pMesh(hMesh);
+
+  // This can happen when the resource has been reloaded and now has fewer submeshes.
+  const auto& subMeshes = pMesh->GetSubMeshes();
+  if (subMeshes.GetCount() <= uiPartIndex)
   {
-    /// \todo Not sure ezMeshRenderer should create the ObjectConstants CB, probably this should be centralized somewhere else
-
-    // this always accesses the same constant buffer (same GUID), but every ezMeshRenderer holds its own reference to it
-    m_hObjectTransformCB = ezResourceManager::GetExistingResource<ezConstantBufferResource>("{34204E49-441A-49D6-AB09-9E8DE38BC803}");
-
-    if (!m_hObjectTransformCB.IsValid())
-    {
-      // only create this constant buffer, when it does not yet exist
-      ezConstantBufferResourceDescriptor<ObjectConstants> desc;
-      m_hObjectTransformCB = ezResourceManager::CreateResource<ezConstantBufferResource>("{34204E49-441A-49D6-AB09-9E8DE38BC803}", desc, "ezMeshRenderer CB");
-    }
+    return;
   }
 
-  renderViewContext.m_pRenderContext->BindConstantBuffer("ObjectConstants", m_hObjectTransformCB);
+  ezInstanceData* pInstanceData = pPass->GetPipeline()->GetFrameDataProvider<ezInstanceDataProvider>()->GetData(renderViewContext);
+  pInstanceData->BindResources(pContext);
 
-  const ezMat4& ViewMatrix = renderViewContext.m_pViewData->m_ViewMatrix;
-  const ezMat4& ViewProjMatrix = renderViewContext.m_pViewData->m_ViewProjectionMatrix;
-  ezMaterialResourceHandle hLastMaterial;
-
-  ezUInt32 uiDataRendered = 0;
-  while (uiDataRendered < renderData.GetCount() && renderData[uiDataRendered]->IsInstanceOf<ezMeshRenderData>())
+  if (pRenderData->m_uiFlipWinding)
   {
-    const ezMeshRenderData* pRenderData = static_cast<const ezMeshRenderData*>(renderData[uiDataRendered]);
-
-    ObjectConstants* cb = renderViewContext.m_pRenderContext->BeginModifyConstantBuffer<ObjectConstants>(m_hObjectTransformCB);
-    cb->ObjectToWorldMatrix = pRenderData->m_GlobalTransform.GetAsMat4();
-    cb->ObjectToCameraMatrix = ViewMatrix * cb->ObjectToWorldMatrix;
-    cb->ObjectToScreenMatrix = ViewProjMatrix * cb->ObjectToWorldMatrix;
-    cb->GameObjectID = pRenderData->m_uiEditorPickingID;
-    cb->PartIndex = pRenderData->m_uiPartIndex;
-
-    renderViewContext.m_pRenderContext->EndModifyConstantBuffer();
-
-    ezResourceLock<ezMeshResource> pMesh(pRenderData->m_hMesh);
-    const ezMeshResourceDescriptor::SubMesh& meshPart = pMesh->GetSubMeshes()[pRenderData->m_uiPartIndex];
-
-    if (pRenderData->m_hMaterial != hLastMaterial)
-    {
-      renderViewContext.m_pRenderContext->SetMaterialState(pRenderData->m_hMaterial);
-      hLastMaterial = pRenderData->m_hMaterial;
-    }
-
-    renderViewContext.m_pRenderContext->SetMaterialParameter("MeshColor", pRenderData->m_MeshColor);
-
-    renderViewContext.m_pRenderContext->BindMeshBuffer(pMesh->GetMeshBuffer());
-
-    renderViewContext.m_pRenderContext->DrawMeshBuffer(meshPart.m_uiPrimitiveCount, meshPart.m_uiFirstPrimitive);
-
-    ++uiDataRendered;
+    pContext->SetShaderPermutationVariable("FLIP_WINDING", "TRUE");
+  }
+  else
+  {
+    pContext->SetShaderPermutationVariable("FLIP_WINDING", "FALSE");
   }
 
-  return uiDataRendered;
+  // Bind skinning matrices if supplied and set the appropriate permutation variable
+  if (pRenderData->m_hSkinningMatrices.IsInvalidated())
+  {
+    pContext->SetShaderPermutationVariable("VERTEX_SKINNING", "FALSE");
+  }
+  else
+  {
+    pContext->SetShaderPermutationVariable("VERTEX_SKINNING", "TRUE");
+
+    if (!pRenderData->m_pNewSkinningMatricesData.IsEmpty())
+    {
+      pContext->GetGALContext()->UpdateBuffer(pRenderData->m_hSkinningMatrices, 0, pRenderData->m_pNewSkinningMatricesData);
+    }
+
+    pContext->BindBuffer(ezGALShaderStage::VertexShader, "skinningMatrices", pDevice->GetDefaultResourceView(pRenderData->m_hSkinningMatrices));
+  }
+
+  pContext->BindMaterial(hMaterial);
+  pContext->BindMeshBuffer(pMesh->GetMeshBuffer());
+
+  ezUInt32 uiStartIndex = 0;
+  while (uiStartIndex < batch.GetCount())
+  {
+    const ezUInt32 uiCount = batch.GetCount() - uiStartIndex;
+
+    ezUInt32 uiInstanceDataOffset = 0;
+    ezArrayPtr<ezPerInstanceData> instanceData = pInstanceData->GetInstanceData(uiCount, uiInstanceDataOffset);
+
+    ezUInt32 uiFilteredCount = 0;
+    FillPerInstanceData(instanceData, batch, uiStartIndex, uiFilteredCount);
+
+    if (uiFilteredCount > 0) // Instance data might be empty if all render data was filtered.
+    {
+      pInstanceData->UpdateInstanceData(pContext, uiFilteredCount);
+
+      const ezMeshResourceDescriptor::SubMesh& meshPart = subMeshes[uiPartIndex];
+
+      unsigned int uiRenderedInstances = uiFilteredCount;
+      if (renderViewContext.m_pCamera->IsStereoscopic())
+        uiRenderedInstances *= 2;
+
+      if (pContext->DrawMeshBuffer(meshPart.m_uiPrimitiveCount, meshPart.m_uiFirstPrimitive, uiRenderedInstances).Failed())
+      {
+        for (auto it = batch.GetIterator<ezMeshRenderData>(uiStartIndex, uiCount); it.IsValid(); ++it)
+        {
+          pRenderData = it;
+
+          // draw bounding box instead
+          if (pRenderData->m_GlobalBounds.IsValid())
+          {
+            ezDebugRenderer::DrawLineBox(*renderViewContext.m_pViewDebugContext, pRenderData->m_GlobalBounds.GetBox(), ezColor::Magenta);
+          }
+        }
+      }
+    }
+
+    uiStartIndex += uiCount;
+  }
+}
+
+void ezMeshRenderer::FillPerInstanceData(ezArrayPtr<ezPerInstanceData> instanceData, const ezRenderDataBatch& batch, ezUInt32 uiStartIndex, ezUInt32& out_uiFilteredCount)
+{
+  ezUInt32 uiCount = ezMath::Min<ezUInt32>(instanceData.GetCount(), batch.GetCount() - uiStartIndex);
+  ezUInt32 uiCurrentIndex = 0;
+
+  for (auto it = batch.GetIterator<ezMeshRenderData>(uiStartIndex, uiCount); it.IsValid(); ++it)
+  {
+    const ezMeshRenderData* pRenderData = it;
+
+    ezMat4 objectToWorld = pRenderData->m_GlobalTransform.GetAsMat4();
+
+    auto& perInstanceData = instanceData[uiStartIndex + uiCurrentIndex];
+    perInstanceData.ObjectToWorld = objectToWorld;
+
+    if (pRenderData->m_uiUniformScale)
+    {
+      perInstanceData.ObjectToWorldNormal = objectToWorld;
+    }
+    else
+    {
+      ezShaderTransform shaderT;
+      shaderT = objectToWorld.GetRotationalPart().GetInverse().GetTranspose();
+      perInstanceData.ObjectToWorldNormal = shaderT;
+    }
+
+    perInstanceData.GameObjectID = pRenderData->m_uiUniqueID;
+
+    ++uiCurrentIndex;
+  }
+
+  out_uiFilteredCount = uiCurrentIndex;
 }
 
 

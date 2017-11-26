@@ -17,21 +17,20 @@ EZ_CREATE_SIMPLE_TEST(Time, Timestamp)
     validTimestamp.Invalidate();
     EZ_TEST_BOOL(!validTimestamp.IsValid());
 
-    ezTimestamp currentTimestamp = ezTimestamp::CurrentTimestamp();   
+    ezTimestamp currentTimestamp = ezTimestamp::CurrentTimestamp();
     // Kind of hard to hit a moving target, let's just test if it is in a probable range.
     EZ_TEST_BOOL(currentTimestamp.IsValid());
     EZ_TEST_BOOL_MSG(currentTimestamp.GetInt64(ezSIUnitOfTime::Second) > 1384597970LL, "The current time is before this test was written!");
     EZ_TEST_BOOL_MSG(currentTimestamp.GetInt64(ezSIUnitOfTime::Second) < 32531209845LL, "This current time is after the year 3000! If this is actually the case, please fix this test.");
 
     // Sleep for 10 milliseconds
-    ezThreadUtils::Sleep(10);
+    ezThreadUtils::Sleep(ezTime::Milliseconds(10));
     EZ_TEST_BOOL_MSG(currentTimestamp.GetInt64(ezSIUnitOfTime::Microsecond) < ezTimestamp::CurrentTimestamp().GetInt64(ezSIUnitOfTime::Microsecond), "Sleeping for 10 ms should cause the timestamp to change!");
-    EZ_TEST_BOOL_MSG(!currentTimestamp.IsEqual(ezTimestamp::CurrentTimestamp(), ezTimestamp::CompareMode::Identical), "Sleeping for 10 ms should cause the timestamp to change!");
-
+    EZ_TEST_BOOL_MSG(!currentTimestamp.Compare(ezTimestamp::CurrentTimestamp(), ezTimestamp::CompareMode::Identical), "Sleeping for 10 ms should cause the timestamp to change!");
   }
 
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "Public Accessors")
-  {   
+  {
     const ezTimestamp epoch(0, ezSIUnitOfTime::Second);
     const ezTimestamp firstContact(iFirstContactUnixTimeInSeconds, ezSIUnitOfTime::Second);
     EZ_TEST_BOOL(epoch.IsValid());
@@ -45,18 +44,18 @@ EZ_CREATE_SIMPLE_TEST(Time, Timestamp)
     EZ_TEST_BOOL(firstContactTest.GetInt64(ezSIUnitOfTime::Nanosecond) == iFirstContactUnixTimeInSeconds * 1000000000LL);
 
     firstContactTest.SetInt64(firstContactTest.GetInt64(ezSIUnitOfTime::Second), ezSIUnitOfTime::Second);
-    EZ_TEST_BOOL(firstContactTest.IsEqual(firstContact, ezTimestamp::CompareMode::Identical));
+    EZ_TEST_BOOL(firstContactTest.Compare(firstContact, ezTimestamp::CompareMode::Identical));
     firstContactTest.SetInt64(firstContactTest.GetInt64(ezSIUnitOfTime::Millisecond), ezSIUnitOfTime::Millisecond);
-    EZ_TEST_BOOL(firstContactTest.IsEqual(firstContact, ezTimestamp::CompareMode::Identical));
+    EZ_TEST_BOOL(firstContactTest.Compare(firstContact, ezTimestamp::CompareMode::Identical));
     firstContactTest.SetInt64(firstContactTest.GetInt64(ezSIUnitOfTime::Microsecond), ezSIUnitOfTime::Microsecond);
-    EZ_TEST_BOOL(firstContactTest.IsEqual(firstContact, ezTimestamp::CompareMode::Identical));
+    EZ_TEST_BOOL(firstContactTest.Compare(firstContact, ezTimestamp::CompareMode::Identical));
     firstContactTest.SetInt64(firstContactTest.GetInt64(ezSIUnitOfTime::Nanosecond), ezSIUnitOfTime::Nanosecond);
-    EZ_TEST_BOOL(firstContactTest.IsEqual(firstContact, ezTimestamp::CompareMode::Identical));
+    EZ_TEST_BOOL(firstContactTest.Compare(firstContact, ezTimestamp::CompareMode::Identical));
 
     // IsEqual
     const ezTimestamp firstContactPlusAFewMicroseconds(firstContact.GetInt64(ezSIUnitOfTime::Microsecond) + 42, ezSIUnitOfTime::Microsecond);
-    EZ_TEST_BOOL(firstContact.IsEqual(firstContactPlusAFewMicroseconds, ezTimestamp::CompareMode::FileTime));
-    EZ_TEST_BOOL(!firstContact.IsEqual(firstContactPlusAFewMicroseconds, ezTimestamp::CompareMode::Identical));
+    EZ_TEST_BOOL(firstContact.Compare(firstContactPlusAFewMicroseconds, ezTimestamp::CompareMode::FileTimeEqual));
+    EZ_TEST_BOOL(!firstContact.Compare(firstContactPlusAFewMicroseconds, ezTimestamp::CompareMode::Identical));
   }
 
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "Operators")
@@ -91,9 +90,9 @@ EZ_CREATE_SIMPLE_TEST(Time, Timestamp)
     // operator += / -=
     ezTimestamp testTimestamp = firstContact;
     testTimestamp += timeSpan1000s;
-    EZ_TEST_BOOL(testTimestamp.IsEqual(firstContactPlus1000s, ezTimestamp::CompareMode::Identical));
+    EZ_TEST_BOOL(testTimestamp.Compare(firstContactPlus1000s, ezTimestamp::CompareMode::Identical));
     testTimestamp -= timeSpan1000s;
-    EZ_TEST_BOOL(testTimestamp.IsEqual(firstContact, ezTimestamp::CompareMode::Identical));
+    EZ_TEST_BOOL(testTimestamp.Compare(firstContact, ezTimestamp::CompareMode::Identical));
   }
 
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "ezDateTime conversion")

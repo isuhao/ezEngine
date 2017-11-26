@@ -1,17 +1,21 @@
-#include <PCH.h>
+﻿#include <PCH.h>
 #include <Foundation/Configuration/Startup.h>
+#include <Foundation/Types/UniquePtr.h>
 
-typedef ezConstructionCounter st;
-
-static ezDeque<st> CreateArray(ezUInt32 uiSize, ezUInt32 uiOffset)
+namespace DequeTestDetail
 {
-  ezDeque<st> a;
-  a.SetCount(uiSize);
+  typedef ezConstructionCounter st;
 
-  for (ezUInt32 i = 0; i < uiSize; ++i)
-    a[i] = uiOffset + i;
+  static ezDeque<st> CreateArray(ezUInt32 uiSize, ezUInt32 uiOffset)
+  {
+    ezDeque<st> a;
+    a.SetCount(uiSize);
 
-  return a;
+    for (ezUInt32 i = 0; i < uiSize; ++i)
+      a[i] = uiOffset + i;
+
+    return a;
+  }
 }
 
 EZ_CREATE_SIMPLE_TEST(Containers, Deque)
@@ -238,62 +242,62 @@ EZ_CREATE_SIMPLE_TEST(Containers, Deque)
 
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "Non-POD Types")
   {
-    EZ_TEST_BOOL(st::HasAllDestructed());
+    EZ_TEST_BOOL(DequeTestDetail::st::HasAllDestructed());
 
     {
-      ezDeque<st> v1;
-      EZ_TEST_BOOL(st::HasDone(0, 0));
+      ezDeque<DequeTestDetail::st> v1;
+      EZ_TEST_BOOL(DequeTestDetail::st::HasDone(0, 0));
 
       {
-        v1.PushBack(st(3));
-        EZ_TEST_BOOL(st::HasDone(2, 1));
+        v1.PushBack(DequeTestDetail::st(3));
+        EZ_TEST_BOOL(DequeTestDetail::st::HasDone(2, 1));
 
         v1.PushBack();
-        EZ_TEST_BOOL(st::HasDone(1, 0));
+        EZ_TEST_BOOL(DequeTestDetail::st::HasDone(1, 0));
 
         v1.PopBack();
-        EZ_TEST_BOOL(st::HasDone(0, 1));
+        EZ_TEST_BOOL(DequeTestDetail::st::HasDone(0, 1));
       }
       {
-        v1.PushFront(st(3));
-        EZ_TEST_BOOL(st::HasDone(2, 1));
+        v1.PushFront(DequeTestDetail::st(3));
+        EZ_TEST_BOOL(DequeTestDetail::st::HasDone(2, 1));
 
         v1.PushFront();
-        EZ_TEST_BOOL(st::HasDone(1, 0));
+        EZ_TEST_BOOL(DequeTestDetail::st::HasDone(1, 0));
 
         v1.PopFront();
-        EZ_TEST_BOOL(st::HasDone(0, 1));
+        EZ_TEST_BOOL(DequeTestDetail::st::HasDone(0, 1));
       }
 
       EZ_TEST_BOOL(v1.GetCount() == 2);
 
       v1.SetCount(12);
-      EZ_TEST_BOOL(st::HasDone(10, 0));
+      EZ_TEST_BOOL(DequeTestDetail::st::HasDone(10, 0));
 
       {
-        ezDeque<st> v2;
-        EZ_TEST_BOOL(st::HasDone(0, 0));
+        ezDeque<DequeTestDetail::st> v2;
+        EZ_TEST_BOOL(DequeTestDetail::st::HasDone(0, 0));
 
         v2 = v1;
-        EZ_TEST_BOOL(st::HasDone(12, 0));
+        EZ_TEST_BOOL(DequeTestDetail::st::HasDone(12, 0));
 
         v2.Clear();
-        EZ_TEST_BOOL(st::HasDone(0, 12));
+        EZ_TEST_BOOL(DequeTestDetail::st::HasDone(0, 12));
 
-        ezDeque<st> v3(v1);
-        EZ_TEST_BOOL(st::HasDone(12, 0));
+        ezDeque<DequeTestDetail::st> v3(v1);
+        EZ_TEST_BOOL(DequeTestDetail::st::HasDone(12, 0));
 
-        ezDeque<st> v4(v1);
-        EZ_TEST_BOOL(st::HasDone(12, 0));
+        ezDeque<DequeTestDetail::st> v4(v1);
+        EZ_TEST_BOOL(DequeTestDetail::st::HasDone(12, 0));
 
         v4.SetCount(0);
-        EZ_TEST_BOOL(st::HasDone(0, 12));
+        EZ_TEST_BOOL(DequeTestDetail::st::HasDone(0, 12));
       }
 
-      EZ_TEST_BOOL(st::HasDone(0, 12));
+      EZ_TEST_BOOL(DequeTestDetail::st::HasDone(0, 12));
     }
 
-    EZ_TEST_BOOL(st::HasAllDestructed());
+    EZ_TEST_BOOL(DequeTestDetail::st::HasAllDestructed());
   }
 
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "SortingPrimitives")
@@ -321,7 +325,7 @@ EZ_CREATE_SIMPLE_TEST(Containers, Deque)
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "Constructor")
   {
     ezDeque<ezInt32> a1;
-    ezDeque<st> a2;
+    ezDeque<DequeTestDetail::st> a2;
 
     EZ_TEST_BOOL(a1.GetCount() == 0);
     EZ_TEST_BOOL(a2.GetCount() == 0);
@@ -352,25 +356,25 @@ EZ_CREATE_SIMPLE_TEST(Containers, Deque)
 
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "Move Constructor / Operator")
   {
-    EZ_TEST_BOOL(st::HasAllDestructed());
+    EZ_TEST_BOOL(DequeTestDetail::st::HasAllDestructed());
 
     {
       // move constructor
-      ezDeque<st> a1(CreateArray(100, 20));
+      ezDeque<DequeTestDetail::st> a1(DequeTestDetail::CreateArray(100, 20));
 
       EZ_TEST_INT(a1.GetCount(), 100);
       for (ezUInt32 i = 0; i < a1.GetCount(); ++i)
         EZ_TEST_INT(a1[i].m_iData, 20 + i);
 
       // move operator
-      a1 = CreateArray(200, 50);
+      a1 = DequeTestDetail::CreateArray(200, 50);
 
       EZ_TEST_INT(a1.GetCount(), 200);
       for (ezUInt32 i = 0; i < a1.GetCount(); ++i)
         EZ_TEST_INT(a1[i].m_iData, 50 + i);
     }
 
-    EZ_TEST_BOOL(st::HasAllDestructed());
+    EZ_TEST_BOOL(DequeTestDetail::st::HasAllDestructed());
   }
 
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "operator = / operator == / operator !=")
@@ -628,136 +632,136 @@ EZ_CREATE_SIMPLE_TEST(Containers, Deque)
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "Construction / Destruction")
   {
     {
-      EZ_TEST_BOOL(st::HasAllDestructed());
+      EZ_TEST_BOOL(DequeTestDetail::st::HasAllDestructed());
 
-      ezDeque<st> a1;
-      ezDeque<st> a2;
+      ezDeque<DequeTestDetail::st> a1;
+      ezDeque<DequeTestDetail::st> a2;
 
-      EZ_TEST_BOOL(st::HasDone(0, 0)); // nothing has been constructed / destructed in between
-      EZ_TEST_BOOL(st::HasAllDestructed());
+      EZ_TEST_BOOL(DequeTestDetail::st::HasDone(0, 0)); // nothing has been constructed / destructed in between
+      EZ_TEST_BOOL(DequeTestDetail::st::HasAllDestructed());
 
-      a1.PushBack(st(1));
-      EZ_TEST_BOOL(st::HasDone(2, 1)); // one temporary, one final (copy constructed)
+      a1.PushBack(DequeTestDetail::st(1));
+      EZ_TEST_BOOL(DequeTestDetail::st::HasDone(2, 1)); // one temporary, one final (copy constructed)
 
-      a1.Insert(st(2), 0);
-      EZ_TEST_BOOL(st::HasDone(2, 1)); // one temporary, one final (copy constructed)
+      a1.Insert(DequeTestDetail::st(2), 0);
+      EZ_TEST_BOOL(DequeTestDetail::st::HasDone(2, 1)); // one temporary, one final (copy constructed)
 
       a2 = a1;
-      EZ_TEST_BOOL(st::HasDone(2, 0)); // two copies
+      EZ_TEST_BOOL(DequeTestDetail::st::HasDone(2, 0)); // two copies
 
       a1.Clear();
-      EZ_TEST_BOOL(st::HasDone(0, 2));
+      EZ_TEST_BOOL(DequeTestDetail::st::HasDone(0, 2));
 
-      a1.PushBack(st(3));
-      a1.PushBack(st(4));
-      a1.PushBack(st(5));
-      a1.PushBack(st(6));
+      a1.PushBack(DequeTestDetail::st(3));
+      a1.PushBack(DequeTestDetail::st(4));
+      a1.PushBack(DequeTestDetail::st(5));
+      a1.PushBack(DequeTestDetail::st(6));
 
-      EZ_TEST_BOOL(st::HasDone(8, 4)); // four temporaries
+      EZ_TEST_BOOL(DequeTestDetail::st::HasDone(8, 4)); // four temporaries
 
-      a1.Remove(st(3));
-      EZ_TEST_BOOL(st::HasDone(1, 2)); // one temporary, one destroyed
+      a1.Remove(DequeTestDetail::st(3));
+      EZ_TEST_BOOL(DequeTestDetail::st::HasDone(1, 2)); // one temporary, one destroyed
 
-      a1.Remove(st(3));
-      EZ_TEST_BOOL(st::HasDone(1, 1)); // one temporary, none destroyed
+      a1.Remove(DequeTestDetail::st(3));
+      EZ_TEST_BOOL(DequeTestDetail::st::HasDone(1, 1)); // one temporary, none destroyed
 
       a1.RemoveAt(0);
-      EZ_TEST_BOOL(st::HasDone(0, 1)); // one destroyed
+      EZ_TEST_BOOL(DequeTestDetail::st::HasDone(0, 1)); // one destroyed
 
       a1.RemoveAtSwap(0);
-      EZ_TEST_BOOL(st::HasDone(0, 1)); // one destroyed
+      EZ_TEST_BOOL(DequeTestDetail::st::HasDone(0, 1)); // one destroyed
     }
 
     // tests the destructor of a2 and a1
-    EZ_TEST_BOOL(st::HasAllDestructed());
+    EZ_TEST_BOOL(DequeTestDetail::st::HasAllDestructed());
   }
 
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "Reserve")
   {
-    EZ_TEST_BOOL(st::HasAllDestructed());
+    EZ_TEST_BOOL(DequeTestDetail::st::HasAllDestructed());
 
-    ezDeque<st> a;
+    ezDeque<DequeTestDetail::st> a;
 
-    EZ_TEST_BOOL(st::HasDone(0, 0)); // nothing has been constructed / destructed in between
-    EZ_TEST_BOOL(st::HasAllDestructed());
+    EZ_TEST_BOOL(DequeTestDetail::st::HasDone(0, 0)); // nothing has been constructed / destructed in between
+    EZ_TEST_BOOL(DequeTestDetail::st::HasAllDestructed());
 
     a.Reserve(100);
 
-    EZ_TEST_BOOL(st::HasDone(0, 0)); // nothing has been constructed / destructed in between
-    EZ_TEST_BOOL(st::HasAllDestructed());
+    EZ_TEST_BOOL(DequeTestDetail::st::HasDone(0, 0)); // nothing has been constructed / destructed in between
+    EZ_TEST_BOOL(DequeTestDetail::st::HasAllDestructed());
 
     a.SetCount(10);
-    EZ_TEST_BOOL(st::HasDone(10, 0));
+    EZ_TEST_BOOL(DequeTestDetail::st::HasDone(10, 0));
 
     a.Reserve(100);
-    EZ_TEST_BOOL(st::HasDone(0, 0));
+    EZ_TEST_BOOL(DequeTestDetail::st::HasDone(0, 0));
 
     a.SetCount(100);
-    EZ_TEST_BOOL(st::HasDone(90, 0));
+    EZ_TEST_BOOL(DequeTestDetail::st::HasDone(90, 0));
 
     a.Reserve(200);
-    EZ_TEST_BOOL(st::HasDone(0, 0)); // nothing had to be copied over
+    EZ_TEST_BOOL(DequeTestDetail::st::HasDone(0, 0)); // nothing had to be copied over
 
     a.SetCount(200);
-    EZ_TEST_BOOL(st::HasDone(100, 0));
+    EZ_TEST_BOOL(DequeTestDetail::st::HasDone(100, 0));
   }
 
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "Compact")
   {
-    EZ_TEST_BOOL(st::HasAllDestructed());
+    EZ_TEST_BOOL(DequeTestDetail::st::HasAllDestructed());
 
-    ezDeque<st> a;
+    ezDeque<DequeTestDetail::st> a;
 
-    EZ_TEST_BOOL(st::HasDone(0, 0)); // nothing has been constructed / destructed in between
-    EZ_TEST_BOOL(st::HasAllDestructed());
+    EZ_TEST_BOOL(DequeTestDetail::st::HasDone(0, 0)); // nothing has been constructed / destructed in between
+    EZ_TEST_BOOL(DequeTestDetail::st::HasAllDestructed());
 
     a.SetCount(100);
-    EZ_TEST_BOOL(st::HasDone(100, 0));
+    EZ_TEST_BOOL(DequeTestDetail::st::HasDone(100, 0));
 
     a.SetCount(200);
-    EZ_TEST_BOOL(st::HasDone(100, 0));
+    EZ_TEST_BOOL(DequeTestDetail::st::HasDone(100, 0));
 
     a.SetCount(10);
-    EZ_TEST_BOOL(st::HasDone(0, 190));
+    EZ_TEST_BOOL(DequeTestDetail::st::HasDone(0, 190));
 
     // no reallocations and copying, if the memory is already available
     a.SetCount(200);
-    EZ_TEST_BOOL(st::HasDone(190, 0));
+    EZ_TEST_BOOL(DequeTestDetail::st::HasDone(190, 0));
 
     a.SetCount(10);
-    EZ_TEST_BOOL(st::HasDone(0, 190));
+    EZ_TEST_BOOL(DequeTestDetail::st::HasDone(0, 190));
 
     // now we remove the spare memory
     a.Compact();
-    EZ_TEST_BOOL(st::HasDone(0, 0));
+    EZ_TEST_BOOL(DequeTestDetail::st::HasDone(0, 0));
 
     // this time the array needs to be relocated, and thus the already present elements need to be copied
     a.SetCount(200);
-    EZ_TEST_BOOL(st::HasDone(190, 0));
+    EZ_TEST_BOOL(DequeTestDetail::st::HasDone(190, 0));
 
     // this does not deallocate memory
     a.Clear();
-    EZ_TEST_BOOL(st::HasDone(0, 200));
+    EZ_TEST_BOOL(DequeTestDetail::st::HasDone(0, 200));
 
     a.SetCount(100);
-    EZ_TEST_BOOL(st::HasDone(100, 0));
+    EZ_TEST_BOOL(DequeTestDetail::st::HasDone(100, 0));
 
     // therefore no object relocation
     a.SetCount(200);
-    EZ_TEST_BOOL(st::HasDone(100, 0));
+    EZ_TEST_BOOL(DequeTestDetail::st::HasDone(100, 0));
 
     a.Clear();
-    EZ_TEST_BOOL(st::HasDone(0, 200));
+    EZ_TEST_BOOL(DequeTestDetail::st::HasDone(0, 200));
 
     // this will deallocate ALL memory
     a.Compact();
 
     a.SetCount(100);
-    EZ_TEST_BOOL(st::HasDone(100, 0));
+    EZ_TEST_BOOL(DequeTestDetail::st::HasDone(100, 0));
 
     // this time objects need to be relocated
     a.SetCount(200);
-    EZ_TEST_BOOL(st::HasDone(100, 0));
+    EZ_TEST_BOOL(DequeTestDetail::st::HasDone(100, 0));
   }
 
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "GetContiguousRange")
@@ -770,7 +774,7 @@ EZ_CREATE_SIMPLE_TEST(Containers, Deque)
       d.PushBack(i);
 
     ezDynamicArray<ezInt32> a;
-    a.SetCount(d.GetCount());
+    a.SetCountUninitialized(d.GetCount());
 
     ezUInt32 uiArrayPos = 0;
 
@@ -787,7 +791,7 @@ EZ_CREATE_SIMPLE_TEST(Containers, Deque)
       uiArrayPos += uiRange;
     }
 
-    a.SetCount(uiArrayPos);
+    a.SetCountUninitialized(uiArrayPos);
 
     uiArrayPos = 0;
 
@@ -802,6 +806,62 @@ EZ_CREATE_SIMPLE_TEST(Containers, Deque)
         ++uiArrayPos;
       }
     }
+  }
+
+  EZ_TEST_BLOCK(ezTestBlock::Enabled, "Swap")
+  {
+    ezDeque<ezInt32> a1, a2;
+
+    ezInt32 content1[] = { 1, 2, 3, 4 };
+    ezInt32 content2[] = { 5, 6, 7, 8, 9 };
+    for (ezInt32 i : content1)
+    {
+      a1.PushBack(i);
+    }
+    for (ezInt32 i : content2)
+    {
+      a2.PushBack(i);
+    }
+
+    ezInt32* a1Ptr = &a1[0];
+    ezInt32* a2Ptr = &a2[0];
+
+    a1.Swap(a2);
+
+    // The pointers should be simply swapped
+    EZ_TEST_BOOL(a2Ptr == &a1[0]);
+    EZ_TEST_BOOL(a1Ptr == &a2[0]);
+
+    EZ_TEST_INT(EZ_ARRAY_SIZE(content1), a2.GetCount());
+    EZ_TEST_INT(EZ_ARRAY_SIZE(content2), a1.GetCount());
+
+    // The data should be swapped
+    for (int i = 0; i < EZ_ARRAY_SIZE(content1); ++i)
+    {
+      EZ_TEST_INT(content1[i], a2[i]);
+    }
+    for (int i = 0; i < EZ_ARRAY_SIZE(content2); ++i)
+    {
+      EZ_TEST_INT(content2[i], a1[i]);
+    }
+  }
+
+  EZ_TEST_BLOCK(ezTestBlock::Enabled, "Move PushBack / PushFront")
+  {
+    ezDeque<ezUniquePtr<ezUInt32>> a1, a2;
+    a1.PushBack(ezUniquePtr<ezUInt32>(EZ_DEFAULT_NEW(ezUInt32, 1)));
+    a1.PushBack(ezUniquePtr<ezUInt32>(EZ_DEFAULT_NEW(ezUInt32, 2)));
+
+    a2.PushFront(ezUniquePtr<ezUInt32>(EZ_DEFAULT_NEW(ezUInt32, 3)));
+    a2.PushFront(ezUniquePtr<ezUInt32>(EZ_DEFAULT_NEW(ezUInt32, 4)));
+
+    a1.Swap(a2);
+
+    EZ_TEST_INT(*a1[0].Borrow(), 4);
+    EZ_TEST_INT(*a1[1].Borrow(), 3);
+
+    EZ_TEST_INT(*a2[0].Borrow(), 1);
+    EZ_TEST_INT(*a2[1].Borrow(), 2);
   }
 }
 

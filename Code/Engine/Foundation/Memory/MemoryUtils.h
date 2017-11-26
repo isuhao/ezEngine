@@ -7,8 +7,8 @@
 /// \details
 ///   The following concepts are realized:
 ///   Copy: Copying a object from a to b means that two equivalent objects will exists in both a and b.
-///   Relocate: Relocating an object from a to b means that the object will exist in b afterwards but will no longer exist in a, which means a will be destructed.
-///   Move: Moving an object from a to b menas that the object will exist in b afterwards but a will be empty afterwards, but not destructed.
+///   Move: Moving an object from a to b menas that the object will exist in b afterwards but a will be empty afterwards, but not destructed. This strictly requires an available move constructor (compile error otherwise).
+///   Relocate: Relocating an object from a to b means that the object will exist in b afterwards but will no longer exist in a, which means a will be moved if available or copied, but destructed afterwards in any case.
 ///   Construct: Constructing assumes that the destination does not contain a valid object.
 ///   Overlapped: The source and destination range may overlap for the operation to be performed.
 ///   The above mentioned concepts can be combined, e.g. RelocateConstruct for relocating to an uninitialized buffer.
@@ -38,24 +38,33 @@ public:
   static ConstructorFunction MakeDefaultConstructorFunction(); // [tested]
 
   /// \brief Constructs \a uiCount objects of type T in a raw buffer at \a pDestination, by creating \a uiCount copies of \a copy.
-  template <typename T>
-  static void CopyConstruct(T* pDestination, const T& copy, size_t uiCount); // [tested]
+  template <typename Destination, typename Source>
+  static void CopyConstruct(Destination* pDestination, const Source& copy, size_t uiCount); // [tested]
 
   /// \brief Constructs \a uiCount objects of type T in a raw buffer at \a pDestination from an existing array of objects at \a pSource by using copy construction.
   template <typename T>
-  static void CopyConstruct(T* pDestination, const T* pSource, size_t uiCount); // [tested]
+  static void CopyConstructArray(T* pDestination, const T* pSource, size_t uiCount); // [tested]
 
   /// \brief Returns a function pointer to copy construct an instance of T.
   template <typename T>
   static CopyConstructorFunction MakeCopyConstructorFunction(); // [tested]
 
-  /// \brief Constructs \a uiCount objects of type T in a raw buffer at \a pDestionation from an existing array of objects at \a pSource by using move construction.
-  template <typename T>
-  static void RelocateConstruct(T* pDestination, T* pSource, size_t uiCount);
-
-  /// \brief Constructs an object of type T in a raw buffer at \a pDestionation, by using move construction from \a source.
+  /// \brief Constructs an object of type T in a raw buffer at \a pDestination, by using move construction from \a source.
   template <typename T>
   static void MoveConstruct(T* pDestination, T&& source); // [tested]
+
+  /// \brief Constructs \a uiCount objects of type T in a raw buffer at \a pDestination from an existing array of objects at \a pSource by using move construction.
+  template <typename T>
+  static void MoveConstruct(T* pDestination, T* pSource, size_t uiCount);
+
+  /// \brief This function will either move call MoveConstruct or CopyConstruct for a single element \a source, depending on whether it was called with a rvalue reference or a const reference to \a source.
+  template <typename Destination, typename Source>
+  static void CopyOrMoveConstruct(Destination* pDestination, Source&& source);
+
+  /// \brief Constructs \a uiCount objects of type T in a raw buffer at \a pDestination from an existing array of objects at \a pSource by using move construction if availble, otherwise by copy construction.
+  /// Calls destructor of source elements in any case (if it is a non primitive or memrelocatable type).
+  template <typename T>
+  static void RelocateConstruct(T* pDestination, T* pSource, size_t uiCount);
 
   /// \brief Destructs \a uiCount objects of type T at \a pDestination.
   template <typename T>
@@ -121,17 +130,21 @@ public:
   template <typename T>
   static const T* AddByteOffsetConst(const T* ptr, ptrdiff_t iOffset); // [tested]
 
-  /// \brief Aligns the pointer \a ptr by moving its address backwards to the previous multiple of \a uiAlignment.  
+  /// \brief Aligns the pointer \a ptr by moving its address backwards to the previous multiple of \a uiAlignment.
   template <typename T>
   static T* Align(T* ptr, size_t uiAlignment); // [tested]
 
-  /// \brief Aligns the given size \a uiSize by rounding up to the next multiple of the size. 
+  /// \brief Aligns the given size \a uiSize by rounding up to the next multiple of the size.
   template <typename T>
   static T AlignSize(T uiSize, T uiAlignment); // [tested]
 
   /// \brief Checks whether \a ptr is aligned to a memory address that is a multiple of \a uiAlignment.
   template <typename T>
   static bool IsAligned(const T* ptr, size_t uiAlignment); // [tested]
+
+   /// \brief Checks whether the given size is aligned.
+  template <typename T>
+  static bool IsSizeAligned(T uiSize, T uiAlignment); // [tested]
 
   /// \brief Reserves the lower 4GB of address space in 64-bit builds to ensure all allocations start above 4GB.
   ///
@@ -152,15 +165,24 @@ private:
   template <typename T>
   static ConstructorFunction MakeConstructorFunction(ezTypeIsClass);
 
-  template <typename T>
-  static void CopyConstruct(T* pDestination, const T& copy, size_t uiCount, ezTypeIsPod);
-  template <typename T>
-  static void CopyConstruct(T* pDestination, const T& copy, size_t uiCount, ezTypeIsClass);
+  template <typename Destination, typename Source>
+  static void CopyConstruct(Destination* pDestination, const Source& copy, size_t uiCount, ezTypeIsPod);
+  template <typename Destination, typename Source>
+  static void CopyConstruct(Destination* pDestination, const Source& copy, size_t uiCount, ezTypeIsClass);
 
   template <typename T>
-  static void CopyConstruct(T* pDestination, const T* pSource, size_t uiCount, ezTypeIsPod);
+  static void CopyConstructArray(T* pDestination, const T* pSource, size_t uiCount, ezTypeIsPod);
   template <typename T>
-  static void CopyConstruct(T* pDestination, const T* pSource, size_t uiCount, ezTypeIsClass);
+  static void CopyConstructArray(T* pDestination, const T* pSource, size_t uiCount, ezTypeIsClass);
+
+
+  typedef std::false_type NotRValueReference;  
+  typedef std::true_type IsRValueReference;
+
+  template <typename Destination, typename Source>
+  static void CopyOrMoveConstruct(Destination* pDestination, const Source& source, NotRValueReference);
+  template <typename Destination, typename Source>
+  static void CopyOrMoveConstruct(Destination* pDestination, Source&& source, IsRValueReference);
 
   template <typename T>
   static void RelocateConstruct(T* pDestination, T* pSource, size_t uiCount, ezTypeIsPod);

@@ -78,7 +78,7 @@ public:
   /// \brief Searches for the first occurrence of the given value and returns its index or ezInvalidIndex if not found.
   ezUInt32 IndexOf(const T& value, ezUInt32 uiStartIndex = 0) const; // [tested]
 
-  /// \brief Searches for the last occurrence of the given value and returns its index or ezInvalidIndex if not found. 
+  /// \brief Searches for the last occurrence of the given value and returns its index or ezInvalidIndex if not found.
   ezUInt32 LastIndexOf(const T& value, ezUInt32 uiStartIndex = ezInvalidIndex) const; // [tested]
 
   /// \brief Grows the array by one element and returns a reference to the newly created element.
@@ -121,19 +121,29 @@ public:
   /// \brief Returns a pointer to the array data, or nullptr if the array is empty.
   const T* GetData() const;
 
-  /// \brief Returns a array pointer to the array data, or an empty array pointer if the array is empty.
+  /// \brief Returns an array pointer to the array data, or an empty array pointer if the array is empty.
   ezArrayPtr<T> GetArrayPtr(); // [tested]
 
-  /// \brief Returns a array pointer to the array data, or an empty array pointer if the array is empty.
+  /// \brief Returns an array pointer to the array data, or an empty array pointer if the array is empty.
   ezArrayPtr<const T> GetArrayPtr() const; // [tested]
+
+  /// \brief Returns a byte array pointer to the array data, or an empty array pointer if the array is empty.
+  ezArrayPtr<typename ezArrayPtr<T>::ByteType> GetByteArrayPtr(); // [tested]
+
+  /// \brief Returns a byte array pointer to the array data, or an empty array pointer if the array is empty.
+  ezArrayPtr<typename ezArrayPtr<const T>::ByteType> GetByteArrayPtr() const; // [tested]
+
+  /// \brief Returns the reserved number of elements that the array can hold without reallocating.
+  ezUInt32 GetCapacity() const { return m_uiCapacity; }
 
   typedef T const * const_iterator;
   typedef const_reverse_pointer_iterator<T> const_reverse_iterator;
   typedef T * iterator;
   typedef reverse_pointer_iterator<T> reverse_iterator;
 
-
 protected:
+
+  void DoSwap(ezArrayBase<T, Derived>& other);
 
   /// \brief Element-type access to m_Data.
   T* m_pElements;

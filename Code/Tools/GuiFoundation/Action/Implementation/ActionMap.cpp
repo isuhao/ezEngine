@@ -1,4 +1,4 @@
-#include <GuiFoundation/PCH.h>
+#include <PCH.h>
 #include <GuiFoundation/Action/ActionMap.h>
 #include <GuiFoundation/Action/ActionManager.h>
 #include <Foundation/Logging/Log.h>
@@ -7,7 +7,7 @@
 EZ_BEGIN_STATIC_REFLECTED_TYPE(ezActionMapDescriptor, ezNoBase, 0, ezRTTINoAllocator);
 //  EZ_BEGIN_PROPERTIES
 //  EZ_END_PROPERTIES
-EZ_END_STATIC_REFLECTED_TYPE();
+EZ_END_STATIC_REFLECTED_TYPE
 
 ////////////////////////////////////////////////////////////////////////
 // ezActionMap public functions
@@ -27,9 +27,12 @@ ezActionMap::~ezActionMap()
 
 void ezActionMap::MapAction(ezActionDescriptorHandle hAction, const char* szPath, float fOrder)
 {
+  ezStringBuilder sPath = szPath;
+  sPath.MakeCleanPath();
+  sPath.Trim("/");
   ezActionMapDescriptor d;
   d.m_hAction = hAction;
-  d.m_sPath = szPath;
+  d.m_sPath = sPath;
   d.m_fOrder = fOrder;
 
   EZ_VERIFY(MapAction(d).IsValid(), "Mapping Failed");
@@ -42,7 +45,7 @@ ezUuid ezActionMap::MapAction(const ezActionMapDescriptor& desc)
   {
     return ezUuid();
   }
-  
+
   auto it = m_Descriptors.Find(ParentGUID);
 
   ezTreeNode<ezActionMapDescriptor>* pParent = nullptr;
@@ -60,14 +63,14 @@ ezUuid ezActionMap::MapAction(const ezActionMapDescriptor& desc)
     const ezActionMapDescriptor* pDesc = GetDescriptor(pParent);
     if (pDesc->m_hAction.GetDescriptor()->m_Type == ezActionType::Action)
     {
-      ezLog::Error("Can't map descriptor '%s' as its parent is an action itself and thus can't have any children.", desc.m_hAction.GetDescriptor()->m_sActionName.GetData());
+      ezLog::Error("Can't map descriptor '{0}' as its parent is an action itself and thus can't have any children.", desc.m_hAction.GetDescriptor()->m_sActionName);
       return ezUuid();
     }
   }
 
   if (GetChildByName(pParent, desc.m_hAction.GetDescriptor()->m_sActionName) != nullptr)
   {
-    ezLog::Error("Can't map descriptor as its name is already present: %s", desc.m_hAction.GetDescriptor()->m_sActionName.GetData());
+    ezLog::Error("Can't map descriptor as its name is already present: {0}", desc.m_hAction.GetDescriptor()->m_sActionName);
     return ezUuid();
   }
 
@@ -118,7 +121,7 @@ bool ezActionMap::FindObjectByPath(const ezStringView& sPath, ezUuid& out_guid) 
       return false;
   }
 
-  out_guid = pParent->GetGuid(); 
+  out_guid = pParent->GetGuid();
   return true;
 }
 

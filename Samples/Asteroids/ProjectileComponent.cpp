@@ -5,44 +5,51 @@
 #include <InputXBox360/InputDeviceXBox.h>
 #include <Foundation/Configuration/CVar.h>
 #include <Foundation/Utilities/Stats.h>
+#include <RendererCore/Meshes/MeshComponent.h>
 
-EZ_BEGIN_COMPONENT_TYPE(ProjectileComponent, ezComponent, 1, ProjectileComponentManager);
-EZ_END_COMPONENT_TYPE();
+EZ_BEGIN_COMPONENT_TYPE(ProjectileComponent, 1);
+EZ_END_COMPONENT_TYPE
 
-ezCVarBool CVar_Test2("g_Bool", true, ezCVarFlags::Default, "cvar bool");
-ezCVarInt CVar_ProjectileTTL("g_ProjectileTTL", 25, ezCVarFlags::Default, "cvar int");
-ezCVarString CVar_Test4("g_String", "zwei und vierzig", ezCVarFlags::Default, "cvar string");
+ezCVarFloat CVar_ProjectileTimeToLive("g_ProjectileTimeToLive", 0.5f, ezCVarFlags::Default, "Projectile time to Live");
+ezCVarFloat CVar_SparksTimeToLive("g_SparksTimeToLive", 3.0f, ezCVarFlags::Default, "Projectile time to fade out");
+ezCVarInt CVar_SparksPerHit("g_SparksPerHit", 50, ezCVarFlags::Default, "Number of particles spawned when projectile hits a ship");
+ezCVarFloat CVar_ProjectileDamage("g_ProjectileDamage", 0.0f, ezCVarFlags::Default, "How much damage a projectile makes");
+ezCVarFloat CVar_SparksSpeed("g_SparksSpeed", 50.0f, ezCVarFlags::Default, "Projectile fly speed");
 
 ProjectileComponent::ProjectileComponent()
 {
-  m_vVelocity.SetZero();
-  m_iTimeToLive = CVar_ProjectileTTL;
+  m_fSpeed = 0.0f;
+  m_TimeToLive = ezTime::Seconds(CVar_ProjectileTimeToLive);
   m_iBelongsToPlayer = -1;
   m_bDoesDamage = false;
-  m_vDrawDir.SetZero();
 }
 
 void ProjectileComponent::Update()
 {
-  if (m_iTimeToLive <= 0)
+  if (m_TimeToLive.IsZeroOrLess())
   {
-    GetWorld()->DeleteObject(GetOwner()->GetHandle());
+    GetWorld()->DeleteObjectDelayed(GetOwner()->GetHandle());
     return;
   }
 
-  --m_iTimeToLive;
+  const ezTime tDiff = GetWorld()->GetClock().GetTimeDiff();
+  m_TimeToLive -= tDiff;
 
-  if (m_vVelocity.IsZero())
+  if (m_TimeToLive.IsZeroOrLess())
     return;
 
-  ezStats::SetStat("g_Bool", (bool) CVar_Test2 ? "true" : "false");
-  ezStats::SetStat("g_String", CVar_Test4.GetValue().GetData());
+  if (m_fSpeed <= 0.0f)
+    return;
 
-  m_vDrawDir = m_vVelocity;
+  const ezVec3 vVelocity = GetOwner()->GetLocalRotation() * ezVec3(m_fSpeed, 0, 0);
+  const ezVec3 vDistance = (float)tDiff.GetSeconds() * vVelocity;
+  GetOwner()->SetLocalPosition(GetOwner()->GetLocalPosition() + vDistance);
 
-  GetOwner()->SetLocalPosition(GetOwner()->GetLocalPosition() + m_vVelocity);
+  // Deactivate the rest of the function, if you want to profile overall engine performance
+  //if (!m_bDoesDamage)
+  //  return;
 
-  CollidableComponentManager* pCollidableManager = GetWorld()->GetComponentManager<CollidableComponentManager>();
+  CollidableComponentManager* pCollidableManager = GetWorld()->GetOrCreateComponentManager<CollidableComponentManager>();
 
   for (auto it = pCollidableManager->GetComponents(); it.IsValid(); ++it)
   {
@@ -55,7 +62,7 @@ void ProjectileComponent::Update()
       if (pShipComponent->m_iPlayerIndex == m_iBelongsToPlayer)
         continue;
 
-      if (pShipComponent->m_iHealth <= 0)
+      if (!pShipComponent->IsAlive())
         continue;
     }
 
@@ -63,11 +70,11 @@ void ProjectileComponent::Update()
 
     const ezVec3 vPos = GetOwner()->GetLocalPosition();
 
-    if (!m_vVelocity.IsZero(0.001f) && bs.GetLineSegmentIntersection(vPos, vPos + m_vVelocity))
+    if (!vVelocity.IsZero(0.001f) && bs.GetLineSegmentIntersection(vPos, vPos + vDistance))
     {
       if (pShipComponent && m_bDoesDamage)
       {
-        pShipComponent->m_iHealth = ezMath::Max(pShipComponent->m_iHealth - 100, 0);
+        pShipComponent->m_fHealth = ezMath::Max(pShipComponent->m_fHealth - CVar_ProjectileDamage, 0.0f);
 
         {
           float HitTrack[20] =
@@ -79,46 +86,54 @@ void ProjectileComponent::Update()
           ezInputDeviceXBox360::GetDevice()->AddVibrationTrack(pShipComponent->m_iPlayerIndex, ezInputDeviceController::Motor::LeftMotor, HitTrack, 20);
         }
 
-        const ezInt32 iMaxParticles = 100;
+        const float fAngle = (float)GetWorld()->GetRandomNumberGenerator().DoubleMinMax(10.0, 100.0);
+        const float fSteps = fAngle / CVar_SparksPerHit;
 
-        const float fAngle = 10.0f + (rand() % 90);
-        const float fSteps = fAngle / iMaxParticles;
-        
-        for (ezInt32 i = 0; i < iMaxParticles; ++i)
+        for (ezInt32 i = 0; i < CVar_SparksPerHit; ++i)
         {
           ezQuat qRot;
-          qRot.SetFromAxisAndAngle(ezVec3(0, 0, 1), /*180.0f +*/ ezAngle::Degree((i - (iMaxParticles / 2)) * fSteps));
-          const ezVec3 vDir = qRot * m_vVelocity;
+          qRot.SetFromAxisAndAngle(ezVec3(0, 0, 1), ezAngle::Degree((i - (CVar_SparksPerHit / 2)) * fSteps));
 
           {
             ezGameObjectDesc desc;
             desc.m_LocalPosition = GetOwner()->GetLocalPosition();
+            desc.m_LocalRotation = qRot * GetOwner()->GetLocalRotation();
 
             ezGameObject* pProjectile = nullptr;
-            ezGameObjectHandle hProjectile = GetWorld()->CreateObject(desc, pProjectile);
+            GetWorld()->CreateObject(desc, pProjectile);
 
             ProjectileComponent* pProjectileComponent = nullptr;
-            ezComponentHandle hProjectileComponent = ProjectileComponent::CreateComponent(GetWorld(), pProjectileComponent);
+            ezComponentHandle hProjectileComponent = ProjectileComponent::CreateComponent(pProjectile, pProjectileComponent);
 
             pProjectileComponent->m_iBelongsToPlayer = pShipComponent->m_iPlayerIndex;
-            pProjectileComponent->m_vVelocity = vDir * (1.0f + ((rand() % 1000) / 999.0f));
+            pProjectileComponent->m_fSpeed = (float)GetWorld()->GetRandomNumberGenerator().DoubleMinMax(1.0, 2.0) * CVar_SparksSpeed;
             pProjectileComponent->m_bDoesDamage = false;
 
-            pProjectile->AddComponent(hProjectileComponent);
+            // ProjectileMesh
+            {
+              ezMeshComponent* pMeshComponent = nullptr;
+              ezMeshComponent::CreateComponent(pProjectile, pMeshComponent);
+
+              pMeshComponent->SetMesh(ezResourceManager::LoadResource<ezMeshResource>("ProjectileMesh"));
+
+              // this only works because the materials are part of the Asset Collection and get a name like this from there
+              // otherwise we would need to have the GUIDs of the 4 different material assets available
+              ezStringBuilder sMaterialName;
+              sMaterialName.Format("MaterialPlayer{0}", pShipComponent->m_iPlayerIndex + 1);
+              pMeshComponent->SetMaterial(0, ezResourceManager::LoadResource<ezMaterialResource>(sMaterialName));
+            }
           }
         }
       }
 
       if (pShipComponent)
       {
-        m_iTimeToLive = 0;
+        m_TimeToLive = ezTime::Seconds(0);
       }
       else
       {
-        m_vDrawDir = m_vVelocity;
-        m_vDrawDir.SetLength(0.5f);
-        m_vVelocity.SetZero();
-        m_iTimeToLive = 150;
+        m_fSpeed = 0.0f;
+        m_TimeToLive = ezTime::Seconds(CVar_SparksTimeToLive);
       }
     }
   }

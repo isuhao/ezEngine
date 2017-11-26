@@ -1,16 +1,12 @@
-#include <TestFramework/PCH.h>
+#include <PCH.h>
 
 #ifdef EZ_USE_QT
 
 #include <QtWidgets>
-#include <QMessageBox>
-#include <QStringBuilder>
 #include <TestFramework/Framework/Qt/qtTestGUI.h>
-#include <TestFramework/Framework/Qt/qtTestFramework.h>
 #include <TestFramework/Framework/Qt/qtTestModel.h>
 #include <TestFramework/Framework/Qt/qtTestDelegate.h>
 #include <TestFramework/Framework/Qt/qtLogMessageDock.h>
-#include <TestFramework/Utilities/TestOrder.h>
 
 ////////////////////////////////////////////////////////////////////////
 // ezQtTestGUI public functions
@@ -231,6 +227,13 @@ void ezQtTestGUI::on_actionEnableOnlyThis_triggered()
   m_pModel->dataChanged(QModelIndex(), QModelIndex());
 }
 
+
+void ezQtTestGUI::on_actionEnableOnlyFailed_triggered()
+{
+  m_pTestFramework->SetAllFailedTestsEnabledStatus();
+  m_pModel->dataChanged(QModelIndex(), QModelIndex());
+}
+
 void ezQtTestGUI::on_actionEnableAllChildren_triggered()
 {
   QModelIndex CurrentIndex = testTreeView->currentIndex();
@@ -324,6 +327,7 @@ void ezQtTestGUI::onTestTreeViewCustomContextMenuRequested(const QPoint& pnt)
     ContextMenu.addAction(actionEnableOnlyThis);
     ContextMenu.addAction(actionEnableAllChildren);
   }
+  ContextMenu.addAction(actionEnableOnlyFailed);
   ContextMenu.addAction(actionEnableAll);
   ContextMenu.addAction(actionDisableAll);
   ContextMenu.addSeparator();

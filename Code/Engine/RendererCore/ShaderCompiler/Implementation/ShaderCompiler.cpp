@@ -1,14 +1,104 @@
-#include <RendererCore/PCH.h>
+﻿#include <PCH.h>
 #include <RendererCore/ShaderCompiler/ShaderCompiler.h>
-#include <RendererCore/RenderContext/RenderContext.h>
-#include <RendererCore/Shader/Implementation/Helper.h>
+#include <RendererCore/ShaderCompiler/ShaderManager.h>
+#include <RendererCore/ShaderCompiler/ShaderParser.h>
+#include <Foundation/IO/FileSystem/DeferredFileWriter.h>
 #include <Foundation/IO/FileSystem/FileReader.h>
-#include <Foundation/IO/FileSystem/FileWriter.h>
 #include <Foundation/IO/OSFile.h>
 
-EZ_BEGIN_DYNAMIC_REFLECTED_TYPE(ezShaderProgramCompiler, ezReflectedClass, 1, ezRTTINoAllocator);
+EZ_BEGIN_DYNAMIC_REFLECTED_TYPE(ezShaderProgramCompiler, 1, ezRTTINoAllocator);
 // no properties or message handlers
-EZ_END_DYNAMIC_REFLECTED_TYPE();
+EZ_END_DYNAMIC_REFLECTED_TYPE
+
+
+namespace
+{
+  static bool PlatformEnabled(const ezString& sPlatforms, const char* szPlatform)
+  {
+    ezStringBuilder sTemp;
+    sTemp = szPlatform;
+
+    sTemp.Prepend("!");
+
+    // if it contains '!platform'
+    if (sPlatforms.FindWholeWord_NoCase(sTemp.GetData(), ezStringUtils::IsIdentifierDelimiter_C_Code) != nullptr)
+      return false;
+
+    sTemp = szPlatform;
+
+    // if it contains 'platform'
+    if (sPlatforms.FindWholeWord_NoCase(sTemp.GetData(), ezStringUtils::IsIdentifierDelimiter_C_Code) != nullptr)
+      return true;
+
+    // if it contains 'ALL'
+    if (sPlatforms.FindWholeWord_NoCase("ALL", ezStringUtils::IsIdentifierDelimiter_C_Code) != nullptr)
+      return true;
+
+    return false;
+  }
+
+  static void GenerateDefines(const char* szPlatform, const ezArrayPtr<ezPermutationVar>& permutationVars, ezHybridArray<ezString, 32>& out_Defines)
+  {
+    ezStringBuilder sTemp;
+
+    if (out_Defines.IsEmpty())
+    {
+      out_Defines.PushBack("TRUE 1");
+      out_Defines.PushBack("FALSE 0");
+
+      sTemp = szPlatform;
+      sTemp.ToUpper();
+
+      out_Defines.PushBack(sTemp.GetData());
+    }
+
+    for (const ezPermutationVar& var : permutationVars)
+    {
+      const char* szValue = var.m_sValue.GetData();
+      const bool isBoolVar = ezStringUtils::IsEqual(szValue, "TRUE") || ezStringUtils::IsEqual(szValue, "FALSE");
+
+      if (isBoolVar)
+      {
+        sTemp.Set(var.m_sName, " ", var.m_sValue);
+        out_Defines.PushBack(sTemp);
+      }
+      else
+      {
+        const char* szName = var.m_sName.GetData();
+        auto enumValues = ezShaderManager::GetPermutationEnumValues(var.m_sName);
+
+        for (ezUInt32 i = 0; i < enumValues.GetCount(); ++i)
+        {
+          if (!enumValues[i].IsEmpty())
+          {
+            sTemp.Format("{1} {2}", szName, enumValues[i], i);
+            out_Defines.PushBack(sTemp);
+          }
+        }
+
+        if (ezStringUtils::StartsWith(szValue, szName))
+        {
+          sTemp.Set(szName, " ", szValue);
+        }
+        else
+        {
+          sTemp.Set(szName, " ", szName, "_", szValue);
+        }
+        out_Defines.PushBack(sTemp);
+      }
+    }
+  }
+
+  static const char* s_szStageDefines[ezGALShaderStage::ENUM_COUNT] =
+  {
+    "VERTEX_SHADER",
+    "HULL_SHADER",
+    "DOMAIN_SHADER",
+    "GEOMETRY_SHADER",
+    "PIXEL_SHADER",
+    "COMPUTE_SHADER"
+  };
+}
 
 ezResult ezShaderCompiler::FileOpen(const char* szAbsoluteFile, ezDynamicArray<ezUInt8>& FileContent, ezTimestamp& out_FileModification)
 {
@@ -18,10 +108,12 @@ ezResult ezShaderCompiler::FileOpen(const char* szAbsoluteFile, ezDynamicArray<e
     const ezUInt32 uiCount = sData.GetElementCount();
     const char* szString = sData.GetData();
 
-    FileContent.SetCount(uiCount);
+    FileContent.SetCountUninitialized(uiCount);
 
-    for (ezUInt32 i = 0; i < uiCount; ++i)
-      FileContent[i] = (ezUInt8) (szString[i]);
+    if (uiCount > 0)
+    {
+      ezMemoryUtils::Copy<ezUInt8>(FileContent.GetData(), (const ezUInt8*)szString, uiCount);
+    }
 
     return EZ_SUCCESS;
   }
@@ -34,10 +126,12 @@ ezResult ezShaderCompiler::FileOpen(const char* szAbsoluteFile, ezDynamicArray<e
       const ezUInt32 uiCount = sData.GetElementCount();
       const char* szString = sData.GetData();
 
-      FileContent.SetCount(uiCount);
+      FileContent.SetCountUninitialized(uiCount);
 
-      for (ezUInt32 i = 0; i < uiCount; ++i)
-        FileContent[i] = (ezUInt8) (szString[i]);
+      if (uiCount > 0)
+      {
+        ezMemoryUtils::Copy<ezUInt8>(FileContent.GetData(), (const ezUInt8*)szString, uiCount);
+      }
 
       return EZ_SUCCESS;
     }
@@ -48,7 +142,7 @@ ezResult ezShaderCompiler::FileOpen(const char* szAbsoluteFile, ezDynamicArray<e
   ezFileReader r;
   if (r.Open(szAbsoluteFile).Failed())
   {
-    ezLog::Error("Could not find include file '%s'", szAbsoluteFile);
+    ezLog::Error("Could not find include file '{0}'", szAbsoluteFile);
     return EZ_FAILURE;
   }
 
@@ -64,37 +158,13 @@ ezResult ezShaderCompiler::FileOpen(const char* szAbsoluteFile, ezDynamicArray<e
 
   while (ezUInt64 uiRead = r.ReadBytes(Temp, 4096))
   {
-    FileContent.PushBackRange(ezArrayPtr<ezUInt8>(Temp, (ezUInt32) uiRead));
+    FileContent.PushBackRange(ezArrayPtr<ezUInt8>(Temp, (ezUInt32)uiRead));
   }
 
   return EZ_SUCCESS;
 }
 
-static bool PlatformEnabled(const ezString& sPlatforms, const char* szPlatform)
-{
-  ezStringBuilder sTemp;
-  sTemp = szPlatform;
-
-  sTemp.Prepend("!");
-
-  // if it contains '!platform'
-  if (sPlatforms.FindWholeWord_NoCase(sTemp.GetData(), ezStringUtils::IsIdentifierDelimiter_C_Code) != nullptr)
-    return false;
-
-  sTemp = szPlatform;
-
-  // if it contains 'platform'
-  if (sPlatforms.FindWholeWord_NoCase(sTemp.GetData(), ezStringUtils::IsIdentifierDelimiter_C_Code) != nullptr)
-    return true;
-
-  // if it contains 'ALL'
-  if (sPlatforms.FindWholeWord_NoCase("ALL", ezStringUtils::IsIdentifierDelimiter_C_Code) != nullptr)
-    return true;
-
-  return false;
-}
-
-ezResult ezShaderCompiler::CompileShaderPermutationsForPlatforms(const char* szFile, const ezPermutationGenerator& MainGenerator, const char* szPlatform)
+ezResult ezShaderCompiler::CompileShaderPermutationForPlatforms(const char* szFile, const ezArrayPtr<const ezPermutationVar>& permutationVars, ezLogInterface* pLog, const char* szPlatform)
 {
   ezStringBuilder sFileContent, sTemp;
 
@@ -106,52 +176,77 @@ ezResult ezShaderCompiler::CompileShaderPermutationsForPlatforms(const char* szF
     sFileContent.ReadAll(File);
   }
 
-
-  ezTextSectionizer Sections;
-  GetShaderSections(sFileContent.GetData(), Sections);
+  ezShaderHelper::ezTextSectionizer Sections;
+  ezShaderHelper::GetShaderSections(sFileContent.GetData(), Sections);
 
   ezUInt32 uiFirstLine = 0;
-  sTemp = Sections.GetSectionContent(ezShaderSections::PLATFORMS, uiFirstLine);
+  sTemp = Sections.GetSectionContent(ezShaderHelper::ezShaderSections::PLATFORMS, uiFirstLine);
   sTemp.ToUpper();
 
   m_ShaderData.m_Platforms = sTemp;
-  m_ShaderData.m_Permutations = Sections.GetSectionContent(ezShaderSections::PERMUTATIONS, uiFirstLine);
 
-  ezPermutationGenerator Generator = MainGenerator;
-  Generator.RemoveUnusedPermutations(m_ShaderData.m_Permutations);
+  ezHybridArray<ezHashedString, 16> usedPermutations;
+  ezShaderParser::ParsePermutationSection(Sections.GetSectionContent(ezShaderHelper::ezShaderSections::PERMUTATIONS, uiFirstLine), usedPermutations, m_ShaderData.m_FixedPermVars);
 
-  m_ShaderData.m_StateSource = Sections.GetSectionContent(ezShaderSections::RENDERSTATE, uiFirstLine);
+  for (const ezHashedString& usedPermutationVar : usedPermutations)
+  {
+    ezUInt32 uiIndex = ezInvalidIndex;
+    for (ezUInt32 i = 0; i < permutationVars.GetCount(); ++i)
+    {
+      if (permutationVars[i].m_sName == usedPermutationVar)
+      {
+        uiIndex = i;
+        break;
+      }
+    }
+
+    if (uiIndex != ezInvalidIndex)
+    {
+      m_ShaderData.m_Permutations.PushBack(permutationVars[uiIndex]);
+    }
+    else
+    {
+      ezLog::Error("No value given for permutation var '{0}'. Assuming default value of zero.", usedPermutationVar);
+
+      ezPermutationVar& finalVar = m_ShaderData.m_Permutations.ExpandAndGetRef();
+      finalVar.m_sName = usedPermutationVar;
+      finalVar.m_sValue.Assign("0");
+    }
+  }
+
+  m_ShaderData.m_StateSource = Sections.GetSectionContent(ezShaderHelper::ezShaderSections::RENDERSTATE, uiFirstLine);
 
   for (ezUInt32 stage = ezGALShaderStage::VertexShader; stage < ezGALShaderStage::ENUM_COUNT; ++stage)
   {
-    sTemp = Sections.GetSectionContent(ezShaderSections::VERTEXSHADER + stage, uiFirstLine);
+    sTemp = Sections.GetSectionContent(ezShaderHelper::ezShaderSections::VERTEXSHADER + stage, uiFirstLine);
 
     // later code checks whether the string is empty, to see whether we have any shader source, so this has to be kept empty
     if (!sTemp.IsEmpty())
-      sTemp.PrependFormat("#line %u\n", uiFirstLine);
+      sTemp.PrependFormat("#line {0}\n", uiFirstLine);
 
     m_ShaderData.m_ShaderStageSource[stage] = sTemp;
   }
 
-  m_StageSourceFile[ezGALShaderStage::VertexShader] = szFile;
+  ezStringBuilder tmp = szFile;
+  tmp.MakeCleanPath();
+
+  m_StageSourceFile[ezGALShaderStage::VertexShader] = tmp;
   m_StageSourceFile[ezGALShaderStage::VertexShader].ChangeFileExtension("vs");
 
-  m_StageSourceFile[ezGALShaderStage::HullShader] = szFile;
+  m_StageSourceFile[ezGALShaderStage::HullShader] = tmp;
   m_StageSourceFile[ezGALShaderStage::HullShader].ChangeFileExtension("hs");
 
-  m_StageSourceFile[ezGALShaderStage::DomainShader] = szFile;
+  m_StageSourceFile[ezGALShaderStage::DomainShader] = tmp;
   m_StageSourceFile[ezGALShaderStage::DomainShader].ChangeFileExtension("ds");
 
-  m_StageSourceFile[ezGALShaderStage::GeometryShader] = szFile;
+  m_StageSourceFile[ezGALShaderStage::GeometryShader] = tmp;
   m_StageSourceFile[ezGALShaderStage::GeometryShader].ChangeFileExtension("gs");
 
-  m_StageSourceFile[ezGALShaderStage::PixelShader] = szFile;
+  m_StageSourceFile[ezGALShaderStage::PixelShader] = tmp;
   m_StageSourceFile[ezGALShaderStage::PixelShader].ChangeFileExtension("ps");
 
-  m_StageSourceFile[ezGALShaderStage::ComputeShader] = szFile;
+  m_StageSourceFile[ezGALShaderStage::ComputeShader] = tmp;
   m_StageSourceFile[ezGALShaderStage::ComputeShader].ChangeFileExtension("cs");
-
-  m_PermVars.Clear();
 
   // try out every compiler that we can find
   ezRTTI* pRtti = ezRTTI::GetFirstInstance();
@@ -162,9 +257,11 @@ ezResult ezShaderCompiler::CompileShaderPermutationsForPlatforms(const char* szF
     {
       ezShaderProgramCompiler* pCompiler = static_cast<ezShaderProgramCompiler*>(pAllocator->Allocate());
 
-      RunShaderCompilerForPermutations(szFile, Generator, szPlatform, pCompiler);
-
+      const ezResult ret = RunShaderCompiler(szFile, szPlatform, pCompiler, pLog);
       pAllocator->Deallocate(pCompiler);
+
+      if (ret.Failed())
+        return ret;
     }
 
     pRtti = pRtti->GetNextInstance();
@@ -173,11 +270,10 @@ ezResult ezShaderCompiler::CompileShaderPermutationsForPlatforms(const char* szF
   return EZ_SUCCESS;
 }
 
-void ezShaderCompiler::RunShaderCompilerForPermutations(const char* szFile, const ezPermutationGenerator& Generator, const char* szPlatform, ezShaderProgramCompiler* pCompiler)
+ezResult ezShaderCompiler::RunShaderCompiler(const char* szFile, const char* szPlatform, ezShaderProgramCompiler* pCompiler, ezLogInterface* pLog)
 {
-  EZ_LOG_BLOCK("Compiling Shader", szFile);
+  EZ_LOG_BLOCK(pLog, "Compiling Shader", szFile);
 
-  ezStringBuilder sTemp;
   ezStringBuilder sProcessed[ezGALShaderStage::ENUM_COUNT];
 
   ezHybridArray<ezString, 4> Platforms;
@@ -192,188 +288,199 @@ void ezShaderCompiler::RunShaderCompilerForPermutations(const char* szFile, cons
     if (!PlatformEnabled(m_ShaderData.m_Platforms, Platforms[p].GetData()))
       continue;
 
-    EZ_LOG_BLOCK("Platform", Platforms[p].GetData());
+    EZ_LOG_BLOCK(pLog, "Platform", Platforms[p].GetData());
 
-    const ezUInt32 uiMaxPermutations = Generator.GetPermutationCount();
+    ezShaderProgramCompiler::ezShaderProgramData spd;
+    spd.m_szSourceFile = szFile;
+    spd.m_szPlatform = Platforms[p].GetData();
 
-    for (ezUInt32 uiPermutation = 0; uiPermutation < uiMaxPermutations; ++uiPermutation)
+    m_IncludeFiles.Clear();
+
+    ezHybridArray<ezString, 32> defines;
+    GenerateDefines(Platforms[p].GetData(), m_ShaderData.m_Permutations, defines);
+    GenerateDefines(Platforms[p].GetData(), m_ShaderData.m_FixedPermVars, defines);
+
+    ezShaderPermutationBinary shaderPermutationBinary;
+
+    // Generate Shader State Source
     {
-      Generator.GetPermutation(uiPermutation, m_PermVars);
+      EZ_LOG_BLOCK(pLog, "Preprocessing Shader State Source");
 
-      const ezUInt32 uiPermutationHash = Generator.GetHash(m_PermVars);
+      ezPreprocessor pp;
+      pp.SetCustomFileCache(&m_FileCache);
+      pp.SetLogInterface(ezLog::GetThreadLocalLogSystem());
+      pp.SetFileOpenFunction(ezPreprocessor::FileOpenCB(&ezShaderCompiler::FileOpen, this));
+      pp.SetPassThroughPragma(false);
+      pp.SetPassThroughLine(false);
 
-      ezShaderProgramCompiler::ezShaderProgramData spd;
-      spd.m_szSourceFile = szFile;
-      spd.m_szPlatform = Platforms[p].GetData();
-
-      m_IncludeFiles.Clear();
-
-      bool bSuccess = true;
-
-      ezShaderPermutationBinary spb;
-
-      // Generate Shader State Source
+      for (auto& define : defines)
       {
-        EZ_LOG_BLOCK("Preprocessing Shader State Source");
-
-        ezPreprocessor pp;
-        pp.SetCustomFileCache(&m_FileCache);
-        pp.SetLogInterface(ezGlobalLog::GetInstance());
-        pp.SetFileOpenFunction(ezPreprocessor::FileOpenCB(&ezShaderCompiler::FileOpen, this));
-        pp.SetPassThroughPragma(false);
-        pp.SetPassThroughLine(false);
-
-        sTemp = Platforms[p];
-        sTemp.ToUpper();
-
-        pp.AddCustomDefine(sTemp.GetData());
-
-        for (ezUInt32 pv = 0; pv < m_PermVars.GetCount(); ++pv)
-        {
-          sTemp.Format("%s %s", m_PermVars[pv].m_sVariable.GetData(), m_PermVars[pv].m_sValue.GetData());
-          pp.AddCustomDefine(sTemp.GetData());
-        }
-
-        ezStringBuilder sOutput;
-        if (pp.Process("ShaderRenderState", sOutput, false).Failed())
-        {
-          bSuccess = false;
-          ezLog::Error("Preprocessing the Shader State block failed");
-        }
-        else
-        {
-          if (spb.m_StateDescriptor.Load(sOutput).Failed())
-          {
-            ezLog::Error("Failed to interpret the shader state block");
-            bSuccess = false;
-          }
-        }
+        pp.AddCustomDefine(define);
       }
 
-      for (ezUInt32 stage = ezGALShaderStage::VertexShader; stage < ezGALShaderStage::ENUM_COUNT; ++stage)
+      bool bFoundUndefinedVars = false;
+      pp.m_ProcessingEvents.AddEventHandler([&bFoundUndefinedVars](const ezPreprocessor::ProcessingEvent& e)
       {
-        EZ_LOG_BLOCK("Preprocessing", m_StageSourceFile[stage].GetData());
-
-        ezPreprocessor pp;
-        pp.SetCustomFileCache(&m_FileCache);
-        pp.SetLogInterface(ezGlobalLog::GetInstance());
-        pp.SetFileOpenFunction(ezPreprocessor::FileOpenCB(&ezShaderCompiler::FileOpen, this));
-        pp.SetPassThroughPragma(true);
-        pp.SetPassThroughUnknownCmdsCB(ezMakeDelegate(&ezShaderCompiler::PassThroughUnknownCommandCB, this));
-        pp.SetPassThroughLine(false);
-
-        sTemp = Platforms[p];
-        sTemp.ToUpper();
-
-        pp.AddCustomDefine(sTemp.GetData());
-
-        for (ezUInt32 pv = 0; pv < m_PermVars.GetCount(); ++pv)
+        if (e.m_Type == ezPreprocessor::ProcessingEvent::EvaluateUnknown)
         {
-          sTemp.Format("%s %s", m_PermVars[pv].m_sVariable.GetData(), m_PermVars[pv].m_sValue.GetData());
-          pp.AddCustomDefine(sTemp.GetData());
+          bFoundUndefinedVars = true;
+
+          ezLog::Error("Undefined variable is evaluated: '{0}' (File: '{1}', Line: {2}", e.m_pToken->m_DataView, e.m_pToken->m_File, e.m_pToken->m_uiLine);
         }
+      });
 
-        if (pp.Process(m_StageSourceFile[stage].GetData(), sProcessed[stage], true, true, true).Failed())
-        {
-          bSuccess = false;
-          ezLog::Error("Shader preprocessing failed");
-
-          sProcessed[stage].Clear();
-          
-          spd.m_szShaderSource[stage] = m_StageSourceFile[stage].GetData();
-        }
-        else
-        {
-          spd.m_szShaderSource[stage] = sProcessed[stage].GetData();
-        }
-
-        spd.m_StageBinary[stage].m_Stage = (ezGALShaderStage::Enum) stage;
-        spd.m_StageBinary[stage].m_uiSourceHash = ezHashing::MurmurHash(ezHashing::StringWrapper(spd.m_szShaderSource[stage]));
-
-        if (spd.m_StageBinary[stage].m_uiSourceHash != 0)
-        {
-          ezShaderStageBinary* pBinary = ezShaderStageBinary::LoadStageBinary((ezGALShaderStage::Enum) stage, spd.m_StageBinary[stage].m_uiSourceHash);
-
-          if (pBinary)
-          {
-            spd.m_StageBinary[stage] = *pBinary;
-            spd.m_bWriteToDisk[stage] = false;
-          }
-        }
-      }
-
-      // copy the source hashes
-      for (ezUInt32 stage = ezGALShaderStage::VertexShader; stage < ezGALShaderStage::ENUM_COUNT; ++stage)
+      ezStringBuilder sOutput;
+      if (pp.Process("ShaderRenderState", sOutput, false).Failed() || bFoundUndefinedVars)
       {
-        spb.m_uiShaderStageHashes[stage] = spd.m_StageBinary[stage].m_uiSourceHash;
-      }
-
-      // if compilation failed, the stage binary for the source hash will simply not exist and therefore cannot be loaded
-      // the .ezPermutation file should be updated, however, to store the new source hash to the broken shader
-      if (bSuccess && pCompiler->Compile(spd, ezGlobalLog::GetInstance()).Failed())
-      {
-        ezLog::Error("Shader compilation failed.");
-        bSuccess = false;
-      }
-
-      for (ezUInt32 stage = ezGALShaderStage::VertexShader; stage < ezGALShaderStage::ENUM_COUNT; ++stage)
-      {
-        if (spd.m_StageBinary[stage].m_uiSourceHash != 0 && spd.m_bWriteToDisk[stage])
-        {
-          if (bSuccess)
-          {
-            if (spd.m_StageBinary[stage].WriteStageBinary().Failed())
-            {
-              ezLog::Error("Writing stage binary failed");
-              continue;
-            }
-          }
-          else
-          {
-            ezStringBuilder sShaderStageFile = ezRenderContext::GetShaderCacheDirectory();
-
-            sShaderStageFile.AppendPath(ezRenderContext::GetActiveShaderPlatform().GetData());
-            sShaderStageFile.AppendFormat("/%08X.ezShaderSource", spd.m_StageBinary[stage].m_uiSourceHash);
-
-            ezFileWriter StageFileOut;
-            if (StageFileOut.Open(sShaderStageFile.GetData()).Succeeded())
-            {
-              StageFileOut.WriteBytes(spd.m_szShaderSource[stage], ezStringUtils::GetStringElementCount(spd.m_szShaderSource[stage]));
-              ezLog::Info("Failed shader source written to '%s'", sShaderStageFile.GetData());
-            }
-          }
-        }
-      }
-
-      sTemp = ezRenderContext::GetShaderCacheDirectory();
-      sTemp.AppendPath(Platforms[p].GetData());
-      sTemp.AppendPath(szFile);
-      sTemp.ChangeFileExtension("");
-      if (sTemp.EndsWith("."))
-        sTemp.Shrink(0, 1);
-      sTemp.AppendFormat("%08X.ezPermutation", uiPermutationHash);
-
-      spb.m_DependencyFile.Clear();
-      spb.m_DependencyFile.AddFileDependency(szFile);
-
-      for (auto it = m_IncludeFiles.GetIterator(); it.IsValid(); ++it)
-        spb.m_DependencyFile.AddFileDependency(it.Key());
-
-      ezFileWriter PermutationFileOut;
-      if (PermutationFileOut.Open(sTemp.GetData()).Failed())
-      {
-        ezLog::Error("Could not open file for writing: '%s'", sTemp.GetData());
+        ezLog::Error(pLog, "Preprocessing the Shader State block failed");
+        return EZ_FAILURE;
       }
       else
       {
-        spb.Write(PermutationFileOut);
+        if (shaderPermutationBinary.m_StateDescriptor.Load(sOutput).Failed())
+        {
+          ezLog::Error(pLog, "Failed to interpret the shader state block");
+          return EZ_FAILURE;
+        }
+      }
+    }
+
+    for (ezUInt32 stage = ezGALShaderStage::VertexShader; stage < ezGALShaderStage::ENUM_COUNT; ++stage)
+    {
+      bool bFoundUndefinedVars = false;
+
+      ezPreprocessor pp;
+      pp.SetCustomFileCache(&m_FileCache);
+      pp.SetLogInterface(ezLog::GetThreadLocalLogSystem());
+      pp.SetFileOpenFunction(ezPreprocessor::FileOpenCB(&ezShaderCompiler::FileOpen, this));
+      pp.SetPassThroughPragma(true);
+      pp.SetPassThroughUnknownCmdsCB(ezMakeDelegate(&ezShaderCompiler::PassThroughUnknownCommandCB, this));
+      pp.SetPassThroughLine(false);
+      pp.m_ProcessingEvents.AddEventHandler([&bFoundUndefinedVars](const ezPreprocessor::ProcessingEvent& e)
+      {
+        if (e.m_Type == ezPreprocessor::ProcessingEvent::EvaluateUnknown)
+        {
+          bFoundUndefinedVars = true;
+
+          ezLog::Error("Undefined variable is evaluated: '{0}' (File: '{1}', Line: {2}", e.m_pToken->m_DataView, e.m_pToken->m_File, e.m_pToken->m_uiLine);
+        }
+      });
+
+      pp.AddCustomDefine(s_szStageDefines[stage]);
+      for (auto& define : defines)
+      {
+        pp.AddCustomDefine(define);
+      }
+
+      if (pp.Process(m_StageSourceFile[stage], sProcessed[stage], true, true, true).Failed() || bFoundUndefinedVars)
+      {
+        sProcessed[stage].Clear();
+        spd.m_szShaderSource[stage] = m_StageSourceFile[stage].GetData();
+
+        ezLog::Error(pLog, "Shader preprocessing failed");
+        return EZ_FAILURE;
+      }
+      else
+      {
+        spd.m_szShaderSource[stage] = sProcessed[stage].GetData();
+      }
+
+      spd.m_StageBinary[stage].m_Stage = (ezGALShaderStage::Enum) stage;
+      spd.m_StageBinary[stage].m_uiSourceHash = ezHashing::MurmurHash(ezHashing::StringWrapper(spd.m_szShaderSource[stage]));
+
+      if (spd.m_StageBinary[stage].m_uiSourceHash != 0)
+      {
+        ezShaderStageBinary* pBinary = ezShaderStageBinary::LoadStageBinary((ezGALShaderStage::Enum) stage, spd.m_StageBinary[stage].m_uiSourceHash);
+
+        if (pBinary)
+        {
+          spd.m_StageBinary[stage] = *pBinary;
+          spd.m_bWriteToDisk[stage] = false;
+        }
+      }
+    }
+
+    // copy the source hashes
+    for (ezUInt32 stage = ezGALShaderStage::VertexShader; stage < ezGALShaderStage::ENUM_COUNT; ++stage)
+    {
+      shaderPermutationBinary.m_uiShaderStageHashes[stage] = spd.m_StageBinary[stage].m_uiSourceHash;
+    }
+
+    // if compilation failed, the stage binary for the source hash will simply not exist and therefore cannot be loaded
+    // the .ezPermutation file should be updated, however, to store the new source hash to the broken shader
+    if (pCompiler->Compile(spd, ezLog::GetThreadLocalLogSystem()).Failed())
+    {
+      WriteFailedShaderSource(spd, pLog);
+      return EZ_FAILURE;
+    }
+
+    for (ezUInt32 stage = ezGALShaderStage::VertexShader; stage < ezGALShaderStage::ENUM_COUNT; ++stage)
+    {
+      if (spd.m_StageBinary[stage].m_uiSourceHash != 0 && spd.m_bWriteToDisk[stage])
+      {
+        if (spd.m_StageBinary[stage].WriteStageBinary(pLog).Failed())
+        {
+          ezLog::Error(pLog, "Writing stage {0} binary failed", stage);
+          return EZ_FAILURE;
+        }
+      }
+    }
+
+    ezStringBuilder sTemp = ezShaderManager::GetCacheDirectory();
+    sTemp.AppendPath(Platforms[p].GetData());
+    sTemp.AppendPath(szFile);
+    sTemp.ChangeFileExtension("");
+    if (sTemp.EndsWith("."))
+      sTemp.Shrink(0, 1);
+
+    const ezUInt32 uiPermutationHash = ezShaderHelper::CalculateHash(m_ShaderData.m_Permutations);
+    sTemp.AppendFormat("{0}.ezPermutation", ezArgU(uiPermutationHash, 8, true, 16, true));
+
+    shaderPermutationBinary.m_DependencyFile.Clear();
+    shaderPermutationBinary.m_DependencyFile.AddFileDependency(szFile);
+
+    for (auto it = m_IncludeFiles.GetIterator(); it.IsValid(); ++it)
+    {
+      shaderPermutationBinary.m_DependencyFile.AddFileDependency(it.Key());
+    }
+
+    shaderPermutationBinary.m_PermutationVars = m_ShaderData.m_Permutations;
+
+    ezDeferredFileWriter PermutationFileOut;
+    PermutationFileOut.SetOutput(sTemp.GetData());
+    shaderPermutationBinary.Write(PermutationFileOut);
+
+    if (PermutationFileOut.Close().Failed())
+    {
+      ezLog::Error(pLog, "Could not open file for writing: '{0}'", sTemp);
+      return EZ_FAILURE;
+    }
+  }
+
+  return EZ_SUCCESS;
+}
+
+
+void ezShaderCompiler::WriteFailedShaderSource(ezShaderProgramCompiler::ezShaderProgramData &spd, ezLogInterface* pLog)
+{
+  for (ezUInt32 stage = ezGALShaderStage::VertexShader; stage < ezGALShaderStage::ENUM_COUNT; ++stage)
+  {
+    if (spd.m_StageBinary[stage].m_uiSourceHash != 0 && spd.m_bWriteToDisk[stage])
+    {
+      ezStringBuilder sShaderStageFile = ezShaderManager::GetCacheDirectory();
+
+      sShaderStageFile.AppendPath(ezShaderManager::GetActivePlatform().GetData());
+      sShaderStageFile.AppendFormat("/{0}.ezShaderSource", ezArgU(spd.m_StageBinary[stage].m_uiSourceHash, 8, true, 16, true));
+
+      ezFileWriter StageFileOut;
+      if (StageFileOut.Open(sShaderStageFile.GetData()).Succeeded())
+      {
+        StageFileOut.WriteBytes(spd.m_szShaderSource[stage], ezStringUtils::GetStringElementCount(spd.m_szShaderSource[stage]));
+        ezLog::Info(pLog, "Failed shader source written to '{0}'", sShaderStageFile);
       }
     }
   }
 }
-
-
-
 
 EZ_STATICLINK_FILE(RendererCore, RendererCore_ShaderCompiler_Implementation_ShaderCompiler);
 

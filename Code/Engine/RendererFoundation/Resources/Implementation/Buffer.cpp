@@ -1,9 +1,9 @@
 
-#include <RendererFoundation/PCH.h>
+#include <PCH.h>
 #include <RendererFoundation/Resources/Buffer.h>
 
 ezGALBuffer::ezGALBuffer(const ezGALBufferCreationDescription& Description)
-  : ezGALObjectBase(Description)
+  : ezGALResource(Description)
 {
 }
 

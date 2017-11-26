@@ -1,12 +1,11 @@
-#include <Core/PCH.h>
+﻿#include <PCH.h>
 #include <Core/Input/InputManager.h>
-#include <Foundation/Logging/Log.h>
-#include <Foundation/Configuration/Startup.h>
 
 ezInputManager::ezEventInput ezInputManager::s_InputEvents;
 ezInputManager::InternalData* ezInputManager::s_pData = nullptr;
 ezUInt32 ezInputManager::s_LastCharacter = '\0';
 bool ezInputManager::s_bInputSlotResetRequired = true;
+ezString ezInputManager::s_sExclusiveInputSet;
 
 ezInputManager::InternalData& ezInputManager::GetInternals()
 {
@@ -32,13 +31,17 @@ void ezInputManager::RegisterInputSlot(const char* szInputSlot, const char* szDe
 {
   ezMap<ezString, ezInputSlot>::Iterator it = GetInternals().s_InputSlots.Find(szInputSlot);
 
-  
+
   if (it.IsValid())
   {
     if (it.Value().m_SlotFlags != SlotFlags)
     {
       if ((it.Value().m_SlotFlags != ezInputSlotFlags::Default) && (SlotFlags != ezInputSlotFlags::Default))
-        ezLog::Warning("Different devices register Input Slot '%s' with different Slot Flags: %16b vs. %16b", szInputSlot, it.Value().m_SlotFlags.GetValue(), SlotFlags.GetValue());
+      {
+        ezStringBuilder tmp;
+        tmp.Printf("Different devices register Input Slot '%s' with different Slot Flags: %16b vs. %16b", szInputSlot, it.Value().m_SlotFlags.GetValue(), SlotFlags.GetValue());
+        ezLog::Warning(tmp);
+      }
 
       it.Value().m_SlotFlags |= SlotFlags;
     }
@@ -49,7 +52,7 @@ void ezInputManager::RegisterInputSlot(const char* szInputSlot, const char* szDe
   }
 
 
-  ezLog::Debug("Registered Input Slot: '%s'", szInputSlot);
+  //ezLog::Debug("Registered Input Slot: '{0}'", szInputSlot);
 
   ezInputSlot& sm = GetInternals().s_InputSlots[szInputSlot];
 
@@ -70,7 +73,7 @@ ezBitflags<ezInputSlotFlags> ezInputManager::GetInputSlotFlags(const char* szInp
   if (it.IsValid())
     return it.Value().m_SlotFlags;
 
-  ezLog::Warning("ezInputManager::GetInputSlotFlags: Input Slot '%s' does not exist (yet).", szInputSlot);
+  ezLog::Warning("ezInputManager::GetInputSlotFlags: Input Slot '{0}' does not exist (yet).", szInputSlot);
 
   return ezInputSlotFlags::Default;
 }
@@ -94,7 +97,7 @@ const char* ezInputManager::GetInputSlotDisplayName(const char* szInputSlot)
   if (it.IsValid())
     return it.Value().m_sDisplayName.GetData();
 
-  ezLog::Warning("ezInputManager::GetInputSlotDisplayName: Input Slot '%s' does not exist (yet).", szInputSlot);
+  ezLog::Warning("ezInputManager::GetInputSlotDisplayName: Input Slot '{0}' does not exist (yet).", szInputSlot);
   return szInputSlot;
 }
 
@@ -117,7 +120,7 @@ float ezInputManager::GetInputSlotDeadZone(const char* szInputSlot)
   if (it.IsValid())
     return it.Value().m_fDeadZone;
 
-  ezLog::Warning("ezInputManager::GetInputSlotDeadZone: Input Slot '%s' does not exist (yet).", szInputSlot);
+  ezLog::Warning("ezInputManager::GetInputSlotDeadZone: Input Slot '{0}' does not exist (yet).", szInputSlot);
 
   ezInputSlot s;
   return s.m_fDeadZone; // return the default value
@@ -138,7 +141,7 @@ ezKeyState::Enum ezInputManager::GetInputSlotState(const char* szInputSlot, floa
   if (pValue)
     *pValue = 0.0f;
 
-  ezLog::Warning("ezInputManager::GetInputSlotState: Input Slot '%s' does not exist (yet). To ensure all devices are initialized, call ezInputManager::Update before querying device states, or at least call ezInputManager::PollHardware.", szInputSlot);
+  ezLog::Warning("ezInputManager::GetInputSlotState: Input Slot '{0}' does not exist (yet). To ensure all devices are initialized, call ezInputManager::Update before querying device states, or at least call ezInputManager::PollHardware.", szInputSlot);
   RegisterInputSlot(szInputSlot, szInputSlot, ezInputSlotFlags::None);
 
   return ezKeyState::Up;
@@ -281,6 +284,96 @@ const char* ezInputManager::GetPressedInputSlot(ezInputSlotFlags::Enum MustHaveF
   return ezInputSlot_None;
 }
 
+
+const char* ezInputManager::GetInputSlotTouchPoint(unsigned int index)
+{
+  switch (index)
+  {
+  case 0:
+    return ezInputSlot_TouchPoint0;
+  case 1:
+    return ezInputSlot_TouchPoint1;
+  case 2:
+    return ezInputSlot_TouchPoint2;
+  case 3:
+    return ezInputSlot_TouchPoint3;
+  case 4:
+    return ezInputSlot_TouchPoint4;
+  case 5:
+    return ezInputSlot_TouchPoint5;
+  case 6:
+    return ezInputSlot_TouchPoint6;
+  case 7:
+    return ezInputSlot_TouchPoint7;
+  case 8:
+    return ezInputSlot_TouchPoint8;
+  case 9:
+    return ezInputSlot_TouchPoint9;
+  default:
+    EZ_REPORT_FAILURE("Maximum number of supported input touch points is 10");
+    return "";
+  }
+}
+
+const char* ezInputManager::GetInputSlotTouchPointPositionX(unsigned int index)
+{
+  switch (index)
+  {
+  case 0:
+    return ezInputSlot_TouchPoint0_PositionX;
+  case 1:
+    return ezInputSlot_TouchPoint1_PositionX;
+  case 2:
+    return ezInputSlot_TouchPoint2_PositionX;
+  case 3:
+    return ezInputSlot_TouchPoint3_PositionX;
+  case 4:
+    return ezInputSlot_TouchPoint4_PositionX;
+  case 5:
+    return ezInputSlot_TouchPoint5_PositionX;
+  case 6:
+    return ezInputSlot_TouchPoint6_PositionX;
+  case 7:
+    return ezInputSlot_TouchPoint7_PositionX;
+  case 8:
+    return ezInputSlot_TouchPoint8_PositionX;
+  case 9:
+    return ezInputSlot_TouchPoint9_PositionX;
+  default:
+    EZ_REPORT_FAILURE("Maximum number of supported input touch points is 10");
+    return "";
+  }
+}
+
+const char* ezInputManager::GetInputSlotTouchPointPositionY(unsigned int index)
+{
+  switch (index)
+  {
+  case 0:
+    return ezInputSlot_TouchPoint0_PositionY;
+  case 1:
+    return ezInputSlot_TouchPoint1_PositionY;
+  case 2:
+    return ezInputSlot_TouchPoint2_PositionY;
+  case 3:
+    return ezInputSlot_TouchPoint3_PositionY;
+  case 4:
+    return ezInputSlot_TouchPoint4_PositionY;
+  case 5:
+    return ezInputSlot_TouchPoint5_PositionY;
+  case 6:
+    return ezInputSlot_TouchPoint6_PositionY;
+  case 7:
+    return ezInputSlot_TouchPoint7_PositionY;
+  case 8:
+    return ezInputSlot_TouchPoint8_PositionY;
+  case 9:
+    return ezInputSlot_TouchPoint9_PositionY;
+  default:
+    EZ_REPORT_FAILURE("Maximum number of supported input touch points is 10");
+    return "";
+  }
+}
 
 
 

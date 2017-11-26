@@ -1,4 +1,4 @@
-#include <GuiFoundation/PCH.h>
+#include <PCH.h>
 #include <GuiFoundation/ActionViews/ToolBarActionMapView.moc.h>
 #include <GuiFoundation/Action/ActionMapManager.h>
 #include <GuiFoundation/Action/ActionManager.h>
@@ -6,22 +6,25 @@
 #include <GuiFoundation/ActionViews/MenuActionMapView.moc.h>
 #include <QMenu>
 #include <QToolButton>
+#include <GuiFoundation/UIServices/UIServices.moc.h>
+#include <Foundation/Strings/TranslationLookup.h>
 
-ezToolBarActionMapView::ezToolBarActionMapView(QWidget* parent) : QToolBar(parent)
+ezQtToolBarActionMapView::ezQtToolBarActionMapView(QString title, QWidget* parent) : QToolBar(title, parent)
 {
   setIconSize(QSize(16, 16));
+  setFloatable(false);
 }
 
-ezToolBarActionMapView::~ezToolBarActionMapView()
+ezQtToolBarActionMapView::~ezQtToolBarActionMapView()
 {
   ClearView();
 }
 
-void ezToolBarActionMapView::SetActionContext(const ezActionContext& context)
+void ezQtToolBarActionMapView::SetActionContext(const ezActionContext& context)
 {
   auto pMap = ezActionMapManager::GetActionMap(context.m_sMapping);
 
-  EZ_ASSERT_DEV(pMap != nullptr, "The given mapping '%s' does not exist", context.m_sMapping.GetData());
+  EZ_ASSERT_DEV(pMap != nullptr, "The given mapping '{0}' does not exist", context.m_sMapping);
 
   m_pActionMap = pMap;
   m_Context = context;
@@ -29,12 +32,12 @@ void ezToolBarActionMapView::SetActionContext(const ezActionContext& context)
   CreateView();
 }
 
-void ezToolBarActionMapView::ClearView()
+void ezQtToolBarActionMapView::ClearView()
 {
   m_Proxies.Clear();
 }
 
-void ezToolBarActionMapView::CreateView()
+void ezQtToolBarActionMapView::CreateView()
 {
   ClearView();
 
@@ -50,7 +53,7 @@ void ezToolBarActionMapView::CreateView()
   }
 }
 
-void ezToolBarActionMapView::CreateView(const ezActionMap::TreeNode* pObject)
+void ezQtToolBarActionMapView::CreateView(const ezActionMap::TreeNode* pObject)
 {
   for (auto pChild : pObject->GetChildren())
   {
@@ -89,14 +92,34 @@ void ezToolBarActionMapView::CreateView(const ezActionMap::TreeNode* pObject)
         pButton->setMenu(pQtMenu);
         pButton->setPopupMode(QToolButton::ToolButtonPopupMode::InstantPopup);
         pButton->setText(pQtMenu->title());
-        pButton->setIcon(QIcon(QString::fromUtf8(pNamed->GetIconPath())));
-        pButton->setToolTip(pQtMenu->title());
+        pButton->setIcon(ezQtUiServices::GetCachedIconResource(pNamed->GetIconPath()));
+        pButton->setToolTip(pQtMenu->title().toUtf8().data());
 
         // TODO addWidget return value of QAction leaks!
         QAction* pToolButtonAction = addWidget(pButton);
         pToolButtonAction->setParent(pQtMenu);
 
-        ezMenuActionMapView::AddDocumentObjectToMenu(m_Proxies, m_Context, m_pActionMap, pQtMenu, pChild);
+        ezQtMenuActionMapView::AddDocumentObjectToMenu(m_Proxies, m_Context, m_pActionMap, pQtMenu, pChild);
+      }
+      break;
+
+    case ezActionType::ActionAndMenu:
+      {
+        ezNamedAction* pNamed = static_cast<ezNamedAction*>(pProxy->GetAction());
+
+        QMenu* pQtMenu = static_cast<ezQtDynamicActionAndMenuProxy*>(pProxy.data())->GetQMenu();
+        QAction* pQtAction = static_cast<ezQtDynamicActionAndMenuProxy*>(pProxy.data())->GetQAction();
+        // TODO pButton leaks!
+        QToolButton* pButton = new QToolButton(this);
+        pButton->setDefaultAction(pQtAction);
+        pButton->setMenu(pQtMenu);
+        pButton->setPopupMode(QToolButton::ToolButtonPopupMode::MenuButtonPopup);
+
+        // TODO addWidget return value of QAction leaks!
+        QAction* pToolButtonAction = addWidget(pButton);
+        pToolButtonAction->setParent(pQtMenu);
+
+        ezQtMenuActionMapView::AddDocumentObjectToMenu(m_Proxies, m_Context, m_pActionMap, pQtMenu, pChild);
       }
       break;
     }

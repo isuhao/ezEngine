@@ -2,10 +2,11 @@
 #include <Inspector/SubsystemsWidget.moc.h>
 #include <Foundation/Communication/Telemetry.h>
 #include <MainWindow.moc.h>
+#include <GuiFoundation/UIServices/UIServices.moc.h>
 
-ezSubsystemsWidget* ezSubsystemsWidget::s_pWidget = nullptr;
+ezQtSubsystemsWidget* ezQtSubsystemsWidget::s_pWidget = nullptr;
 
-ezSubsystemsWidget::ezSubsystemsWidget(QWidget* parent) : QDockWidget (parent)
+ezQtSubsystemsWidget::ezQtSubsystemsWidget(QWidget* parent) : QDockWidget (parent)
 {
   s_pWidget = this;
 
@@ -14,19 +15,19 @@ ezSubsystemsWidget::ezSubsystemsWidget(QWidget* parent) : QDockWidget (parent)
   ResetStats();
 }
 
-void ezSubsystemsWidget::ResetStats()
+void ezQtSubsystemsWidget::ResetStats()
 {
   m_bUpdateSubsystems = true;
   m_Subsystems.Clear();
 }
 
 
-void ezSubsystemsWidget::UpdateStats()
+void ezQtSubsystemsWidget::UpdateStats()
 {
   UpdateSubSystems();
 }
 
-void ezSubsystemsWidget::UpdateSubSystems()
+void ezQtSubsystemsWidget::UpdateSubSystems()
 {
   if (!m_bUpdateSubsystems)
     return;
@@ -58,14 +59,14 @@ void ezSubsystemsWidget::UpdateSubSystems()
       const SubsystemData& ssd = it.Value();
 
       QLabel* pIcon = new QLabel();
-      pIcon->setPixmap(QPixmap(":/Icons/Icons/Subsystem.png"));
+      pIcon->setPixmap(ezQtUiServices::GetCachedPixmapResource(":/Icons/Icons/Subsystem.png"));
       pIcon->setAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
       TableSubsystems->setCellWidget(iRow, 0, pIcon);
 
-      sTemp.Format("  %s  ", it.Key().GetData());
+      sTemp.Format("  {0}  ", it.Key());
       TableSubsystems->setCellWidget(iRow, 1, new QLabel(sTemp.GetData()));
 
-      sTemp.Format("  %s  ", ssd.m_sPlugin.GetData());
+      sTemp.Format("  {0}  ", ssd.m_sPlugin);
       TableSubsystems->setCellWidget(iRow, 2, new QLabel(sTemp.GetData()));
 
       if (ssd.m_bStartupDone[ezStartupStage::Engine])
@@ -79,7 +80,7 @@ void ezSubsystemsWidget::UpdateSubSystems()
 
       ((QLabel*) TableSubsystems->cellWidget(iRow, 3))->setAlignment(Qt::AlignHCenter);
 
-      sTemp.Format("  %s  ", ssd.m_sDependencies.GetData());
+      sTemp.Format("  {0}  ", ssd.m_sDependencies);
       TableSubsystems->setCellWidget(iRow, 4, new QLabel(sTemp.GetData()));
 
       ++iRow;
@@ -91,7 +92,7 @@ void ezSubsystemsWidget::UpdateSubSystems()
   TableSubsystems->blockSignals(false);
 }
 
-void ezSubsystemsWidget::ProcessTelemetry(void* pUnuseed)
+void ezQtSubsystemsWidget::ProcessTelemetry(void* pUnuseed)
 {
   if (!s_pWidget)
     return;
@@ -102,7 +103,7 @@ void ezSubsystemsWidget::ProcessTelemetry(void* pUnuseed)
   {
     switch (Msg.GetMessageID())
     {
-    case 'CLR':
+    case ' CLR':
       {
         s_pWidget->m_Subsystems.Clear();
         s_pWidget->m_bUpdateSubsystems = true;

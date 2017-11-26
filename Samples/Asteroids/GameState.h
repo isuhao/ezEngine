@@ -2,27 +2,29 @@
 
 #include "Level.h"
 #include <Core/Input/VirtualThumbStick.h>
-#include <GameFoundation/GameState.h>
+#include <GameEngine/GameState/GameState.h>
 
-class GameWindow;
-
-class AsteroidGameState : public ezGameStateBase
+class AsteroidGameState : public ezGameState
 {
+  EZ_ADD_DYNAMIC_REFLECTION(AsteroidGameState, ezGameState);
+
 public:
   AsteroidGameState();
 
+  virtual void ProcessInput() override;
+
+protected:
+  virtual void ConfigureInputActions() override;
+
 private:
-  virtual void Activate() override;
-  virtual void Deactivate() override;
+  virtual void OnActivation(ezWorld* pWorld) override;
+  virtual void OnDeactivation() override;
   virtual void BeforeWorldUpdate() override;
 
-  void SetupInput();
-  void CreateGameLevelAndRenderPipeline(ezGALRenderTargetViewHandle hBackBuffer, ezGALRenderTargetViewHandle hDSV);
+  void CreateGameLevel();
   void DestroyLevel();
 
-  Level* m_pLevel;
-  GameWindow* m_pWindow;
+  virtual float CanHandleThis(ezGameApplicationType AppType, ezWorld* pWorld) const override;
 
-  ezVirtualThumbStick* m_pThumbstick;
-  ezVirtualThumbStick* m_pThumbstick2;
+  Level* m_pLevel;
 };

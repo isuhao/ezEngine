@@ -1,36 +1,44 @@
 #include <PCH.h>
 #include <EditorFramework/Panels/AssetBrowserPanel/AssetBrowserPanel.moc.h>
+#include <EditorFramework/Panels/AssetBrowserPanel/CuratorControl.moc.h>
 #include <EditorFramework/EditorApp/EditorApp.moc.h>
-#include <QSettings>
+#include <Foundation/Strings/TranslationLookup.h>
+#include <QStatusBar>
 
-ezAssetBrowserPanel* ezAssetBrowserPanel::s_pInstance = nullptr;
+EZ_IMPLEMENT_SINGLETON(ezQtAssetBrowserPanel);
 
-ezAssetBrowserPanel::ezAssetBrowserPanel() : ezApplicationPanel("Asset Browser")
+ezQtAssetBrowserPanel::ezQtAssetBrowserPanel()
+  : ezQtApplicationPanel("Panel.AssetBrowser")
+  , m_SingletonRegistrar(this)
 {
-  EZ_ASSERT_DEV(s_pInstance == nullptr, "ezAssetBrowserPanel panel is not a singleton anymore");
-
-  s_pInstance = this;
-
   setupUi(this);
 
-  setWindowIcon(QIcon(QString::fromUtf8(":/GuiFoundation/Icons/Asset16.png")));
+  m_pStatusBar = new QStatusBar(this);
+  m_pStatusBar->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Maximum);
+  m_pStatusBar->setSizeGripEnabled(false);
 
-  EZ_VERIFY(connect(AssetBrowserWidget, SIGNAL(ItemChosen(QString, QString, QString)), this, SLOT(SlotAssetChosen(QString, QString, QString))) != nullptr, "signal/slot connection failed");
+  m_pCuratorControl = new ezQtCuratorControl(nullptr);
+
+  m_pStatusBar->addPermanentWidget(m_pCuratorControl);
+
+  dockWidgetContents->layout()->addWidget(m_pStatusBar);
+
+  setWindowIcon(ezQtUiServices::GetCachedIconResource(":/EditorFramework/Icons/Asset16.png"));
+  setWindowTitle(QString::fromUtf8(ezTranslate("Panel.AssetBrowser")));
+
+  EZ_VERIFY(connect(AssetBrowserWidget, &ezQtAssetBrowserWidget::ItemChosen, this, &ezQtAssetBrowserPanel::SlotAssetChosen) != nullptr, "signal/slot connection failed");
 
   AssetBrowserWidget->RestoreState("AssetBrowserPanel2");
-  
 }
 
-ezAssetBrowserPanel::~ezAssetBrowserPanel()
+ezQtAssetBrowserPanel::~ezQtAssetBrowserPanel()
 {
   AssetBrowserWidget->SaveState("AssetBrowserPanel2");
-
-  s_pInstance = nullptr;
-
-  
 }
 
-void ezAssetBrowserPanel::SlotAssetChosen(QString sAssetGuid, QString sAssetPathRelative, QString sAssetPathAbsolute)
+void ezQtAssetBrowserPanel::SlotAssetChosen(ezUuid guid, QString sAssetPathRelative, QString sAssetPathAbsolute)
 {
-  ezEditorApp::GetInstance()->OpenDocument(sAssetPathAbsolute.toUtf8().data());
+  ezQtEditorApp::GetSingleton()->OpenDocument(sAssetPathAbsolute.toUtf8().data());
 }
+
+

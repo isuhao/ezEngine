@@ -4,9 +4,9 @@
 #include <QGraphicsView>
 #include <QGraphicsPathItem>
 
-ezTimeWidget* ezTimeWidget::s_pWidget = nullptr;
+ezQtTimeWidget* ezQtTimeWidget::s_pWidget = nullptr;
 
-static QColor s_Colors[ezTimeWidget::s_uiMaxColors] =
+static QColor s_Colors[ezQtTimeWidget::s_uiMaxColors] =
 {
   QColor(255, 106,   0), // orange
   QColor(182, 255,   0), // lime green
@@ -19,7 +19,7 @@ static QColor s_Colors[ezTimeWidget::s_uiMaxColors] =
   QColor( 72,   0, 255), // lilac
 };
 
-ezTimeWidget::ezTimeWidget(QWidget* parent) : QDockWidget (parent)
+ezQtTimeWidget::ezQtTimeWidget(QWidget* parent) : QDockWidget (parent)
 {
   s_pWidget = this;
 
@@ -58,7 +58,7 @@ ezTimeWidget::ezTimeWidget(QWidget* parent) : QDockWidget (parent)
   ResetStats();
 }
 
-void ezTimeWidget::ResetStats()
+void ezQtTimeWidget::ResetStats()
 {
   m_ClockData.Clear();
 
@@ -70,7 +70,7 @@ void ezTimeWidget::ResetStats()
   ListClocks->clear();
 }
 
-void ezTimeWidget::UpdateStats()
+void ezQtTimeWidget::UpdateStats()
 {
   if (!isVisible())
     return;
@@ -90,7 +90,7 @@ void ezTimeWidget::UpdateStats()
     ListClocks->blockSignals(true);
     ListClocks->clear();
 
-    for (ezMap<ezString, ezTimeWidget::ClockData>::Iterator it = m_ClockData.GetIterator(); it.IsValid(); ++it)
+    for (ezMap<ezString, ezQtTimeWidget::ClockData>::Iterator it = m_ClockData.GetIterator(); it.IsValid(); ++it)
     {
       ListClocks->addItem(it.Key().GetData());
 
@@ -177,26 +177,28 @@ void ezTimeWidget::UpdateStats()
     m_LastUpdatedClockList = ezTime::Now();
 
     ezStringBuilder s;
-    s.Format("Max: %.0fms", tShowMax.GetMilliseconds());
+    s.Format("Max: {0}ms", ezArgF(tShowMax.GetMilliseconds(), 0));
     LabelMaxTime->setText(s.GetData());
 
-    for (ezMap<ezString, ezTimeWidget::ClockData>::Iterator it = m_ClockData.GetIterator(); it.IsValid(); ++it)
+    for (ezMap<ezString, ezQtTimeWidget::ClockData>::Iterator it = m_ClockData.GetIterator(); it.IsValid(); ++it)
     {
-      const ezTimeWidget::ClockData& Clock = it.Value();
+      const ezQtTimeWidget::ClockData& Clock = it.Value();
 
       if (!Clock.m_pListItem || Clock.m_TimeSamples.IsEmpty())
         continue;
 
       ezStringBuilder sTooltip;
-      sTooltip.Format("<p>Clock: %s<br>Max Time Step: <b>%.2fms</b><br>Min Time Step: <b>%.2fms</b><br></p>",
-        it.Key().GetData(), Clock.m_MaxTimestep.GetMilliseconds(), Clock.m_MinTimestep.GetMilliseconds());
+      sTooltip.Format("<p>Clock: {0}<br>Max Time Step: <b>{1}ms</b><br>Min Time Step: <b>{2}ms</b><br></p>",
+                      it.Key().GetData(),
+                      ezArgF(Clock.m_MaxTimestep.GetMilliseconds(), 2),
+                      ezArgF(Clock.m_MinTimestep.GetMilliseconds(), 2));
 
       Clock.m_pListItem->setToolTip(sTooltip.GetData());
     }
   }
 }
 
-void ezTimeWidget::ProcessTelemetry(void* pUnuseed)
+void ezQtTimeWidget::ProcessTelemetry(void* pUnuseed)
 {
   if (s_pWidget == nullptr)
     return;
@@ -210,7 +212,7 @@ void ezTimeWidget::ProcessTelemetry(void* pUnuseed)
     ezString sClockName;
     Msg.GetReader() >> sClockName;
 
-    sTemp.Format("%s [smoothed]", sClockName.GetData());
+    sTemp.Format("{0} [smoothed]", sClockName);
 
     ClockData& ad = s_pWidget->m_ClockData[sClockName];
     ClockData& ads = s_pWidget->m_ClockData[sTemp.GetData()];
@@ -264,12 +266,12 @@ void ezTimeWidget::ProcessTelemetry(void* pUnuseed)
   }
 }
 
-void ezTimeWidget::on_ListClocks_itemChanged(QListWidgetItem* item)
+void ezQtTimeWidget::on_ListClocks_itemChanged(QListWidgetItem* item)
 {
   m_ClockData[item->data(Qt::UserRole).toString().toUtf8().data()].m_bDisplay = (item->checkState() == Qt::Checked);
 }
 
-void ezTimeWidget::on_ComboTimeframe_currentIndexChanged(int index)
+void ezQtTimeWidget::on_ComboTimeframe_currentIndexChanged(int index)
 {
   m_DisplayInterval = ezTime::Seconds(60.0) * (index + 1);
 }

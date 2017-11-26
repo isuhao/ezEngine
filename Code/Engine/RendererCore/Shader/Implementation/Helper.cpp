@@ -1,6 +1,8 @@
-#include <RendererCore/PCH.h>
+#include <PCH.h>
 #include <RendererCore/Shader/Implementation/Helper.h>
-#include <Foundation/Utilities/ConversionUtils.h>
+
+namespace ezShaderHelper
+{
 
 void ezTextSectionizer::Clear()
 {
@@ -76,6 +78,7 @@ void GetShaderSections(const char* szContent, ezTextSectionizer& out_Sections)
 
   out_Sections.AddSection("[PLATFORMS]");
   out_Sections.AddSection("[PERMUTATIONS]");
+  out_Sections.AddSection("[MATERIALPARAMETER]");
   out_Sections.AddSection("[RENDERSTATE]");
   out_Sections.AddSection("[VERTEXSHADER]");
   out_Sections.AddSection("[HULLSHADER]");
@@ -87,7 +90,23 @@ void GetShaderSections(const char* szContent, ezTextSectionizer& out_Sections)
   out_Sections.Process(szContent);
 }
 
+ezUInt32 CalculateHash(const ezArrayPtr<ezPermutationVar>& vars)
+{
+  ezHybridArray<ezUInt32, 128> buffer;
+  buffer.SetCountUninitialized(vars.GetCount() * 2);
 
+  for (ezUInt32 i = 0; i < vars.GetCount(); ++i)
+  {
+    auto& var = vars[i];
+    buffer[i * 2 + 0] = var.m_sName.GetHash();
+    buffer[i * 2 + 1] = var.m_sValue.GetHash();
+  }
 
-EZ_STATICLINK_FILE(RendererCore, RendererCore_Shader_Helper);
+  auto bytes = buffer.GetByteArrayPtr();
+  return ezHashing::MurmurHash(bytes.GetPtr(), bytes.GetCount());
+}
+
+}
+
+EZ_STATICLINK_FILE(RendererCore, RendererCore_Shader_Implementation_Helper);
 

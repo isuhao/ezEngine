@@ -1,16 +1,18 @@
-#pragma once
+﻿#pragma once
 
-#include <RendererCore/Pipeline/RenderPipelinePass.h>
-#include <RendererCore/Pipeline/SimpleRenderPass.h>
-#include <RendererFoundation/Resources/RenderTargetSetup.h>
-#include <EditorFramework/EngineProcess/ViewRenderSettings.h>
+#include <RendererCore/Pipeline/Passes/ForwardRenderPass.h>
+#include <EditorEngineProcessFramework/EngineProcess/ViewRenderSettings.h>
 
-class ezEditorRenderPass : public ezSimpleRenderPass
+class ezSceneContext;
+
+class ezEditorRenderPass : public ezForwardRenderPass
 {
+  EZ_ADD_DYNAMIC_REFLECTION(ezEditorRenderPass, ezForwardRenderPass);
 public:
-  ezEditorRenderPass(const ezGALRenderTagetSetup& RenderTargetSetup, const char* szName = "EditorRenderPass");
+  ezEditorRenderPass(const char* szName = "EditorRenderPass");
 
-  virtual void Execute(const ezRenderViewContext& renderViewContext) override;
+protected:
+  virtual void SetupPermutationVars(const ezRenderViewContext& renderViewContext) override;
 
   ezViewRenderMode::Enum m_ViewRenderMode;
 };

@@ -1,59 +1,64 @@
-#include <PCH.h>
+﻿#include <PCH.h>
 #include <EditorPluginAssets/MeshAsset/MeshAssetManager.h>
 #include <EditorPluginAssets/MeshAsset/MeshAsset.h>
 #include <EditorPluginAssets/MeshAsset/MeshAssetWindow.moc.h>
+#include "ToolsFoundation/Assets/AssetFileExtensionWhitelist.h"
 
-EZ_BEGIN_DYNAMIC_REFLECTED_TYPE(ezMeshAssetDocumentManager, ezAssetDocumentManager, 1, ezRTTIDefaultAllocator<ezMeshAssetDocumentManager>);
-EZ_END_DYNAMIC_REFLECTED_TYPE();
+EZ_BEGIN_DYNAMIC_REFLECTED_TYPE(ezMeshAssetDocumentManager, 1, ezRTTIDefaultAllocator<ezMeshAssetDocumentManager>);
+EZ_END_DYNAMIC_REFLECTED_TYPE
 
 ezMeshAssetDocumentManager::ezMeshAssetDocumentManager()
 {
-  ezDocumentManagerBase::s_Events.AddEventHandler(ezMakeDelegate(&ezMeshAssetDocumentManager::OnDocumentManagerEvent, this));
+  ezDocumentManager::s_Events.AddEventHandler(ezMakeDelegate(&ezMeshAssetDocumentManager::OnDocumentManagerEvent, this));
+
+  // additional whitelist for non-asset files where an asset may be selected
+  ezAssetFileExtensionWhitelist::AddAssetFileExtension("Mesh", "ezMesh");
+
+  m_AssetDesc.m_bCanCreate = true;
+  m_AssetDesc.m_sDocumentTypeName = "Mesh Asset";
+  m_AssetDesc.m_sFileExtension = "ezMeshAsset";
+  m_AssetDesc.m_sIcon = ":/AssetIcons/Mesh.png";
+  m_AssetDesc.m_pDocumentType = ezGetStaticRTTI<ezMeshAssetDocument>();
+  m_AssetDesc.m_pManager = this;
 }
 
 ezMeshAssetDocumentManager::~ezMeshAssetDocumentManager()
 {
-  ezDocumentManagerBase::s_Events.RemoveEventHandler(ezMakeDelegate(&ezMeshAssetDocumentManager::OnDocumentManagerEvent, this));
+  ezDocumentManager::s_Events.RemoveEventHandler(ezMakeDelegate(&ezMeshAssetDocumentManager::OnDocumentManagerEvent, this));
 }
 
-void ezMeshAssetDocumentManager::OnDocumentManagerEvent(const ezDocumentManagerBase::Event& e)
+
+ezBitflags<ezAssetDocumentFlags> ezMeshAssetDocumentManager::GetAssetDocumentTypeFlags(const ezDocumentTypeDescriptor* pDescriptor) const
+{
+  EZ_ASSERT_DEBUG(pDescriptor->m_pManager == this, "Given type descriptor is not part of this document manager!");
+  return ezAssetDocumentFlags::SupportsThumbnail;
+}
+
+void ezMeshAssetDocumentManager::OnDocumentManagerEvent(const ezDocumentManager::Event& e)
 {
   switch (e.m_Type)
   {
-  case ezDocumentManagerBase::Event::Type::DocumentWindowRequested:
+  case ezDocumentManager::Event::Type::DocumentWindowRequested:
     {
       if (e.m_pDocument->GetDynamicRTTI() == ezGetStaticRTTI<ezMeshAssetDocument>())
       {
-        ezMeshAssetDocumentWindow* pDocWnd = new ezMeshAssetDocumentWindow(e.m_pDocument);
+        ezQtMeshAssetDocumentWindow* pDocWnd = new ezQtMeshAssetDocumentWindow(static_cast<ezMeshAssetDocument*>(e.m_pDocument));
       }
     }
     break;
   }
 }
 
-ezStatus ezMeshAssetDocumentManager::InternalCanOpenDocument(const char* szDocumentTypeName, const char* szFilePath) const
-{
-  return EZ_SUCCESS;
-}
-
-ezStatus ezMeshAssetDocumentManager::InternalCreateDocument(const char* szDocumentTypeName, const char* szPath, ezDocumentBase*& out_pDocument)
+ezStatus ezMeshAssetDocumentManager::InternalCreateDocument(const char* szDocumentTypeName, const char* szPath, ezDocument*& out_pDocument)
 {
   out_pDocument = new ezMeshAssetDocument(szPath);
 
   return ezStatus(EZ_SUCCESS);
 }
 
-void ezMeshAssetDocumentManager::InternalGetSupportedDocumentTypes(ezHybridArray<ezDocumentTypeDescriptor, 4>& out_DocumentTypes) const
+void ezMeshAssetDocumentManager::InternalGetSupportedDocumentTypes(ezDynamicArray<const ezDocumentTypeDescriptor*>& inout_DocumentTypes) const
 {
-  {
-    ezDocumentTypeDescriptor td;
-    td.m_bCanCreate = true;
-    td.m_sDocumentTypeName = "Mesh Asset";
-    td.m_sFileExtensions.PushBack("ezMeshAsset");
-    td.m_sIcon = ":/AssetIcons/Mesh.png";
-
-    out_DocumentTypes.PushBack(td);
-  }
+  inout_DocumentTypes.PushBack(&m_AssetDesc);
 }
 
 

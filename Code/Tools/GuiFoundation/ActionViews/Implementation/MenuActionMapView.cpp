@@ -1,23 +1,23 @@
-#include <GuiFoundation/PCH.h>
+#include <PCH.h>
 #include <GuiFoundation/ActionViews/MenuActionMapView.moc.h>
 #include <GuiFoundation/Action/ActionMapManager.h>
 #include <GuiFoundation/Action/ActionManager.h>
 #include <GuiFoundation/ActionViews/QtProxy.moc.h>
 
-ezMenuActionMapView::ezMenuActionMapView(QWidget* parent)
+ezQtMenuActionMapView::ezQtMenuActionMapView(QWidget* parent)
 {
 }
 
-ezMenuActionMapView::~ezMenuActionMapView()
+ezQtMenuActionMapView::~ezQtMenuActionMapView()
 {
   ClearView();
 }
 
-void ezMenuActionMapView::SetActionContext(const ezActionContext& context)
+void ezQtMenuActionMapView::SetActionContext(const ezActionContext& context)
 {
   auto pMap = ezActionMapManager::GetActionMap(context.m_sMapping);
 
-   EZ_ASSERT_DEV(pMap != nullptr, "The given mapping '%s' does not exist", context.m_sMapping.GetData());
+   EZ_ASSERT_DEV(pMap != nullptr, "The given mapping '{0}' does not exist", context.m_sMapping);
 
   m_pActionMap = pMap;
   m_Context = context;
@@ -25,12 +25,12 @@ void ezMenuActionMapView::SetActionContext(const ezActionContext& context)
   CreateView();
 }
 
-void ezMenuActionMapView::ClearView()
+void ezQtMenuActionMapView::ClearView()
 {
   m_Proxies.Clear();
 }
 
-void ezMenuActionMapView::AddDocumentObjectToMenu(ezHashTable<ezUuid, QSharedPointer<ezQtProxy>>& Proxies, ezActionContext& Context, ezActionMap* pActionMap, QMenu* pCurrentRoot, const ezActionMap::TreeNode* pObject)
+void ezQtMenuActionMapView::AddDocumentObjectToMenu(ezHashTable<ezUuid, QSharedPointer<ezQtProxy>>& Proxies, ezActionContext& Context, ezActionMap* pActionMap, QMenu* pCurrentRoot, const ezActionMap::TreeNode* pObject)
 {
   if (pObject == nullptr)
     return;
@@ -67,11 +67,21 @@ void ezMenuActionMapView::AddDocumentObjectToMenu(ezHashTable<ezUuid, QSharedPoi
         AddDocumentObjectToMenu(Proxies, Context, pActionMap, pQtMenu, pChild);
       }
       break;
+
+    case ezActionType::ActionAndMenu:
+      {
+        QAction* pQtAction = static_cast<ezQtDynamicActionAndMenuProxy*>(pProxy.data())->GetQAction();
+        QMenu* pQtMenu = static_cast<ezQtDynamicActionAndMenuProxy*>(pProxy.data())->GetQMenu();
+        pCurrentRoot->addAction(pQtAction);
+        pCurrentRoot->addMenu(pQtMenu);
+        AddDocumentObjectToMenu(Proxies, Context, pActionMap, pQtMenu, pChild);
+      }
+      break;
     }
   }
 }
 
-void ezMenuActionMapView::CreateView()
+void ezQtMenuActionMapView::CreateView()
 {
   ClearView();
 

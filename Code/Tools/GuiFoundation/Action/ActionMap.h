@@ -4,7 +4,7 @@
 #include <GuiFoundation/Action/Action.h>
 #include <ToolsFoundation/Object/DocumentObjectManager.h>
 
-class ezDocumentBase;
+class ezDocument;
 
 struct EZ_GUIFOUNDATION_DLL ezActionMapDescriptor
 {
@@ -96,6 +96,5 @@ private:
 private:
   TreeNode m_Root;
   ezMap<ezUuid, ezTreeNode<ezActionMapDescriptor>*> m_Descriptors;
-  const ezRTTI* m_pRtti;
 };
 

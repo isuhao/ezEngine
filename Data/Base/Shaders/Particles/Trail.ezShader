@@ -1,0 +1,148 @@
+[PLATFORMS]
+ALL
+
+[PERMUTATIONS]
+
+TWO_SIDED
+PARTICLE_RENDER_MODE
+PARTICLE_TRAIL_POINTS
+
+[RENDERSTATE]
+
+BlendingEnabled0 = true
+SourceBlend0 = Blend_One
+DepthTest = true
+DepthWrite = false
+CullMode = CullMode_None
+
+#if PARTICLE_RENDER_MODE == PARTICLE_RENDER_MODE_ADDITIVE
+  // also premultiplied alpha assuming alpha is zero
+  DestBlend0 = Blend_One
+#elif PARTICLE_RENDER_MODE == PARTICLE_RENDER_MODE_BLENDED
+  // premultiplied alpha
+  DestBlend0 = Blend_InvSrcAlpha
+#elif PARTICLE_RENDER_MODE == PARTICLE_RENDER_MODE_OPAQUE
+  BlendingEnabled0 = false
+  DepthWrite = true
+#endif
+
+[VERTEXSHADER]
+
+#define USE_TEXCOORD0
+#define USE_COLOR
+
+#include <Shaders/Common/GlobalConstants.h>
+#include <Shaders/Materials/MaterialInterpolator.h>
+#include <Shaders/Particles/TrailShaderData.h>
+
+#if EZ_ENABLED(PLATFORM_DX11)
+
+#define TRAIL_SEGMENTS (PARTICLE_TRAIL_POINTS - 1)
+
+VS_OUT main(uint VertexID : SV_VertexID)
+{
+  int trailIndexOffset[6] = { 0, 1, 1, 0, 1, 0 };
+
+  float2 texCoords[6] =
+  {
+    float2(0.0, 0.0),
+    float2(1.0, 0.0),
+    float2(1.0, 1.0),
+    float2(0.0, 0.0),
+    float2(1.0, 1.0),
+    float2(0.0, 1.0),
+  };
+
+  // TODO: We could use NumUsedTrailPoints instead of TRAIL_SEGMENTS and then render fewer triangles
+  // However, TRAIL_SEGMENTS is a compile time constant, so not clear what might be more efficient.
+  int particleIndex = VertexID / (6 * TRAIL_SEGMENTS);
+  int trailPointIndex = (VertexID - (particleIndex * 6 * TRAIL_SEGMENTS)) / 6;
+  int vertexSubIndex = VertexID % 6;
+  int vertexTrailPointIndex = trailPointIndex + trailIndexOffset[vertexSubIndex];
+
+  ezTrailParticleData particle = particleData[particleIndex];
+
+  VS_OUT ret;
+
+  if (trailPointIndex + 1 >= particle.NumPoints)
+  {
+    ret.Position = float4(0, 0, 0, 0);
+    ret.TexCoords = float2(0, 0);
+    ret.Color = float4(0, 1, 1, 0);
+  }
+  else
+  {
+    // doing this and then accessing the data will silently not work on nVidia cards and just result in the drawcall being ignored
+    //ezTrailParticlePointsData trail = particlePointsData[particleIndex];
+
+    // UV step is currently calculated over the maximum number of segments, instead of the active number of segments
+    // this means at start the texture is cut off, instead of stretching over the full UV space
+    // doing it differently would be very complicated though
+    float uvStep = 1.0 / (NumUsedTrailPoints - 2);
+    float uvCoord = uvStep * vertexTrailPointIndex;
+    float uvSubtract = uvStep * SnapshotFraction; // to adjust the UV coordinates while the first position glides along, to not have jumps when a new segment is added
+
+    int prevTrailPointIdx = max(vertexTrailPointIndex - 1, 0);
+    int nextTrailPointIdx = min(vertexTrailPointIndex + 1, particle.NumPoints - 1);
+
+    float3 position0 = particlePointsData[particleIndex].Positions[vertexTrailPointIndex].xyz;
+    float3 positionP = particlePointsData[particleIndex].Positions[prevTrailPointIdx].xyz;
+    float3 positionN = particlePointsData[particleIndex].Positions[nextTrailPointIdx].xyz;
+
+    float3 avgDirection = positionN - positionP;
+
+    float3 dirRight = mul(ObjectToWorldMatrix, float4(avgDirection, 0)).xyz;
+    float3 dirUp = normalize(cross(dirRight, GetCameraDirForwards())) * particle.Size;
+
+    float4 offsetRight = float4(dirRight * texCoords[vertexSubIndex].x, 0);
+    float4 offsetUp = float4(dirUp * (texCoords[vertexSubIndex].y - 0.5), 0);
+
+    float4 position = mul(ObjectToWorldMatrix, float4(position0, 1)) + offsetUp;
+
+    ret.Position = mul(GetWorldToScreenMatrix(), position);
+    ret.TexCoords.x = uvCoord;
+    ret.TexCoords.y = texCoords[vertexSubIndex].y;
+    ret.Color = RGBA8ToFloat4(particle.Color);
+
+    // do NOT adjust the UV of the very first vertex, that is the one moves all the time and is always at UV.x == 0
+    // however, DO adjust the coordinate of the LAST vertex, since that is not moving and needs to "fade away" (out of the UV space, ie > 1)
+    if (ret.TexCoords.x > 0.01)
+      ret.TexCoords.x -= uvSubtract;
+
+    // manually clamp the texCoords
+    // this could be set as a sampler state, but it would not work with sub-ranges (once we support texture atlases)
+    ret.TexCoords.x = min(1.0, ret.TexCoords.x);
+  }
+
+  return ret;
+}
+
+#endif
+
+
+[PIXELSHADER]
+
+#define USE_TEXCOORD0
+#define USE_COLOR
+
+#include <Shaders/Materials/MaterialInterpolator.h>
+
+#if EZ_ENABLED(PLATFORM_DX11)
+
+Texture2D ParticleTexture;
+SamplerState ParticleTexture_AutoSampler;
+
+float4 main(PS_IN Input) : SV_Target
+{
+  float4 texCol = ParticleTexture.Sample(ParticleTexture_AutoSampler, Input.TexCoords.xy);
+
+#if PARTICLE_RENDER_MODE == PARTICLE_RENDER_MODE_OPAQUE
+  if (Input.Color.a * texCol.a < 0.1)
+    discard;
+#endif
+
+  return float4(texCol.rgb * Input.Color.rgb * Input.Color.a, texCol.a);
+}
+
+#endif
+

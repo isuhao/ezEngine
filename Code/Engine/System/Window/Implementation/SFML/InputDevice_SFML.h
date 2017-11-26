@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <System/Basics.h>
 #include <SFML/Window.hpp>
@@ -19,7 +19,7 @@
 /// Also many special keys are not properly supported by SFML, most notably Numpad Enter is handled like Return.
 class EZ_SYSTEM_DLL ezStandardInputDevice : public ezInputDeviceMouseKeyboard
 {
-  EZ_ADD_DYNAMIC_REFLECTION(ezStandardInputDevice);
+  EZ_ADD_DYNAMIC_REFLECTION(ezStandardInputDevice, ezInputDeviceMouseKeyboard);
 
 public:
   ezStandardInputDevice(sf::Window* pWindow, ezUInt32 uiWindowNumber);
@@ -57,10 +57,10 @@ public:
   ///
   /// \note When SetClipMouseCursor is enabled, the mouse will always be centered in the window.
   /// In that case it should also always be hidden.
-  virtual void SetShowMouseCursor(bool bShow);
+  virtual void SetShowMouseCursor(bool bShow) override;
 
   /// \brief Returns whether the mouse cursor is shown.
-  virtual bool GetShowMouseCursor() const { return m_bShowCursor; }
+  virtual bool GetShowMouseCursor() const override { return m_bShowCursor; }
 
 private:
   virtual void InitializeDevice() override { }

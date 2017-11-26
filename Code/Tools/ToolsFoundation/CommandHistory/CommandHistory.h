@@ -5,59 +5,67 @@
 
 class ezCommandHistory;
 
-class EZ_TOOLSFOUNDATION_DLL ezCommandTransaction : public ezCommandBase
+class EZ_TOOLSFOUNDATION_DLL ezCommandTransaction : public ezCommand
 {
-  EZ_ADD_DYNAMIC_REFLECTION(ezCommandTransaction);
+  EZ_ADD_DYNAMIC_REFLECTION(ezCommandTransaction, ezCommand);
 
 public:
   ezCommandTransaction() { }
   ~ezCommandTransaction();
 
-  virtual ezStatus Do(bool bRedo) override;
-  virtual ezStatus Undo(bool bFireEvents) override;
-  virtual void Cleanup(CommandState state) override;
+  ezString m_sDisplayString;
+
+private:
+  virtual ezStatus DoInternal(bool bRedo) override;
+  virtual ezStatus UndoInternal(bool bFireEvents) override;
+  virtual void CleanupInternal(CommandState state) override;
+  ezStatus AddCommandTransaction(ezCommand* command);
 
 private:
   friend class ezCommandHistory;
-  ezStatus AddCommand(ezCommandBase& command);
-  ezStatus AddCommand(ezCommandBase* command);
+};
 
-private:
-  ezHybridArray<ezCommandBase*, 8> m_ChildActions;
+struct ezCommandHistoryEvent
+{
+  enum class Type
+  {
+    UndoStarted,
+    UndoEnded,
+    RedoStarted,
+    RedoEnded,
+    TransactionStarted, ///< Emit after initial transaction started.
+    BeforeTransactionEnded, ///< Emit before initial transaction ended.
+    BeforeTransactionCanceled, ///< Emit before initial transaction ended.
+    TransactionEnded, ///< Emit after initial transaction ended.
+    TransactionCanceled, ///< Emit after initial transaction canceled.
+  };
+
+  Type m_Type;
+  ezDocument* m_pDocument;
 };
 
 class EZ_TOOLSFOUNDATION_DLL ezCommandHistory
 {
 public:
 
-  struct Event
-  {
-    enum class Type
-    {
-      ExecutedUndo,
-      ExecutedRedo,
-      NewTransation,
-      BeforeEndTransaction,
-      BeforeEndTransactionCancel,
-      AfterEndTransaction,
-    };
-
-    Type m_Type;
-  };
-
-  ezEvent<const Event&> m_Events;
+  ezEvent<const ezCommandHistoryEvent&> m_Events;
 
 public:
-  ezCommandHistory(ezDocumentBase* pDocument);
+  ezCommandHistory(ezDocument* pDocument);
   ~ezCommandHistory();
-   
-  ezStatus Undo();
-  ezStatus Redo();
+
+  const ezDocument* GetDocument() const { return m_pDocument; }
+
+  ezStatus Undo(ezUInt32 uiNumEntries = 1);
+  ezStatus Redo(ezUInt32 uiNumEntries = 1);
 
   bool CanUndo() const;
   bool CanRedo() const;
 
-  void StartTransaction();
+  const char* GetUndoDisplayString() const;
+  const char* GetRedoDisplayString() const;
+
+  void StartTransaction(const ezFormatString& sDisplayString);
   void CancelTransaction() { EndTransaction(true); }
   void FinishTransaction() { EndTransaction(false); }
 
@@ -65,27 +73,47 @@ public:
   bool IsInTransaction() const { return !m_TransactionStack.IsEmpty(); }
   bool IsInUndoRedo() const { return m_bIsInUndoRedo; }
 
-  void BeginTemporaryCommands();
-  void CancelTemporaryCommands() { EndTemporaryCommands(true); }
-  void FinishTemporaryCommands() { EndTemporaryCommands(false); }
+  /// \brief Call this to start a serious of transactions that typically change the same value over and over (e.g. dragging an object to a position).
+  /// Every time a new transaction is started, the previous one is undone first. At the end of a serious of temporary transactions, only the last transaction will be stored as a single undo step.
+  /// Call this first and then start a transaction inside it.
+  void BeginTemporaryCommands(const char* szDisplayString, bool bFireEventsWhenUndoingTempCommands = false);
+  void CancelTemporaryCommands();
+  void FinishTemporaryCommands();
 
-  ezStatus AddCommand(ezCommandBase& command);
+  bool InTemporaryTransaction() const;
+  void SuspendTemporaryTransaction();
+  void ResumeTemporaryTransaction();
+
+  ezStatus AddCommand(ezCommand& command);
 
   void ClearUndoHistory();
   void ClearRedoHistory();
 
   void MergeLastTwoTransactions();
 
+  ezUInt32 GetUndoStackSize() const;
+  ezUInt32 GetRedoStackSize() const;
+  const ezCommandTransaction* GetUndoStackEntry(ezUInt32 iIndex) const;
+  const ezCommandTransaction* GetRedoStackEntry(ezUInt32 iIndex) const;
+
 private:
+  friend class ezCommand;
+
+  ezStatus UndoInternal();
+  ezStatus RedoInternal();
+
   void EndTransaction(bool bCancel);
   void EndTemporaryCommands(bool bCancel);
 
-  bool m_bTemporaryMode;
-  bool m_bTempTransaction;
-  bool m_bIsInUndoRedo;
+  bool m_bFireEventsWhenUndoingTempCommands = false;
+  bool m_bTemporaryMode = false;
+  ezInt32 m_iTemporaryDepth = -1;
+  ezInt32 m_iPreSuspendTemporaryDepth = -1;
+  bool m_bIsInUndoRedo = false;
 
   ezHybridArray<ezCommandTransaction*, 4> m_TransactionStack;
+  ezHybridArray<ezCommand*, 4> m_ActiveCommandStack;
   ezDeque<ezCommandTransaction*> m_UndoHistory;
   ezDeque<ezCommandTransaction*> m_RedoHistory;
-  ezDocumentBase* m_pDocument;
+  ezDocument* m_pDocument;
 };

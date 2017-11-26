@@ -1,4 +1,4 @@
-#include <Foundation/PCH.h>
+﻿#include <PCH.h>
 #include <Foundation/IO/DependencyFile.h>
 #include <Foundation/IO/FileSystem/FileWriter.h>
 #include <Foundation/IO/FileSystem/FileReader.h>
@@ -9,6 +9,7 @@ enum class ezDependencyFileVersion : ezUInt8
 {
   Version0 = 0,
   Version1,
+  Version2, ///< added 'sum' time
 
   ENUM_COUNT,
   Current = ENUM_COUNT - 1,
@@ -24,7 +25,8 @@ ezDependencyFile::ezDependencyFile()
 void ezDependencyFile::Clear()
 {
   m_iMaxTimeStampStored = 0;
-  m_FileDependencies.Clear();
+  m_uiSumTimeStampStored = 0;
+  m_AssetTransformDependencies.Clear();
 }
 
 void ezDependencyFile::AddFileDependency(const char* szFile)
@@ -32,7 +34,7 @@ void ezDependencyFile::AddFileDependency(const char* szFile)
   if (ezStringUtils::IsNullOrEmpty(szFile))
     return;
 
-  m_FileDependencies.PushBack(szFile);
+  m_AssetTransformDependencies.PushBack(szFile);
 }
 
 void ezDependencyFile::StoreCurrentTimeStamp()
@@ -40,19 +42,22 @@ void ezDependencyFile::StoreCurrentTimeStamp()
   EZ_LOG_BLOCK("ezDependencyFile::StoreCurrentTimeStamp");
 
   m_iMaxTimeStampStored = 0;
+  m_uiSumTimeStampStored = 0;
 
 #if EZ_DISABLED(EZ_SUPPORTS_FILE_STATS)
   ezLog::Warning("Trying to retrieve file time stamps on a platform that does not support it");
   return;
 #endif
 
-  for (const auto& sFile : m_FileDependencies)
+  for (const auto& sFile : m_AssetTransformDependencies)
   {
     ezTimestamp ts;
     if (RetrieveFileTimeStamp(sFile, ts).Failed())
       continue;
 
-    m_iMaxTimeStampStored = ezMath::Max<ezInt64>(m_iMaxTimeStampStored, ts.GetInt64(ezSIUnitOfTime::Second));
+    const ezInt64 time = ts.GetInt64(ezSIUnitOfTime::Second);
+    m_iMaxTimeStampStored = ezMath::Max<ezInt64>(m_iMaxTimeStampStored, time);
+    m_uiSumTimeStampStored += (ezUInt64)time;
   }
 }
 
@@ -63,56 +68,74 @@ bool ezDependencyFile::HasAnyFileChanged()
   return true;
 #endif
 
-  for (const auto& sFile : m_FileDependencies)
+  ezUInt64 uiSumTs = 0;
+
+  for (const auto& sFile : m_AssetTransformDependencies)
   {
     ezTimestamp ts;
     if (RetrieveFileTimeStamp(sFile, ts).Failed())
       continue;
 
-    if (ts.GetInt64(ezSIUnitOfTime::Second) > m_iMaxTimeStampStored)
+    const ezInt64 time = ts.GetInt64(ezSIUnitOfTime::Second);
+
+    if (time > m_iMaxTimeStampStored)
     {
-      ezLog::Dev("Detected file change in '%s' (TimeStamp %lli > MaxTimeStamp %lli)", sFile.GetData(), ts.GetInt64(ezSIUnitOfTime::Second), m_iMaxTimeStampStored);
+      ezLog::Dev("Detected file change in '{0}' (TimeStamp {1} > MaxTimeStamp {2})", sFile, ts.GetInt64(ezSIUnitOfTime::Second), m_iMaxTimeStampStored);
       return true;
     }
+
+    uiSumTs += (ezUInt64)time;
+  }
+
+  if (uiSumTs != m_uiSumTimeStampStored)
+  {
+    ezLog::Dev("Detected file change, but exact file is not known.");
+    return true;
   }
 
   return false;
 }
 
-ezResult ezDependencyFile::WriteDependencyFile(ezStreamWriterBase& stream) const
+ezResult ezDependencyFile::WriteDependencyFile(ezStreamWriter& stream) const
 {
   stream << (ezUInt8) ezDependencyFileVersion::Current;
-  
-  stream << m_iMaxTimeStampStored;
-  stream << m_FileDependencies.GetCount();
 
-  for (const auto& sFile : m_FileDependencies)
+  stream << m_iMaxTimeStampStored;
+  stream << m_uiSumTimeStampStored;
+  stream << m_AssetTransformDependencies.GetCount();
+
+  for (const auto& sFile : m_AssetTransformDependencies)
     stream << sFile;
 
   return EZ_SUCCESS;
 }
 
-ezResult ezDependencyFile::ReadDependencyFile(ezStreamReaderBase& stream)
+ezResult ezDependencyFile::ReadDependencyFile(ezStreamReader& stream)
 {
   ezUInt8 uiVersion = (ezUInt8) ezDependencyFileVersion::Version0;
   stream >> uiVersion;
 
-  if (uiVersion != (ezUInt8) ezDependencyFileVersion::Version1)
+  if (uiVersion > (ezUInt8) ezDependencyFileVersion::Current)
   {
-    ezLog::Error("Dependency file has incorrect file version (%u)", uiVersion);
+    ezLog::Error("Dependency file has incorrect file version ({0})", uiVersion);
     return EZ_FAILURE;
   }
-  
-  EZ_ASSERT_DEV(uiVersion <= (ezUInt8) ezDependencyFileVersion::Current, "Invalid file version %u", uiVersion);
-  
+
+  EZ_ASSERT_DEV(uiVersion <= (ezUInt8) ezDependencyFileVersion::Current, "Invalid file version {0}", uiVersion);
+
   stream >> m_iMaxTimeStampStored;
+
+  if (uiVersion >= (ezUInt8)ezDependencyFileVersion::Version2)
+  {
+    stream >> m_uiSumTimeStampStored;
+  }
 
   ezUInt32 count = 0;
   stream >> count;
-   m_FileDependencies.SetCount(count);
+   m_AssetTransformDependencies.SetCount(count);
 
-  for (ezUInt32 i = 0; i < m_FileDependencies.GetCount(); ++i)
-    stream >> m_FileDependencies[i];
+  for (ezUInt32 i = 0; i < m_AssetTransformDependencies.GetCount(); ++i)
+    stream >> m_AssetTransformDependencies[i];
 
   return EZ_SUCCESS;
 }
@@ -128,17 +151,17 @@ ezResult ezDependencyFile::RetrieveFileTimeStamp(const char* szFile, ezTimestamp
   {
     it.Value().m_LastCheck = ezTime::Now();
 
-    ezString sAbsPath;
-    if (ezFileSystem::ResolvePath(szFile, false, &sAbsPath, nullptr).Failed())
+    ezStringBuilder sAbsPath;
+    if (ezFileSystem::ResolvePath(szFile, &sAbsPath, nullptr).Failed())
     {
-      ezLog::Error("Could not resolve path for file '%s'", szFile);
+      ezLog::Error("Could not resolve path for file '{0}'", szFile);
       return EZ_FAILURE;
     }
 
     ezFileStats stats;
-    if (ezOSFile::GetFileStats(sAbsPath.GetData(), stats).Failed())
+    if (ezOSFile::GetFileStats(sAbsPath, stats).Failed())
     {
-      ezLog::Error("Could not query the file stats for '%s'", szFile);
+      ezLog::Error("Could not query the file stats for '{0}'", szFile);
       return EZ_FAILURE;
     }
 
@@ -150,7 +173,7 @@ ezResult ezDependencyFile::RetrieveFileTimeStamp(const char* szFile, ezTimestamp
 #else
 
   out_Result.SetInt64(0, ezSIUnitOfTime::Second);
-  ezLog::Warning("Trying to retrieve a file time stamp on a platform that does not support it (file: '%s')", szFile);
+  ezLog::Warning("Trying to retrieve a file time stamp on a platform that does not support it (file: '{0}')", szFile);
 
 #endif
 
@@ -178,3 +201,8 @@ ezResult ezDependencyFile::ReadDependencyFile(const char* szFile)
 
   return ReadDependencyFile(file);
 }
+
+
+
+EZ_STATICLINK_FILE(Foundation, Foundation_IO_Implementation_DependencyFile);
+

@@ -1,11 +1,11 @@
-#include <PCH.h>
+﻿#include <PCH.h>
 #include <Inspector/MainWindow.moc.h>
 #include <Foundation/Communication/Telemetry.h>
 #include <Foundation/Utilities/ConversionUtils.h>
 #include <qstandardpaths.h>
 #include <qdir.h>
 
-void ezMainWindow::SaveFavourites()
+void ezQtMainWindow::SaveFavourites()
 {
   QString sFile = QStandardPaths::writableLocation(QStandardPaths::DataLocation);
   QDir d; d.mkpath(sFile);
@@ -30,7 +30,7 @@ void ezMainWindow::SaveFavourites()
   f.close();
 }
 
-void ezMainWindow::LoadFavourites()
+void ezQtMainWindow::LoadFavourites()
 {
   QString sFile = QStandardPaths::writableLocation(QStandardPaths::DataLocation);
   QDir d; d.mkpath(sFile);
@@ -60,14 +60,14 @@ void ezMainWindow::LoadFavourites()
   f.close();
 }
 
-void ezMainWindow::ResetStats()
+void ezQtMainWindow::ResetStats()
 {
   m_Stats.Clear();
   TreeStats->clear();
   TreeFavourites->clear();
 }
 
-void ezMainWindow::UpdateStats()
+void ezQtMainWindow::UpdateStats()
 {
   static bool bWasConnected = false;
   const bool bIsConnected = ezTelemetry::IsConnectedToServer();
@@ -89,13 +89,13 @@ void ezMainWindow::UpdateStats()
   else
   {
     LabelStatus->setText("<p><span style=\" font-weight:600;\">Status: </span><span style=\" font-weight:600; color:#00aa00;\">Connected</span></p>");
-    LabelServer->setText(QString::fromUtf8("<p>Server: %1 (%2:%3)</p>").arg(ezTelemetry::GetServerName()).arg(ezTelemetry::GetServerIP()).arg(ezTelemetry::s_uiPort));
+    LabelServer->setText(QString::fromUtf8("<p>Server: %1:%2</p>").arg(ezTelemetry::GetServerIP()).arg(ezTelemetry::s_uiPort));
   }
 
   UpdateAlwaysOnTop();
 }
 
-QTreeWidgetItem* ezMainWindow::CreateStat(const char* szPath, bool bParent)
+QTreeWidgetItem* ezQtMainWindow::CreateStat(const char* szPath, bool bParent)
 {
   ezStringBuilder sCleanPath = szPath;
   if (sCleanPath.EndsWith("/"))
@@ -167,7 +167,7 @@ double ExtractValue(const char* szString)
 
     if (bFoundNumber)
     {
-      if (uiChar >= '0' && uiChar <= '9' || uiChar == '.')
+      if ((uiChar >= '0' && uiChar <= '9') || uiChar == '.')
         res.Prepend(uiChar);
       else
         break;
@@ -192,7 +192,7 @@ double ExtractValue(const char* szString)
   return dRes;
 }
 
-void ezMainWindow::SetFavourite(const ezString& sStat, bool bFavourite)
+void ezQtMainWindow::SetFavourite(const ezString& sStat, bool bFavourite)
 {
   StatData& sd = m_Stats[sStat];
 
@@ -223,12 +223,10 @@ void ezMainWindow::SetFavourite(const ezString& sStat, bool bFavourite)
   }
 }
 
-void ezMainWindow::on_TreeStats_itemChanged(QTreeWidgetItem* item, int column)
+void ezQtMainWindow::on_TreeStats_itemChanged(QTreeWidgetItem* item, int column)
 {
   if (column == 0)
   {
-    int i = 0;
-
     ezString sPath = item->data(0, Qt::UserRole).toString().toUtf8().data();
 
     SetFavourite(sPath, (item->checkState(0) == Qt::Checked));
@@ -236,7 +234,7 @@ void ezMainWindow::on_TreeStats_itemChanged(QTreeWidgetItem* item, int column)
   }
 }
 
-void ezMainWindow::on_TreeStats_customContextMenuRequested(const QPoint& p)
+void ezQtMainWindow::on_TreeStats_customContextMenuRequested(const QPoint& p)
 {
   if (!TreeStats->currentItem())
     return;
@@ -261,7 +259,7 @@ void ezMainWindow::on_TreeStats_customContextMenuRequested(const QPoint& p)
 }
 
 
-void ezMainWindow::ShowStatIn()
+void ezQtMainWindow::ShowStatIn()
 {
   if (!TreeStats->currentItem())
     return;

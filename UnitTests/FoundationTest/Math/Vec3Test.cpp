@@ -1,7 +1,8 @@
-#include <PCH.h>
+﻿#include <PCH.h>
 #include <Foundation/Math/Vec2.h>
 #include <Foundation/Math/Vec3.h>
 #include <Foundation/Math/Vec4.h>
+#include <Foundation/Math/Random.h>
 
 
 EZ_CREATE_SIMPLE_TEST(Math, Vec3)
@@ -358,9 +359,9 @@ EZ_CREATE_SIMPLE_TEST(Math, Vec3)
     EZ_TEST_BOOL(vOp1.CompMax(vOp2).IsEqual(ezVec3T(2.0f, 0.2f, 0.5f), ezMath::BasicType<ezMathTestType>::SmallEpsilon()));
     EZ_TEST_BOOL(vOp2.CompMax(vOp1).IsEqual(ezVec3T(2.0f, 0.2f, 0.5f), ezMath::BasicType<ezMathTestType>::SmallEpsilon()));
 
-    // CompMult
-    EZ_TEST_BOOL(vOp1.CompMult(vOp2).IsEqual(ezVec3T(-8.0f, -0.06f, -3.5f), ezMath::BasicType<ezMathTestType>::SmallEpsilon()));
-    EZ_TEST_BOOL(vOp2.CompMult(vOp1).IsEqual(ezVec3T(-8.0f, -0.06f, -3.5f), ezMath::BasicType<ezMathTestType>::SmallEpsilon()));
+    // CompMul
+    EZ_TEST_BOOL(vOp1.CompMul(vOp2).IsEqual(ezVec3T(-8.0f, -0.06f, -3.5f), ezMath::BasicType<ezMathTestType>::SmallEpsilon()));
+    EZ_TEST_BOOL(vOp2.CompMul(vOp1).IsEqual(ezVec3T(-8.0f, -0.06f, -3.5f), ezMath::BasicType<ezMathTestType>::SmallEpsilon()));
 
     // CompDiv
     EZ_TEST_BOOL(vOp1.CompDiv(vOp2).IsEqual(ezVec3T(-2.0f, -0.66666666f, -14.0f), ezMath::BasicType<ezMathTestType>::SmallEpsilon()));
@@ -410,4 +411,171 @@ EZ_CREATE_SIMPLE_TEST(Math, Vec3)
     v2 = v.GetReflectedVector(ezVec3T(0, -1, 0));
     EZ_TEST_VEC3(v2, ezVec3T(1, -1, 0), 0.0001f);
   }
+
+  EZ_TEST_BLOCK(ezTestBlock::Enabled, "CreateRandomPointInSphere")
+  {
+    ezVec3T v;
+
+    ezRandom rng;
+    rng.InitializeFromCurrentTime();
+
+    ezVec3T avg;
+    avg.SetZero();
+
+    const ezUInt32 uiNumSamples = 100'000;
+    for (ezUInt32 i = 0; i < uiNumSamples; ++i)
+    {
+      v = ezVec3T::CreateRandomPointInSphere(rng);
+
+      EZ_TEST_BOOL(v.GetLength() <= 1.0f);
+      EZ_TEST_BOOL(!v.IsZero());
+
+      avg += v;
+    }
+
+    avg /= (float)uiNumSamples;
+
+    // the average point cloud center should be within at least 10% of the sphere's center
+    // otherwise the points aren't equally distributed
+    EZ_TEST_BOOL(avg.IsZero(0.1f));
+  }
+
+  EZ_TEST_BLOCK(ezTestBlock::Enabled, "CreateRandomDirection")
+  {
+    ezVec3T v;
+
+    ezRandom rng;
+    rng.InitializeFromCurrentTime();
+
+    ezVec3T avg;
+    avg.SetZero();
+
+    const ezUInt32 uiNumSamples = 100'000;
+    for (ezUInt32 i = 0; i < uiNumSamples; ++i)
+    {
+      v = ezVec3T::CreateRandomDirection(rng);
+
+      EZ_TEST_BOOL(v.IsNormalized());
+
+      avg += v;
+    }
+
+    avg /= (float)uiNumSamples;
+
+    // the average point cloud center should be within at least 10% of the sphere's center
+    // otherwise the points aren't equally distributed
+    EZ_TEST_BOOL(avg.IsZero(0.1f));
+  }
+
+  EZ_TEST_BLOCK(ezTestBlock::Enabled, "CreateRandomDeviationX")
+  {
+    ezVec3T v;
+    ezVec3T avg;
+    avg.SetZero();
+
+    ezRandom rng;
+    rng.InitializeFromCurrentTime();
+
+    const ezAngle dev = ezAngle::Degree(65);
+    const ezUInt32 uiNumSamples = 100'000;
+    const ezVec3 vAxis(1, 0, 0);
+
+    for (ezUInt32 i = 0; i < uiNumSamples; ++i)
+    {
+      v = ezVec3T::CreateRandomDeviationX(rng, dev);
+
+      EZ_TEST_BOOL(v.IsNormalized());
+
+      EZ_TEST_BOOL(vAxis.GetAngleBetween(v).GetRadian() <= dev.GetRadian() + ezMath::BasicType<float>::DefaultEpsilon());
+
+      avg += v;
+    }
+
+    // average direction should be close to the main axis
+    avg.Normalize();
+    EZ_TEST_BOOL(avg.IsEqual(vAxis, 0.1f));
+  }
+
+  EZ_TEST_BLOCK(ezTestBlock::Enabled, "CreateRandomDeviationY")
+  {
+    ezVec3T v;
+    ezVec3T avg;
+    avg.SetZero();
+
+    ezRandom rng;
+    rng.InitializeFromCurrentTime();
+
+    const ezAngle dev = ezAngle::Degree(65);
+    const ezUInt32 uiNumSamples = 100'000;
+    const ezVec3 vAxis(0, 1, 0);
+
+    for (ezUInt32 i = 0; i < uiNumSamples; ++i)
+    {
+      v = ezVec3T::CreateRandomDeviationY(rng, dev);
+
+      EZ_TEST_BOOL(v.IsNormalized());
+
+      EZ_TEST_BOOL(vAxis.GetAngleBetween(v).GetRadian() <= dev.GetRadian() + ezMath::BasicType<float>::DefaultEpsilon());
+
+      avg += v;
+    }
+
+    // average direction should be close to the main axis
+    avg.Normalize();
+    EZ_TEST_BOOL(avg.IsEqual(vAxis, 0.1f));
+  }
+
+  EZ_TEST_BLOCK(ezTestBlock::Enabled, "CreateRandomDeviationZ")
+  {
+    ezVec3T v;
+    ezVec3T avg;
+    avg.SetZero();
+
+    ezRandom rng;
+    rng.InitializeFromCurrentTime();
+
+    const ezAngle dev = ezAngle::Degree(65);
+    const ezUInt32 uiNumSamples = 100'000;
+    const ezVec3 vAxis(0, 0, 1);
+
+    for (ezUInt32 i = 0; i < uiNumSamples; ++i)
+    {
+      v = ezVec3T::CreateRandomDeviationZ(rng, dev);
+
+      EZ_TEST_BOOL(v.IsNormalized());
+
+      EZ_TEST_BOOL(vAxis.GetAngleBetween(v).GetRadian() <= dev.GetRadian() + ezMath::BasicType<float>::DefaultEpsilon());
+
+      avg += v;
+    }
+
+    // average direction should be close to the main axis
+    avg.Normalize();
+    EZ_TEST_BOOL(avg.IsEqual(vAxis, 0.1f));
+  }
+
+  EZ_TEST_BLOCK(ezTestBlock::Enabled, "CreateRandomDeviation")
+  {
+    ezVec3T v;
+
+    ezRandom rng;
+    rng.InitializeFromCurrentTime();
+
+    const ezAngle dev = ezAngle::Degree(65);
+    const ezUInt32 uiNumSamples = 100'000;
+    ezVec3 vAxis;
+
+    for (ezUInt32 i = 0; i < uiNumSamples; ++i)
+    {
+      vAxis = ezVec3T::CreateRandomDirection(rng);
+
+      v = ezVec3T::CreateRandomDeviation(rng, dev, vAxis);
+
+      EZ_TEST_BOOL(v.IsNormalized());
+
+      EZ_TEST_BOOL(vAxis.GetAngleBetween(v).GetDegree() <= dev.GetDegree() + 1.0f);
+    }
+  }
 }
+
+

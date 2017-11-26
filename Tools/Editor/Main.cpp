@@ -1,4 +1,4 @@
-#include <PCH.h>
+﻿#include <PCH.h>
 #include <Core/Application/Application.h>
 #include <EditorFramework/EditorApp/EditorApp.moc.h>
 #include <QApplication>
@@ -6,34 +6,47 @@
 #include <QtNetwork/QHostInfo>
 #include <GuiFoundation/UIServices/ImageCache.moc.h>
 
-static ezEditorApp g_EditorApp;
-
 class ezEditorApplication : public ezApplication
 {
 public:
   ezEditorApplication()
   {
     EnableMemoryLeakReporting(true);
+
+    m_pEditorApp = new ezQtEditorApp;
+  }
+
+  virtual void BeforeCoreStartup() override
+  {
+    ezStartup::AddApplicationTag("tool");
+    ezStartup::AddApplicationTag("editor");
+    ezStartup::AddApplicationTag("editorapp");
+
+    ezQtEditorApp::GetSingleton()->InitQt(GetArgumentCount(), (char**)GetArgumentsArray());
+  }
+
+  virtual void AfterCoreShutdown() override
+  {
+    ezQtEditorApp::GetSingleton()->DeInitQt();
+
+    delete m_pEditorApp;
+    m_pEditorApp = nullptr;
   }
 
   virtual ApplicationExecution Run() override
   {
-    QHostInfo hostInfo;
-    hostInfo = QHostInfo::fromName(QHostInfo::localHostName());
-    ezString sHostName = QHostInfo::localHostName().toUtf8().data();
-
-    ezEditorApp::GetInstance()->StartupEditor("ezEditor", sHostName, GetArgumentCount(), (char**) GetArgumentsArray());
-
+    ezQtEditorApp::GetSingleton()->StartupEditor(false);
     {
-      const ezInt32 iReturnCode = ezEditorApp::GetInstance()->RunEditor();
-
+      const ezInt32 iReturnCode = ezQtEditorApp::GetSingleton()->RunEditor();
       SetReturnCode(iReturnCode);
-
-      ezEditorApp::GetInstance()->ShutdownEditor();
     }
+    ezQtEditorApp::GetSingleton()->ShutdownEditor();
 
     return ezApplication::Quit;
   }
+
+private:
+  ezQtEditorApp* m_pEditorApp;
 };
 
 EZ_APPLICATION_ENTRY_POINT(ezEditorApplication);

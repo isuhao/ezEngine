@@ -1,0 +1,95 @@
+[PLATFORMS]
+ALL
+
+[PERMUTATIONS]
+
+RENDER_PASS
+GIZMO_CONSTANT_SIZE
+PREPARE_DEPTH
+
+[RENDERSTATE]
+
+#if GIZMO_CONSTANT_SIZE == 1
+  CullMode = CullMode_None
+#else
+  CullMode = CullMode_Back
+#endif
+
+#if PREPARE_DEPTH == TRUE
+	DepthTest = true
+	DepthWrite = true
+	DepthTestFunc = CompareFunc_Greater
+
+#else
+	DepthTest = true
+	DepthWrite = true
+	DepthTestFunc = CompareFunc_LessEqual
+
+#endif
+
+#if !PREPARE_DEPTH && RENDER_PASS == RENDER_PASS_FORWARD
+	BlendingEnabled0 = true
+	BlendOp0 = BlendOp_Add
+	DestBlend0 = Blend_InvSrcAlpha
+	SourceBlend0 = Blend_SrcAlpha
+#endif
+
+[VERTEXSHADER]
+
+#define USE_COLOR
+
+#include <Shaders/Common/GlobalConstants.h>
+#include <Shaders/Editor/GizmoConstants.h>
+#include <Shaders/Materials/MaterialInterpolator.h>
+
+#if EZ_ENABLED(PLATFORM_DX11)
+
+VS_OUT main(VS_IN Input)
+{
+	float3 centerPosition = mul(ObjectToWorldMatrix, float4(0, 0, 0, 1)).xyz;
+
+	#if GIZMO_CONSTANT_SIZE == 1
+		float scale = length(centerPosition - GetCameraPosition()) * GizmoScale;
+	#else
+		float scale = 1.0f;
+	#endif
+
+	float4 worldSpacePos = mul(ObjectToWorldMatrix, float4(Input.Position * scale, 1.0f));
+
+	VS_OUT RetVal;
+	RetVal.Position = mul(GetWorldToScreenMatrix(), worldSpacePos);
+	RetVal.Color =  GizmoColor;
+
+	return RetVal;
+}
+
+#endif
+
+
+[PIXELSHADER]
+
+#define USE_COLOR
+
+#include <Shaders/Common/GlobalConstants.h>
+#include <Shaders/Editor/GizmoConstants.h>
+#include <Shaders/Materials/MaterialInterpolator.h>
+
+#if EZ_ENABLED(PLATFORM_DX11)
+
+float4 main(PS_IN Input) : SV_Target
+{
+#if PREPARE_DEPTH == 1
+	return float4(0, 0, 0, 1);
+#else
+
+	#if (RENDER_PASS == RENDER_PASS_PICKING) || (RENDER_PASS == RENDER_PASS_PICKING_WIREFRAME)
+		return RGBA8ToFloat4(GameObjectID);
+	#else
+		return Input.Color;
+	#endif
+
+#endif
+}
+
+#endif
+

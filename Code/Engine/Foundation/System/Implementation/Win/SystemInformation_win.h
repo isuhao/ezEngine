@@ -1,36 +1,13 @@
-
+﻿
 // Deactivate Doxygen document generation for the following block.
 /// \cond
 
-typedef BOOL (WINAPI *LPFN_ISWOW64PROCESS) (HANDLE, PBOOL);
+#if EZ_ENABLED(EZ_PLATFORM_WINDOWS_UWP)
+  #include <Foundation/Basics/Platform/uwp/UWPUtils.h>
+  #include <windows.networking.connectivity.h>
+#endif
 
-// Taken and modified from: http://msdn.microsoft.com/en-us/library/windows/desktop/ms684139(v=vs.85).aspx (Documentation for IsWow64Process on MSDN)
-BOOL IsWow64()
-{
-  BOOL bIsWow64 = FALSE;
-
-  // IsWow64Process is not available on all supported versions of Windows.
-  // Use GetModuleHandle to get a handle to the DLL that contains the function
-  // and GetProcAddress to get a pointer to the function if available.
-
-  HMODULE hModule = GetModuleHandle(TEXT("kernel32"));
-  EZ_ASSERT_RELEASE(hModule != nullptr, "Could not find Kernel32 DLL.");
-
-  LPFN_ISWOW64PROCESS pfnIsWow64Process = (LPFN_ISWOW64PROCESS) GetProcAddress(hModule,"IsWow64Process");
-
-  if (nullptr != pfnIsWow64Process)
-  {
-    if (!pfnIsWow64Process(GetCurrentProcess(),&bIsWow64))
-    {
-      // Since we can't check let's assume 32bit for now
-      // (function not supported on XP pre SP2 and most XP installs are 32 bit)
-      return false;
-    }
-  }
-
-  return bIsWow64;
-}
-
+#include <Foundation/Strings/String.h>
 
 // Helper function to detect a 64-bit Windows
 bool Is64BitWindows()
@@ -39,7 +16,11 @@ bool Is64BitWindows()
  return true;  // 64-bit programs run only on Win64 (although if we get to Win128 this will be wrong probably)
 #elif defined(_WIN32)
  // 32-bit programs run on both 32-bit and 64-bit Windows
- return IsWow64() == TRUE;
+ // Note that we used IsWow64Process before which is not available on UWP.
+  SYSTEM_INFO info;
+  GetNativeSystemInfo(&info);
+  // According to documentation: "The processor architecture of the installed operating system."
+  return info.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_AMD64;
 #else
  return false; // Win64 does not support Win16
 #endif
@@ -51,6 +32,8 @@ void ezSystemInformation::Initialize()
 {
   if (s_SystemInformation.m_bIsInitialized)
     return;
+
+  s_SystemInformation.m_sHostName[0] = '\0';
 
   // Get system information via various APIs
   SYSTEM_INFO sysInfo;
@@ -67,7 +50,11 @@ void ezSystemInformation::Initialize()
 
   s_SystemInformation.m_uiInstalledMainMemory = memStatus.ullTotalPhys;
   s_SystemInformation.m_b64BitOS = Is64BitWindows();
-  s_SystemInformation.m_szPlatformName = "Windows";
+#if EZ_ENABLED(EZ_PLATFORM_WINDOWS_UWP)
+  s_SystemInformation.m_szPlatformName = "Windows - UWP";
+#else
+  s_SystemInformation.m_szPlatformName = "Windows - Desktop";
+#endif
 
 #if defined BUILDSYSTEM_CONFIGURATION
   s_SystemInformation.m_szBuildConfiguration = BUILDSYSTEM_CONFIGURATION;
@@ -76,11 +63,42 @@ void ezSystemInformation::Initialize()
 #endif
 
   //  Get host name
-  DWORD bufCharCount = sizeof(s_SystemInformation.m_sHostName);
-  if (!GetComputerName(s_SystemInformation.m_sHostName, &bufCharCount))
+
+
+#if EZ_ENABLED(EZ_PLATFORM_WINDOWS_UWP)
+  using namespace ABI::Windows::Networking::Connectivity;
+  using namespace ABI::Windows::Networking;
+  ComPtr<INetworkInformationStatics> networkInformation;
+  if (SUCCEEDED(ABI::Windows::Foundation::GetActivationFactory(HStringReference(RuntimeClass_Windows_Networking_Connectivity_NetworkInformation).Get(), &networkInformation)))
   {
-    strcpy(s_SystemInformation.m_sHostName, "");
+    ComPtr<ABI::Windows::Foundation::Collections::IVectorView<HostName*>> hostNames;
+    if (SUCCEEDED(networkInformation->GetHostNames(&hostNames)))
+    {
+      ezUwpUtils::ezWinRtIterateIVectorView<IHostName*>(hostNames, [](UINT, IHostName* hostName)
+      {
+        HostNameType hostNameType;
+        if (FAILED(hostName->get_Type(&hostNameType)))
+          return true;
+
+        if (hostNameType == HostNameType_DomainName)
+        {
+          HString name;
+          if (FAILED(hostName->get_CanonicalName(name.GetAddressOf())))
+            return true;
+
+          ezStringUtils::Copy(s_SystemInformation.m_sHostName, sizeof(s_SystemInformation.m_sHostName), ezStringUtf8(name).GetData());
+          return false;
+        }
+
+        return true;
+      });
+    }
   }
+
+#else
+  DWORD bufCharCount = sizeof(s_SystemInformation.m_sHostName);
+  GetComputerName(s_SystemInformation.m_sHostName, &bufCharCount);
+#endif
 
   s_SystemInformation.m_bIsInitialized = true;
 }

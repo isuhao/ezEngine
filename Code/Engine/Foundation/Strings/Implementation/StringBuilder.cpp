@@ -1,6 +1,7 @@
-#include <Foundation/PCH.h>
+﻿#include <PCH.h>
 #include <Foundation/Strings/StringBuilder.h>
 #include <Foundation/Containers/DynamicArray.h>
+#include <Foundation/Strings/FormatString.h>
 
 ezStringBuilder::ezStringBuilder(const char* pData1, const char* pData2, const char* pData3, const char* pData4, const char* pData5, const char* pData6)
 {
@@ -12,6 +13,13 @@ ezStringBuilder::ezStringBuilder(const char* pData1, const char* pData2, const c
 
 void ezStringBuilder::Set(const char* pData1, const char* pData2, const char* pData3, const char* pData4, const char* pData5, const char* pData6)
 {
+  EZ_ASSERT_DEBUG(pData1 < m_Data.GetData() || pData1 >= m_Data.GetData() + m_Data.GetCapacity(), "Parameter 1 comes from the string builders own storage. This type of assignment is not allowed.");
+  EZ_ASSERT_DEBUG(pData2 < m_Data.GetData() || pData2 >= m_Data.GetData() + m_Data.GetCapacity(), "Parameter 2 comes from the string builders own storage. This type of assignment is not allowed.");
+  EZ_ASSERT_DEBUG(pData3 < m_Data.GetData() || pData3 >= m_Data.GetData() + m_Data.GetCapacity(), "Parameter 3 comes from the string builders own storage. This type of assignment is not allowed.");
+  EZ_ASSERT_DEBUG(pData4 < m_Data.GetData() || pData4 >= m_Data.GetData() + m_Data.GetCapacity(), "Parameter 4 comes from the string builders own storage. This type of assignment is not allowed.");
+  EZ_ASSERT_DEBUG(pData5 < m_Data.GetData() || pData5 >= m_Data.GetData() + m_Data.GetCapacity(), "Parameter 5 comes from the string builders own storage. This type of assignment is not allowed.");
+  EZ_ASSERT_DEBUG(pData6 < m_Data.GetData() || pData6 >= m_Data.GetData() + m_Data.GetCapacity(), "Parameter 6 comes from the string builders own storage. This type of assignment is not allowed.");
+
   Clear();
   Append(pData1, pData2, pData3, pData4, pData5, pData6);
 }
@@ -41,6 +49,34 @@ void ezStringBuilder::SetSubString_CharacterCount(const char* pStart, ezUInt32 u
   *this = view;
 }
 
+void ezStringBuilder::Append(const ezStringView& view)
+{
+  ezUInt32 uiMoreBytes = 0;
+  ezUInt32 uiStrLen = 0;
+
+  // first figure out how much the string has to grow
+  {
+    ezUInt32 uiCharacters = 0;
+    ezStringUtils::GetCharacterAndElementCount(view.GetData(), uiCharacters, uiStrLen, view.GetEndPosition());
+    uiMoreBytes += uiStrLen;
+    m_uiCharacterCount += uiCharacters;
+  }
+
+  ezUInt32 uiPrevCount = m_Data.GetCount(); // already contains a 0 terminator
+  EZ_ASSERT_DEBUG(uiPrevCount > 0, "There should be a 0 terminator somewhere around here.");
+
+  // now resize
+  m_Data.SetCountUninitialized(uiPrevCount + uiMoreBytes);
+
+  // and then append all the strings
+  {
+    // make enough room to copy the entire string, including the T-800
+    ezStringUtils::Copy(&m_Data[uiPrevCount - 1], uiStrLen + 1, view.GetData(), view.GetData() + uiStrLen);
+
+    uiPrevCount += uiStrLen;
+  }
+}
+
 void ezStringBuilder::Append(const char* pData1, const char* pData2, const char* pData3, const char* pData4, const char* pData5, const char* pData6)
 {
   // it is not possible to find out how many parameters were passed to a vararg function
@@ -59,6 +95,8 @@ void ezStringBuilder::Append(const char* pData1, const char* pData2, const char*
     if (ezStringUtils::IsNullOrEmpty(pStrings[i]))
       continue;
 
+    EZ_ASSERT_DEBUG(pStrings[i] < m_Data.GetData() || pStrings[i] >= m_Data.GetData() + m_Data.GetCapacity(), "Parameter {0} comes from the string builders own storage. This type assignment is not allowed.", i);
+
     ezUnicodeUtils::SkipUtf8Bom(pStrings[i]);
 
     ezUInt32 uiCharacters = 0;
@@ -66,14 +104,14 @@ void ezStringBuilder::Append(const char* pData1, const char* pData2, const char*
     uiMoreBytes += uiStrLen[i];
     m_uiCharacterCount += uiCharacters;
 
-    EZ_ASSERT_DEV(ezUnicodeUtils::IsValidUtf8(pStrings[i]), "Parameter %i is not a valid Utf8 sequence.", i + 1);
+    EZ_ASSERT_DEV(ezUnicodeUtils::IsValidUtf8(pStrings[i]), "Parameter {0} is not a valid Utf8 sequence.", i + 1);
   }
 
   ezUInt32 uiPrevCount = m_Data.GetCount(); // already contains a 0 terminator
   EZ_ASSERT_DEBUG(uiPrevCount > 0, "There should be a 0 terminator somewhere around here.");
 
   // now resize
-  m_Data.SetCount(uiPrevCount + uiMoreBytes);
+  m_Data.SetCountUninitialized(uiPrevCount + uiMoreBytes);
 
   // and then append all the strings
   for (ezUInt32 i = 0; i < uiMaxParams; ++i)
@@ -113,14 +151,14 @@ void ezStringBuilder::Prepend(const char* pData1, const char* pData2, const char
     uiMoreBytes += uiStrLen[i];
     m_uiCharacterCount += uiCharacters;
 
-    EZ_ASSERT_DEV(ezUnicodeUtils::IsValidUtf8(pStrings[i]), "Parameter %i is not a valid Utf8 sequence.", i + 1);
+    EZ_ASSERT_DEV(ezUnicodeUtils::IsValidUtf8(pStrings[i]), "Parameter {0} is not a valid Utf8 sequence.", i + 1);
   }
 
   ezUInt32 uiPrevCount = m_Data.GetCount(); // already contains a 0 terminator
   EZ_ASSERT_DEBUG(uiPrevCount > 0, "There should be a 0 terminator somewhere around here.");
 
   // now resize
-  m_Data.SetCount(uiPrevCount + uiMoreBytes);
+  m_Data.SetCountUninitialized(uiPrevCount + uiMoreBytes);
 
   // move the previous string data at the end
   ezMemoryUtils::CopyOverlapped(&m_Data[0] + uiMoreBytes, GetData(), uiPrevCount);
@@ -140,10 +178,12 @@ void ezStringBuilder::Prepend(const char* pData1, const char* pData2, const char
   }
 }
 
-void ezStringBuilder::AppendFormatArgs(const char* szUtf8Format, va_list args0)
+void ezStringBuilder::PrintfArgs(const char* szUtf8Format, va_list args0)
 {
   va_list args;
   va_copy(args, args0);
+
+  Clear();
 
   const ezUInt32 TempBuffer = 4096;
 
@@ -161,7 +201,7 @@ void ezStringBuilder::AppendFormatArgs(const char* szUtf8Format, va_list args0)
   if (iCount > TempBuffer - 1)
   {
     ezDynamicArray<char> Temp;
-    Temp.SetCount(iCount + 1);
+    Temp.SetCountUninitialized(iCount + 1);
 
     ezStringUtils::vsnprintf(&Temp[0], iCount + 1, szUtf8Format, args);
 
@@ -170,41 +210,6 @@ void ezStringBuilder::AppendFormatArgs(const char* szUtf8Format, va_list args0)
   else
   {
     Append(&szTemp[0]);
-  }
-
-  va_end(args);
-}
-
-void ezStringBuilder::PrependFormatArgs(const char* szUtf8Format, va_list args0)
-{
-  va_list args;
-  va_copy(args, args0);
-
-  const ezUInt32 TempBuffer = 4096;
-
-  char szTemp[TempBuffer];
-  const ezInt32 iCount = ezStringUtils::vsnprintf(szTemp, TempBuffer - 1, szUtf8Format, args);
-
-  EZ_ASSERT_DEV(iCount != -1, "There was an error while formatting the string. Probably and unescaped usage of the %% sign.");
-
-  if (iCount == -1)
-  {
-    va_end(args);
-    return;
-  }
-
-  if (iCount > TempBuffer - 1)
-  {
-    ezDynamicArray<char> Temp;
-    Temp.SetCount(iCount + 1);
-
-    ezStringUtils::vsnprintf(&Temp[0], iCount + 1, szUtf8Format, args);
-
-    Prepend(&Temp[0]);
-  }
-  else
-  {
-    Prepend(&szTemp[0]);
   }
 
   va_end(args);
@@ -258,7 +263,7 @@ void ezStringBuilder::ChangeCharacterNonASCII(iterator& it, ezUInt32 uiCharacter
     const ezUInt32 uiTrailStringBytes = (ezUInt32)(GetData() + GetElementCount() - it.GetData() - uiOldCharLength + 1);
     auto iCurrentPos = (it.GetData() - GetData());
     // resize the array
-    m_Data.SetCount(m_Data.GetCount() + uiDifference);
+    m_Data.SetCountUninitialized(m_Data.GetCount() + uiDifference);
 
     // these might have changed (array realloc)
     pPos = &m_Data[0] + iCurrentPos;
@@ -386,7 +391,7 @@ void ezStringBuilder::ReplaceSubString(const char* szStartPos, const char* szEnd
     const ezUInt64 uiRelativeWritePosition = szWritePos - GetData();
     const ezUInt64 uiDataByteCountBefore = m_Data.GetCount();
 
-    m_Data.SetCount(m_Data.GetCount() + uiDifference);
+    m_Data.SetCountUninitialized(m_Data.GetCount() + uiDifference);
 
     // all pointer are now possibly invalid since the data may be reallocated!
     szWritePos = const_cast<char*>(GetData()) + uiRelativeWritePosition;
@@ -641,7 +646,7 @@ void ezStringBuilder::operator=(const ezStringView& rhs)
 
   // if we need more room, allocate up front (rhs cannot use our own data in this case)
   if (uiBytes + 1 > m_Data.GetCount())
-    m_Data.SetCount(uiBytes + 1);
+    m_Data.SetCountUninitialized(uiBytes + 1);
 
   // the data might actually come from our very own string, so we 'move' the memory in there, just to be safe
   // if it comes from our own array, the data will always be a sub-set -> smaller than this array
@@ -649,7 +654,7 @@ void ezStringBuilder::operator=(const ezStringView& rhs)
   // however, when the new data is larger than the old, it cannot be from our own data, so we can (and must) reallocate before copying
   ezMemoryUtils::CopyOverlapped(&m_Data[0], rhs.GetData(), uiBytes);
 
-  m_Data.SetCount(uiBytes + 1);
+  m_Data.SetCountUninitialized(uiBytes + 1);
   m_Data[uiBytes] = '\0';
 
   m_uiCharacterCount = uiCharacters;
@@ -660,7 +665,8 @@ enum PathUpState
   NotStarted,
   OneDot,
   TwoDots,
-  FoundIt,
+  FoundDotSlash,
+  FoundDotDotSlash,
   Invalid,
 };
 
@@ -673,10 +679,11 @@ void ezStringBuilder::MakeCleanPath()
 
   Trim(" \t\r\n");
 
-  const char* szStartPos = &m_Data[0];
-  const char* szEndPos = &m_Data[m_Data.GetCount() - 1];
+  const char* const szStartPos = &m_Data[0];
+  const char* const szEndPos = &m_Data[m_Data.GetCount() - 1];
   const char* szCurReadPos = &m_Data[0];
-  char* szCurWritePos = &m_Data[0];
+  char* const szCurWritePos = &m_Data[0];
+  int writeOffset = 0;
 
   ezInt32 iLevelsDown = 0;
   PathUpState FoundPathUp = NotStarted;
@@ -689,73 +696,82 @@ void ezStringBuilder::MakeCleanPath()
     {
       if (FoundPathUp == NotStarted)
         FoundPathUp = OneDot;
+      else if (FoundPathUp == OneDot)
+        FoundPathUp = TwoDots;
       else
-        if (FoundPathUp == OneDot)
-          FoundPathUp = TwoDots;
-        else
-          FoundPathUp = Invalid;
+        FoundPathUp = Invalid;
     }
-    else
-      if (ezPathUtils::IsPathSeparator(CurChar))
-      {
-        CurChar = '/';
+    else if (ezPathUtils::IsPathSeparator(CurChar))
+    {
+      CurChar = '/';
 
-        if (FoundPathUp == OneDot)
-        {
-          szCurWritePos -= 2; // go back, skip two dots, one slash
-          FoundPathUp = NotStarted;
-        }
-        else
-          if (FoundPathUp == TwoDots)
-            FoundPathUp = FoundIt;
-          else
-          {
-            ++iLevelsDown;
-            FoundPathUp = NotStarted;
-          }
+      if (FoundPathUp == OneDot)
+      {
+        FoundPathUp = FoundDotSlash;
+      }
+      else if (FoundPathUp == TwoDots)
+      {
+        FoundPathUp = FoundDotDotSlash;
       }
       else
+      {
+        ++iLevelsDown;
         FoundPathUp = NotStarted;
+      }
+    }
+    else
+      FoundPathUp = NotStarted;
 
-    if (FoundPathUp == FoundIt)
+    if (FoundPathUp == FoundDotDotSlash)
     {
       if (iLevelsDown > 0)
       {
         --iLevelsDown;
-        szCurWritePos -= 3; // go back, skip two dots, one slash
+        EZ_ASSERT_DEBUG(writeOffset >= 3, "invalid write offset");
+        writeOffset -= 3; // go back, skip two dots, one slash
 
-        while ((szCurWritePos > szStartPos) && (*(szCurWritePos - 1) != '/'))
-          --szCurWritePos;
+        while ((writeOffset > 0) && (szCurWritePos[writeOffset - 1] != '/'))
+        {
+          EZ_ASSERT_DEBUG(writeOffset > 0, "invalid write offset");
+          --writeOffset;
+        }
       }
       else
       {
-        *szCurWritePos = '/';
-        ++szCurWritePos;
+        szCurWritePos[writeOffset] = '/';
+        ++writeOffset;
       }
+
+      FoundPathUp = NotStarted;
+    }
+    else if (FoundPathUp == FoundDotSlash)
+    {
+      EZ_ASSERT_DEBUG(writeOffset > 0, "invalid write offset");
+      writeOffset -= 1; // go back to where we wrote the dot
 
       FoundPathUp = NotStarted;
     }
     else
     {
-      *szCurWritePos = CurChar;
-      ++szCurWritePos;
+      szCurWritePos[writeOffset] = CurChar;
+      ++writeOffset;
     }
 
     ++szCurReadPos;
   }
 
   const ezUInt32 uiPrevByteCount = m_Data.GetCount();
-  const ezUInt32 uiNewByteCount = (ezUInt32)(szCurWritePos - &m_Data[0]) + 1;
+  const ezUInt32 uiNewByteCount = (ezUInt32)(writeOffset) + 1;
 
-  EZ_ASSERT_DEBUG(uiPrevByteCount >= uiNewByteCount, "It should not be possible that a path grows during cleanup. Old: %i Bytes, New: %i Bytes", uiPrevByteCount, uiNewByteCount);
+  EZ_ASSERT_DEBUG(uiPrevByteCount >= uiNewByteCount, "It should not be possible that a path grows during cleanup. Old: {0} Bytes, New: {1} Bytes", uiPrevByteCount, uiNewByteCount);
 
   // we will only remove characters and only ASCII ones (slash, backslash, dot)
   // so the number of characters shrinks equally to the number of bytes
   m_uiCharacterCount -= (uiPrevByteCount - uiNewByteCount);
 
   // make sure to write the terminating \0 and reset the count
-  *szCurWritePos = '\0';
-  m_Data.SetCount(uiNewByteCount);
+  szCurWritePos[writeOffset] = '\0';
+  m_Data.SetCountUninitialized(uiNewByteCount);
 
 }
 
@@ -775,15 +791,25 @@ void ezStringBuilder::AppendPath(const char* szPath1, const char* szPath2, const
 
   for (ezUInt32 i = 0; i < 4; ++i)
   {
-    if (!ezStringUtils::IsNullOrEmpty(szPaths[i]))
+    const char* szThisPath = szPaths[i];
+
+    if (!ezStringUtils::IsNullOrEmpty(szThisPath))
     {
-      EZ_ASSERT_DEV(!ezPathUtils::IsPathSeparator(szPaths[i][0]) || IsEmpty() && ezPathUtils::IsAbsolutePath(szPaths[i]),
-                    "The paths to append must not start with a path separator or it must be absolute and the current value must be empty.");
+      if ((IsEmpty() && ezPathUtils::IsAbsolutePath(szPaths[i])))
+      {
+        // this is for Linux systems where absolute paths start with a slash, wouldn't want to remove that
+      }
+      else
+      {
+        // prevent creating multiple path separators through concatenation
+        while (ezPathUtils::IsPathSeparator(szThisPath[0]))
+          ++szThisPath;
+      }
 
       if (IsEmpty() || ezPathUtils::IsPathSeparator(GetIteratorBack().GetCharacter()))
-        Append(szPaths[i]);
+        Append(szThisPath);
       else
-        Append("/", szPaths[i]);
+        Append("/", szThisPath);
     }
   }
 }
@@ -960,7 +986,7 @@ void ezStringBuilder::RemoveDoubleSlashesInPath()
   const ezUInt32 uiPrevByteCount = m_Data.GetCount();
   const ezUInt32 uiNewByteCount = (ezUInt32)(szCurWritePos - &m_Data[0]) + 1;
 
-  EZ_ASSERT_DEBUG(uiPrevByteCount >= uiNewByteCount, "It should not be possible that a path grows during cleanup. Old: %i Bytes, New: %i Bytes", uiPrevByteCount, uiNewByteCount);
+  EZ_ASSERT_DEBUG(uiPrevByteCount >= uiNewByteCount, "It should not be possible that a path grows during cleanup. Old: {0} Bytes, New: {1} Bytes", uiPrevByteCount, uiNewByteCount);
 
   // we will only remove characters and only ASCII ones (slash, backslash)
   // so the number of characters shrinks equally to the number of bytes
@@ -968,12 +994,12 @@ void ezStringBuilder::RemoveDoubleSlashesInPath()
 
   // make sure to write the terminating \0 and reset the count
   *szCurWritePos = '\0';
-  m_Data.SetCount(uiNewByteCount);
+  m_Data.SetCountUninitialized(uiNewByteCount);
 
 }
 
 
-void ezStringBuilder::ReadAll(ezStreamReaderBase& Stream)
+void ezStringBuilder::ReadAll(ezStreamReader& Stream)
 {
   Clear();
 
@@ -1006,6 +1032,32 @@ void ezStringBuilder::Trim(const char* szTrimCharsStart, const char* szTrimChars
   const char* szNewEnd = GetData() + GetElementCount();
   ezStringUtils::Trim(szNewStart, szNewEnd, szTrimCharsStart, szTrimCharsEnd);
   Shrink(ezStringUtils::GetCharacterCount(GetData(), szNewStart), ezStringUtils::GetCharacterCount(szNewEnd, GetData() + GetElementCount()));
+}
+
+void ezStringBuilder::Format(const ezFormatString& string)
+{
+  Clear();
+  const char* szText = string.GetText(*this);
+
+  // this is for the case that GetText does not use the ezStringBuilder as temp storage
+  if (szText != GetData())
+    *this = szText;
+}
+
+void ezStringBuilder::AppendFormat(const ezFormatString& string)
+{
+  ezStringBuilder tmp;
+  const char* szText = string.GetText(tmp);
+
+  Append(ezStringView(tmp.GetData(), tmp.GetData() + tmp.GetElementCount()));
+}
+
+void ezStringBuilder::PrependFormat(const ezFormatString& string)
+{
+  ezStringBuilder tmp;
+  const char* szText = string.GetText(tmp);
+
+  Prepend(tmp);
 }
 
 

@@ -1,10 +1,5 @@
-#include <TestFramework/PCH.h>
+#include <PCH.h>
 #include <TestFramework/Framework/TestFramework.h>
-#include <Foundation/Logging/Log.h>
-#include <Foundation/Time/Time.h>
-#include <Foundation/System/SystemInformation.h>
-#include <Foundation/Time/Timestamp.h>
-#include <Foundation/Configuration/Startup.h>
 
 EZ_ENUMERABLE_CLASS_IMPLEMENTATION(ezTestBaseClass);
 
@@ -17,8 +12,6 @@ void ezTestBaseClass::UpdateConfiguration(ezTestConfiguration& config) const
   // if the information it knows about is already present.
   if (config.m_uiInstalledMainMemory == 0)
   {
-    ezStartup::StartupBase();
-
     const ezSystemInformation& pSysInfo = ezSystemInformation::Get();
     config.m_uiInstalledMainMemory = pSysInfo.GetInstalledMainMemory();
     config.m_uiMemoryPageSize = pSysInfo.GetMemoryPageSize();

@@ -1,20 +1,27 @@
 #pragma once
 
 #include <RendererCore/Pipeline/Declarations.h>
-#include <Core/ResourceManager/ResourceHandle.h>
 
-typedef ezResourceHandle<class ezConstantBufferResource> ezConstantBufferResourceHandle;
+struct ezPerInstanceData;
 
+/// \brief Implements rendering of static meshes
 class EZ_RENDERERCORE_DLL ezMeshRenderer : public ezRenderer
 {
-  EZ_ADD_DYNAMIC_REFLECTION(ezMeshRenderer);
+  EZ_ADD_DYNAMIC_REFLECTION(ezMeshRenderer, ezRenderer);
+  EZ_DISALLOW_COPY_AND_ASSIGN(ezMeshRenderer);
 
 public:
+
+  ezMeshRenderer();
+  ~ezMeshRenderer();
+
   // ezRenderer implementation
   virtual void GetSupportedRenderDataTypes(ezHybridArray<const ezRTTI*, 8>& types) override;
-  virtual ezUInt32 Render(const ezRenderViewContext& renderContext, ezRenderPipelinePass* pPass, const ezArrayPtr<const ezRenderData* const>& renderData) override;
+  virtual void RenderBatch(const ezRenderViewContext& renderContext, ezRenderPipelinePass* pPass, const ezRenderDataBatch& batch) override;
 
-private:
-  ezConstantBufferResourceHandle m_hObjectTransformCB;
+protected:
+  virtual void FillPerInstanceData(ezArrayPtr<ezPerInstanceData> instanceData, const ezRenderDataBatch& batch, ezUInt32 uiStartIndex, ezUInt32& out_uiFilteredCount);
+
+  ezInt32 m_iInstancingThreshold;
 };
 

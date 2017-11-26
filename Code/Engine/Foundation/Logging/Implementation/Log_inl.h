@@ -10,28 +10,16 @@ inline ezLoggingEventData::ezLoggingEventData()
 
 #if EZ_DISABLED(EZ_COMPILE_FOR_DEVELOPMENT)
 
-EZ_FORCE_INLINE void ezLog::Dev(const char* szFormat, ...)
+inline void ezLog::Dev(ezLogInterface* pInterface, const ezFormatString& string)
 {
-  // in non-development builds this function is completely removed from the source
-}
-
-EZ_FORCE_INLINE void ezLog::Dev(ezLogInterface* pInterface, const char* szFormat, ...)
-{
-  // in non-development builds this function is completely removed from the source
 }
 
 #endif
 
 #if EZ_DISABLED(EZ_COMPILE_FOR_DEBUG)
 
-EZ_FORCE_INLINE void ezLog::Debug(const char* szFormat, ...)
+inline void ezLog::Debug(ezLogInterface* pInterface, const ezFormatString& string)
 {
-  // in non-debug builds this function is completely removed from the source
-}
-
-EZ_FORCE_INLINE void ezLog::Debug(ezLogInterface* pInterface, const char* szFormat, ...)
-{
-  // in non-debug builds this function is completely removed from the source
 }
 
 #endif

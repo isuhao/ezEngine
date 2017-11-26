@@ -1,33 +1,33 @@
-#include <PCH.h>
+﻿#include <PCH.h>
 #include <EditorFramework/Gizmos/ScaleGizmo.h>
-#include <EditorFramework/DocumentWindow3D/DocumentWindow3D.moc.h>
+#include <EditorFramework/DocumentWindow/EngineDocumentWindow.moc.h>
 #include <Foundation/Logging/Log.h>
 #include <QMouseEvent>
-#include <CoreUtils/Graphics/Camera.h>
+#include <Core/Graphics/Camera.h>
 #include <Foundation/Utilities/GraphicsUtils.h>
+#include <EditorFramework/Gizmos/SnapProvider.h>
+#include <EditorFramework/Assets/AssetDocument.h>
 
-EZ_BEGIN_DYNAMIC_REFLECTED_TYPE(ezScaleGizmo, ezGizmoBase, 1, ezRTTINoAllocator);
-EZ_END_DYNAMIC_REFLECTED_TYPE();
+EZ_BEGIN_DYNAMIC_REFLECTED_TYPE(ezScaleGizmo, 1, ezRTTINoAllocator);
+EZ_END_DYNAMIC_REFLECTED_TYPE
 
 ezScaleGizmo::ezScaleGizmo()
 {
-  m_AxisX.Configure(this, ezGizmoHandleType::Piston, ezColorLinearUB(128, 0, 0));
-  m_AxisY.Configure(this, ezGizmoHandleType::Piston, ezColorLinearUB(0, 128, 0));
-  m_AxisZ.Configure(this, ezGizmoHandleType::Piston, ezColorLinearUB(0, 0, 128));
-  m_AxisXYZ.Configure(this, ezGizmoHandleType::Box, ezColorLinearUB(128, 128, 0));
+  m_AxisX.Configure(this, ezEngineGizmoHandleType::Piston, ezColorLinearUB(128, 0, 0));
+  m_AxisY.Configure(this, ezEngineGizmoHandleType::Piston, ezColorLinearUB(0, 128, 0));
+  m_AxisZ.Configure(this, ezEngineGizmoHandleType::Piston, ezColorLinearUB(0, 0, 128));
+  m_AxisXYZ.Configure(this, ezEngineGizmoHandleType::Box, ezColorLinearUB(128, 128, 0));
 
   SetVisible(false);
-  SetTransformation(ezMat4::IdentityMatrix());
-
-  m_fSnappingValue = 0.0f;
+  SetTransformation(ezTransform::Identity());
 }
 
-void ezScaleGizmo::OnSetOwner(ezDocumentWindow3D* pOwnerWindow, ezEngineViewWidget* pOwnerView)
+void ezScaleGizmo::OnSetOwner(ezQtEngineDocumentWindow* pOwnerWindow, ezQtEngineViewWidget* pOwnerView)
 {
-  m_AxisX.SetOwner(pOwnerWindow);
-  m_AxisY.SetOwner(pOwnerWindow);
-  m_AxisZ.SetOwner(pOwnerWindow);
-  m_AxisXYZ.SetOwner(pOwnerWindow);
+  pOwnerWindow->GetDocument()->AddSyncObject(&m_AxisX);
+  pOwnerWindow->GetDocument()->AddSyncObject(&m_AxisY);
+  pOwnerWindow->GetDocument()->AddSyncObject(&m_AxisZ);
+  pOwnerWindow->GetDocument()->AddSyncObject(&m_AxisXYZ);
 }
 
 void ezScaleGizmo::OnVisibleChanged(bool bVisible)
@@ -38,32 +38,33 @@ void ezScaleGizmo::OnVisibleChanged(bool bVisible)
   m_AxisXYZ.SetVisible(bVisible);
 }
 
-void ezScaleGizmo::OnTransformationChanged(const ezMat4& transform)
+void ezScaleGizmo::OnTransformationChanged(const ezTransform& transform)
 {
-  ezMat4 m;
+  ezTransform t;
+  t.SetIdentity();
 
-  m.SetIdentity();
-  m_AxisX.SetTransformation(transform * m);
+  m_AxisX.SetTransformation(transform * t);
 
-  m.SetRotationMatrixZ(ezAngle::Degree(90));
-  m_AxisY.SetTransformation(transform * m);
+  t.m_qRotation.SetFromAxisAndAngle(ezVec3(0, 0, 1), ezAngle::Degree(90));
+  m_AxisY.SetTransformation(transform * t);
 
-  m.SetRotationMatrixY(ezAngle::Degree(-90));
-  m_AxisZ.SetTransformation(transform * m);
+  t.m_qRotation.SetFromAxisAndAngle(ezVec3(0, 1, 0), ezAngle::Degree(-90));
+  m_AxisZ.SetTransformation(transform * t);
 
-  m.SetIdentity();
-  m_AxisXYZ.SetTransformation(transform * m);
+  t.SetIdentity();
+  t.m_vScale = ezVec3(0.2f);
+  m_AxisXYZ.SetTransformation(transform * t);
 }
 
-void ezScaleGizmo::FocusLost()
+void ezScaleGizmo::DoFocusLost(bool bCancel)
 {
-  BaseEvent ev;
+  ezGizmoEvent ev;
   ev.m_pGizmo = this;
-  ev.m_Type = BaseEvent::Type::EndInteractions;
-  m_BaseEvents.Broadcast(ev);
+  ev.m_Type = bCancel ? ezGizmoEvent::Type::CancelInteractions : ezGizmoEvent::Type::EndInteractions;
+  m_GizmoEvents.Broadcast(ev);
 
   ezViewHighlightMsgToEngine msg;
-  msg.SendHighlightObjectMessage(GetOwnerWindow()->GetEditorEngineConnection());
+  GetOwnerWindow()->GetEditorEngineConnection()->SendHighlightObjectMessage(&msg);
 
   m_AxisX.SetVisible(true);
   m_AxisY.SetVisible(true);
@@ -73,13 +74,13 @@ void ezScaleGizmo::FocusLost()
   QApplication::restoreOverrideCursor();
 }
 
-bool ezScaleGizmo::mousePressEvent(QMouseEvent* e)
+ezEditorInput ezScaleGizmo::DoMousePressEvent(QMouseEvent* e)
 {
   if (IsActiveInputContext())
-    return true;
+    return ezEditorInput::WasExclusivelyHandled;
 
   if (e->button() != Qt::MouseButton::LeftButton)
-    return false;
+    return ezEditorInput::MayBeHandledByOthers;
 
   if (m_pInteractionGizmoHandle == &m_AxisX)
   {
@@ -98,84 +99,79 @@ bool ezScaleGizmo::mousePressEvent(QMouseEvent* e)
     m_vMoveAxis.Set(1, 1, 1);
   }
   else
-    return false;
+    return ezEditorInput::MayBeHandledByOthers;
 
   ezViewHighlightMsgToEngine msg;
   msg.m_HighlightObject = m_pInteractionGizmoHandle->GetGuid();
-  msg.SendHighlightObjectMessage(GetOwnerWindow()->GetEditorEngineConnection());
+  GetOwnerWindow()->GetEditorEngineConnection()->SendHighlightObjectMessage(&msg);
 
-  QApplication::setOverrideCursor(QCursor(Qt::BlankCursor));
+  m_LastMousePos = SetMouseMode(ezEditorInputContext::MouseMode::HideAndWrapAtScreenBorders);
 
-  m_MousePos = ezVec2(e->globalPos().x(), e->globalPos().y());
+  //m_AxisX.SetVisible(false);
+  //m_AxisY.SetVisible(false);
+  //m_AxisZ.SetVisible(false);
+  //m_AxisXYZ.SetVisible(false);
 
-  m_AxisX.SetVisible(false);
-  m_AxisY.SetVisible(false);
-  m_AxisZ.SetVisible(false);
-  m_AxisXYZ.SetVisible(false);
-
-  m_pInteractionGizmoHandle->SetVisible(true);
+  //m_pInteractionGizmoHandle->SetVisible(true);
 
   m_vScalingResult.Set(1.0f);
   m_vScaleMouseMove.SetZero();
 
-  ezMat4 mView, mProj, mViewProj;
-  m_pCamera->GetViewMatrix(mView);
+  ezMat4 mView = m_pCamera->GetViewMatrix();
+  ezMat4 mProj;
   m_pCamera->GetProjectionMatrix((float)m_Viewport.x / (float)m_Viewport.y, mProj);
-  mViewProj = mProj * mView;
+  ezMat4 mViewProj = mProj * mView;
   m_InvViewProj = mViewProj.GetInverse();
 
   m_LastInteraction = ezTime::Now();
 
   SetActiveInputContext(this);
 
-  BaseEvent ev;
+  ezGizmoEvent ev;
   ev.m_pGizmo = this;
-  ev.m_Type = BaseEvent::Type::BeginInteractions;
-  m_BaseEvents.Broadcast(ev);
+  ev.m_Type = ezGizmoEvent::Type::BeginInteractions;
+  m_GizmoEvents.Broadcast(ev);
 
-  return true;
+  return ezEditorInput::WasExclusivelyHandled;
 }
 
-bool ezScaleGizmo::mouseReleaseEvent(QMouseEvent* e)
+ezEditorInput ezScaleGizmo::DoMouseReleaseEvent(QMouseEvent* e)
 {
   if (!IsActiveInputContext())
-    return false;
+    return ezEditorInput::MayBeHandledByOthers;
 
   if (e->button() != Qt::MouseButton::LeftButton)
-    return true;
+    return ezEditorInput::WasExclusivelyHandled;
 
-  FocusLost();
+  FocusLost(false);
 
   SetActiveInputContext(nullptr);
-  return true;
+  return ezEditorInput::WasExclusivelyHandled;
 }
 
-bool ezScaleGizmo::mouseMoveEvent(QMouseEvent* e)
+ezEditorInput ezScaleGizmo::DoMouseMoveEvent(QMouseEvent* e)
 {
   if (!IsActiveInputContext())
-    return false;
+    return ezEditorInput::MayBeHandledByOthers;
 
   const ezTime tNow = ezTime::Now();
 
   if (tNow - m_LastInteraction < ezTime::Seconds(1.0 / 25.0))
-    return true;
+    return ezEditorInput::WasExclusivelyHandled;
 
   m_LastInteraction = tNow;
 
-  const ezVec2 vNewMousePos = ezVec2(e->globalPos().x(), e->globalPos().y());
-  ezVec2 vDiff = (vNewMousePos - m_MousePos);
+  const ezVec2I32 vNewMousePos = ezVec2I32(e->globalPos().x(), e->globalPos().y());
+  ezVec2I32 vDiff = (vNewMousePos - m_LastMousePos);
 
-  QCursor::setPos(QPoint(m_MousePos.x, m_MousePos.y));
+  m_LastMousePos = UpdateMouseMode(e);
 
-  float fFactor = m_fSnappingValue != 0.0f ? m_fSnappingValue : 1.0f;
-
-  m_vScaleMouseMove += m_vMoveAxis * vDiff.x * fFactor;
-  m_vScaleMouseMove -= m_vMoveAxis * vDiff.y * fFactor;
+  m_vScaleMouseMove += m_vMoveAxis * (float)vDiff.x;
+  m_vScaleMouseMove -= m_vMoveAxis * (float)vDiff.y;
 
   m_vScalingResult.Set(1.0f);
 
   const float fScaleSpeed = 0.01f;
-
 
   if (m_vScaleMouseMove.x > 0.0f)
     m_vScalingResult.x = 1.0f + m_vScaleMouseMove.x * fScaleSpeed;
@@ -192,11 +188,15 @@ bool ezScaleGizmo::mouseMoveEvent(QMouseEvent* e)
   if (m_vScaleMouseMove.z < 0.0f)
     m_vScalingResult.z = 1.0f / (1.0f - m_vScaleMouseMove.z * fScaleSpeed);
 
-  BaseEvent ev;
-  ev.m_pGizmo = this;
-  ev.m_Type = BaseEvent::Type::Interaction;
-  m_BaseEvents.Broadcast(ev);
+  // disable snapping when ALT is pressed
+  if (!e->modifiers().testFlag(Qt::AltModifier))
+    ezSnapProvider::SnapScale(m_vScalingResult);
 
-  return true;
+  ezGizmoEvent ev;
+  ev.m_pGizmo = this;
+  ev.m_Type = ezGizmoEvent::Type::Interaction;
+  m_GizmoEvents.Broadcast(ev);
+
+  return ezEditorInput::WasExclusivelyHandled;
 }
 

@@ -3,6 +3,8 @@
  * For conditions of distribution and use, see copyright notice in zlib.h
  */
 
+#ifdef BUILDSYSTEM_ENABLE_ZLIB_SUPPORT
+
 #include "gzguts.h"
 
 /* Local functions */
@@ -27,7 +29,7 @@ local int gz_load(state, buf, len, have)
 
     *have = 0;
     do {
-        ret = read(state->fd, buf + *have, len - *have);
+        ret = _read(state->fd, buf + *have, len - *have);
         if (ret <= 0)
             break;
         *have += ret;
@@ -588,7 +590,10 @@ int ZEXPORT gzclose_r(file)
     err = state->err == Z_BUF_ERROR ? Z_BUF_ERROR : Z_OK;
     gz_error(state, Z_OK, NULL);
     free(state->path);
-    ret = close(state->fd);
+    ret = _close(state->fd);
     free(state);
     return ret ? Z_ERRNO : err;
 }
+
+#endif // BUILDSYSTEM_ENABLE_ZLIB_SUPPORT
+

@@ -20,7 +20,9 @@
 
 
 // All the supported Platforms
-#define EZ_PLATFORM_WINDOWS EZ_OFF
+#define EZ_PLATFORM_WINDOWS EZ_OFF // enabled for all Windows platforms, both UWP and desktop
+#define EZ_PLATFORM_WINDOWS_UWP EZ_OFF // enabled for UWP apps, together with EZ_PLATFORM_WINDOWS
+#define EZ_PLATFORM_WINDOWS_DESKTOP EZ_OFF // enabled for desktop apps, together with EZ_PLATFORM_WINDOWS
 #define EZ_PLATFORM_OSX EZ_OFF
 #define EZ_PLATFORM_LINUX EZ_OFF
 #define EZ_PLATFORM_IOS EZ_OFF
@@ -35,6 +37,8 @@
 
 // Different Compilers
 #define EZ_COMPILER_MSVC EZ_OFF
+#define EZ_COMPILER_MSVC_CLANG EZ_OFF // Clang front-end with MSVC CodeGen
+#define EZ_COMPILER_MSVC_PURE EZ_OFF // MSVC front-end and CodeGen, no mixed compilers
 #define EZ_COMPILER_CLANG EZ_OFF
 #define EZ_COMPILER_GCC EZ_OFF
 
@@ -48,10 +52,12 @@
 #define EZ_SUPPORTS_FILE_ITERATORS EZ_OFF
 #define EZ_SUPPORTS_FILE_STATS EZ_OFF
 #define EZ_SUPPORTS_DYNAMIC_PLUGINS EZ_OFF
+#define EZ_SUPPORTS_UNRESTRICTED_FILE_ACCESS EZ_OFF
+#define EZ_SUPPORTS_CASE_INSENSITIVE_PATHS EZ_OFF
 
 // Allocators
 #define EZ_USE_ALLOCATION_STACK_TRACING EZ_OFF
-
+#define EZ_USE_GUARDED_ALLOCATIONS EZ_OFF
 
 // Other Features
 #define EZ_USE_PROFILING EZ_OFF
@@ -59,3 +65,4 @@
 
 // Math Debug Checks
 #define EZ_MATH_CHECK_FOR_NAN EZ_OFF
+

@@ -1,31 +1,31 @@
-#include <Foundation/PCH.h>
-#include <Foundation/IO/FileSystem/Implementation/DataDirType.h>
+﻿#include <PCH.h>
 #include <Foundation/IO/FileSystem/FileSystem.h>
 #include <Foundation/IO/OSFile.h>
-#include <Foundation/Threading/Mutex.h>
-#include <Foundation/Threading/Lock.h>
 
 ezResult ezDataDirectoryType::InitializeDataDirectory(const char* szDataDirPath)
 {
   ezStringBuilder sPath = szDataDirPath;
   sPath.MakeCleanPath();
+
+  EZ_ASSERT_DEV(sPath.IsEmpty() || sPath.EndsWith("/"), "Data directory path must end with a slash.");
+
   m_sDataDirectoryPath = sPath;
 
   return InternalInitializeDataDirectory(m_sDataDirectoryPath.GetData());
 }
 
-bool ezDataDirectoryType::ExistsFile(const char* szFile)
+bool ezDataDirectoryType::ExistsFile(const char* szFile, bool bOneSpecificDataDir)
 {
-  ezStringBuilder sPath = m_sDataDirectoryPath;
-  sPath.AppendPath(szFile);
-  return ezOSFile::ExistsFile(sPath.GetData());
+  ezStringBuilder sRedirectedAsset;
+  ResolveAssetRedirection(szFile, sRedirectedAsset);
+
+  ezStringBuilder sPath = GetRedirectedDataDirectoryPath();
+  sPath.AppendPath(sRedirectedAsset);
+  return ezOSFile::ExistsFile(sPath);
 }
 
 void ezDataDirectoryReaderWriterBase::Close()
 {
-  // without this Mutex at least the event broadcasting might fail when doing this multi-threaded
-  EZ_LOCK(ezFileSystem::GetFileSystemMutex());
-
   InternalClose();
 
   ezFileSystem::FileEvent fe;
@@ -33,7 +33,6 @@ void ezDataDirectoryReaderWriterBase::Close()
   fe.m_szFileOrDirectory = GetFilePath ().GetData();
   fe.m_pDataDir = m_pDataDirectory;
   ezFileSystem::s_Data->m_Event.Broadcast(fe);
-
 
   m_pDataDirectory->OnReaderWriterClose(this);
 }

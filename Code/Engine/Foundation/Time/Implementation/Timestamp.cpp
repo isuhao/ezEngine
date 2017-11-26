@@ -1,11 +1,23 @@
 
-#include <Foundation/PCH.h>
+#include <PCH.h>
 #include <Foundation/Time/Timestamp.h>
+
+
+EZ_BEGIN_STATIC_REFLECTED_TYPE(ezTimestamp, ezNoBase, 1, ezRTTINoAllocator)
+{
+  EZ_BEGIN_PROPERTIES
+  {
+    EZ_MEMBER_PROPERTY("time", m_iTimestamp),
+  }
+  EZ_END_PROPERTIES
+}
+EZ_END_STATIC_REFLECTED_TYPE
+
 
 ezInt64 ezTimestamp::GetInt64(ezSIUnitOfTime::Enum unitOfTime) const
 {
   EZ_ASSERT_DEV(IsValid(), "Can't retrieve timestamp of invalid values!");
-  EZ_ASSERT_DEV(unitOfTime >= ezSIUnitOfTime::Nanosecond && unitOfTime <= ezSIUnitOfTime::Second, "Invalid ezSIUnitOfTime value (%d)", unitOfTime);
+  EZ_ASSERT_DEV(unitOfTime >= ezSIUnitOfTime::Nanosecond && unitOfTime <= ezSIUnitOfTime::Second, "Invalid ezSIUnitOfTime value ({0})", unitOfTime);
 
   switch (unitOfTime)
   {
@@ -23,7 +35,7 @@ ezInt64 ezTimestamp::GetInt64(ezSIUnitOfTime::Enum unitOfTime) const
 
 void ezTimestamp::SetInt64(ezInt64 iTimeValue, ezSIUnitOfTime::Enum unitOfTime)
 {
-  EZ_ASSERT_DEV(unitOfTime >= ezSIUnitOfTime::Nanosecond && unitOfTime <= ezSIUnitOfTime::Second, "Invalid ezSIUnitOfTime value (%d)", unitOfTime);
+  EZ_ASSERT_DEV(unitOfTime >= ezSIUnitOfTime::Nanosecond && unitOfTime <= ezSIUnitOfTime::Second, "Invalid ezSIUnitOfTime value ({0})", unitOfTime);
 
   switch (unitOfTime)
   {
@@ -42,16 +54,18 @@ void ezTimestamp::SetInt64(ezInt64 iTimeValue, ezSIUnitOfTime::Enum unitOfTime)
   }
 }
 
-bool ezTimestamp::IsEqual(const ezTimestamp& rhs, CompareMode::Enum mode) const
+bool ezTimestamp::Compare(const ezTimestamp& rhs, CompareMode::Enum mode) const
 {
   switch (mode)
   {
-  case CompareMode::FileTime:
+  case CompareMode::FileTimeEqual:
     // Resolution of seconds until all platforms are tuned to milliseconds.
     return (m_iTimestamp / 1000000LL) == (rhs.m_iTimestamp / 1000000LL);
   case CompareMode::Identical:
     return m_iTimestamp == rhs.m_iTimestamp;
   }
+
+  EZ_ASSERT_NOT_IMPLEMENTED;
   return false;
 }
 

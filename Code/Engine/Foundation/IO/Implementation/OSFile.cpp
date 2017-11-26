@@ -1,9 +1,8 @@
-#include <Foundation/PCH.h>
+﻿#include <PCH.h>
 #include <Foundation/IO/OSFile.h>
-#include <Foundation/Containers/DynamicArray.h>
-#include <Foundation/Time/Time.h>
 
 ezString64 ezOSFile::s_ApplicationPath;
+ezString64 ezOSFile::s_UserDataPath;
 ezAtomicInteger32 ezOSFile::s_FileCounter;
 ezOSFile::Event ezOSFile::s_FileEvents;
 
@@ -158,6 +157,21 @@ ezUInt64 ezOSFile::Read(void* pBuffer, ezUInt64 uiBytes)
   return Res;
 }
 
+ezUInt64 ezOSFile::ReadAll(ezDynamicArray<ezUInt8>& out_FileContent)
+{
+  EZ_ASSERT_DEV(m_FileMode == ezFileMode::Read, "The file is not opened for reading.");
+
+  out_FileContent.Clear();
+  out_FileContent.SetCountUninitialized((ezUInt32) GetFileSize());
+
+  if (!out_FileContent.IsEmpty())
+  {
+    Read(out_FileContent.GetData(), out_FileContent.GetCount());
+  }
+
+  return out_FileContent.GetCount();
+}
+
 ezUInt64 ezOSFile::GetFilePosition() const
 {
   EZ_ASSERT_DEV(IsOpen(), "The file must be open to tell the file pointer position.");
@@ -275,7 +289,7 @@ ezResult ezOSFile::CreateDirectoryStructure(const char* szDirectory)
   s.MakeCleanPath();
   s.MakePathSeparatorsNative();
 
-  EZ_ASSERT_DEV(s.IsAbsolutePath(), "The path '%s' is not absolute.", s.GetData());
+  EZ_ASSERT_DEV(s.IsAbsolutePath(), "The path '{0}' is not absolute.", s);
 
   ezStringBuilder sCurPath;
 
@@ -327,6 +341,7 @@ ezResult ezOSFile::CopyFile(const char* szSource, const char* szDestination)
   if (SrcFile.Open(szSource, ezFileMode::Read) == EZ_FAILURE)
     goto done;
 
+  DstFile.m_bRetryOnSharingViolation = false;
   if (DstFile.Open(szDestination, ezFileMode::Write) == EZ_FAILURE)
     goto done;
 
@@ -335,7 +350,7 @@ ezResult ezOSFile::CopyFile(const char* szSource, const char* szDestination)
 
     // can't allocate that much data on the stack
     ezDynamicArray<ezUInt8> TempBuffer;
-    TempBuffer.SetCount(uiTempSize);
+    TempBuffer.SetCountUninitialized(uiTempSize);
 
     while (true)
     {
@@ -381,7 +396,7 @@ done:
     s.MakeCleanPath();
     s.MakePathSeparatorsNative();
 
-    EZ_ASSERT_DEV(s.IsAbsolutePath(), "The path '%s' is not absolute.", s.GetData());
+    EZ_ASSERT_DEV(s.IsAbsolutePath(), "The path '{0}' is not absolute.", s);
 
     const ezResult Res = InternalGetFileStats(s.GetData(), out_Stats);
 
@@ -400,6 +415,7 @@ done:
     return Res;
   }
 
+  #if EZ_ENABLED(EZ_SUPPORTS_CASE_INSENSITIVE_PATHS) && EZ_ENABLED(EZ_SUPPORTS_UNRESTRICTED_FILE_ACCESS)
   ezResult ezOSFile::GetFileCasing(const char* szFileOrFolder, ezStringBuilder& out_sCorrectSpelling)
   {
     /// \todo We should implement this also on ezFileSystem, to be able to support stats through virtual filesystems
@@ -410,7 +426,7 @@ done:
     s.MakeCleanPath();
     s.MakePathSeparatorsNative();
 
-    EZ_ASSERT_DEV(s.IsAbsolutePath(), "The path '%s' is not absolute.", s.GetData());
+    EZ_ASSERT_DEV(s.IsAbsolutePath(), "The path '{0}' is not absolute.", s);
 
     ezStringBuilder sCurPath;
 
@@ -428,15 +444,17 @@ done:
         ++it;
       }
 
-      ezFileStats stats;
-      if (GetFileStats(sCurPath.GetData(), stats) == EZ_FAILURE)
+      if (!sCurPath.IsEmpty())
       {
-        Res = EZ_FAILURE;
-        break;
+        ezFileStats stats;
+        if (GetFileStats(sCurPath.GetData(), stats) == EZ_FAILURE)
+        {
+          Res = EZ_FAILURE;
+          break;
+        }
+
+        out_sCorrectSpelling.AppendPath(stats.m_sFileName.GetData());
       }
-
-      out_sCorrectSpelling.AppendPath(stats.m_sFileName.GetData());
-
       sCurPath.Append(it.GetCharacter());
       ++it;
     }
@@ -455,12 +473,18 @@ done:
 
     return Res;
   }
+#endif // EZ_SUPPORTS_CASE_INSENSITIVE_PATHS && EZ_SUPPORTS_UNRESTRICTED_FILE_ACCESS
+
 
 #endif // EZ_SUPPORTS_FILE_STATS
 
-
 #if EZ_ENABLED(EZ_PLATFORM_WINDOWS)
   #include <Foundation/IO/Implementation/Win/OSFile_win.h>
+
+  // For UWP we're currently using a mix of WinRT functions and posix.
+  #if EZ_ENABLED(EZ_PLATFORM_WINDOWS_UWP)
+    #include <Foundation/IO/Implementation/Posix/OSFile_posix.h>
+  #endif
 #elif EZ_ENABLED(EZ_USE_POSIX_FILE_API)
   #include <Foundation/IO/Implementation/Posix/OSFile_posix.h>
 #else

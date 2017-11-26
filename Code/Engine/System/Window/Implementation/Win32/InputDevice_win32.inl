@@ -1,13 +1,13 @@
-#include <Core/PCH.h>
+﻿#include <PCH.h>
 #include <Foundation/Logging/Log.h>
 #include <System/Window/Implementation/Win32/InputDevice_win32.h>
 #include <Core/Input/InputManager.h>
 #include <Foundation/Strings/StringConversion.h>
 #include <Foundation/Containers/HybridArray.h>
 
-EZ_BEGIN_DYNAMIC_REFLECTED_TYPE(ezStandardInputDevice, ezInputDeviceMouseKeyboard, 1, ezRTTINoAllocator);
+EZ_BEGIN_DYNAMIC_REFLECTED_TYPE(ezStandardInputDevice, 1, ezRTTINoAllocator);
   // no properties or message handlers
-EZ_END_DYNAMIC_REFLECTED_TYPE();
+EZ_END_DYNAMIC_REFLECTED_TYPE
 
 bool ezStandardInputDevice::s_bMainWindowUsed = false;
 
@@ -26,6 +26,11 @@ ezStandardInputDevice::ezStandardInputDevice(ezUInt32 uiWindowNumber)
 
 ezStandardInputDevice::~ezStandardInputDevice()
 {
+  if (!m_bShowCursor)
+  {
+    ShowCursor(true);
+  }
+
   if (m_uiWindowNumber == 0)
     ezStandardInputDevice::s_bMainWindowUsed = false;
 }
@@ -37,18 +42,18 @@ void ezStandardInputDevice::InitializeDevice()
     RAWINPUTDEVICE Rid[2];
 
     // keyboard
-    Rid[0].usUsagePage = 0x01; 
-    Rid[0].usUsage = 0x06; 
+    Rid[0].usUsagePage = 0x01;
+    Rid[0].usUsage = 0x06;
     Rid[0].dwFlags = RIDEV_NOHOTKEYS; // Disables Windows-Key and Application-Key
     Rid[0].hwndTarget = nullptr;
 
     // mouse
-    Rid[1].usUsagePage = 0x01; 
-    Rid[1].usUsage = 0x02; 
+    Rid[1].usUsagePage = 0x01;
+    Rid[1].usUsage = 0x02;
     Rid[1].dwFlags = 0;
     Rid[1].hwndTarget = nullptr;
 
-    if (RegisterRawInputDevices(&Rid[0], (UINT) 2, sizeof(RAWINPUTDEVICE)) == FALSE) 
+    if (RegisterRawInputDevices(&Rid[0], (UINT) 2, sizeof(RAWINPUTDEVICE)) == FALSE)
     {
       ezLog::Error("Could not initialize RawInput for Mouse and Keyboard input.");
     }
@@ -56,7 +61,7 @@ void ezStandardInputDevice::InitializeDevice()
       ezLog::Success("Initialized RawInput for Mouse and Keyboard input.");
   }
   else
-    ezLog::Info("Window %i does not need to initialize Mouse or Keyboard.", m_uiWindowNumber);
+    ezLog::Info("Window {0} does not need to initialize Mouse or Keyboard.", m_uiWindowNumber);
 }
 
 void ezStandardInputDevice::RegisterInputSlots()
@@ -180,7 +185,7 @@ void ezStandardInputDevice::RegisterInputSlots()
   RegisterInputSlot(ezInputSlot_KeyScroll, "Scroll", ezInputSlotFlags::IsButton);
   RegisterInputSlot(ezInputSlot_KeyPause, "Pause", ezInputSlotFlags::IsButton);
   RegisterInputSlot(ezInputSlot_KeyApps, "Application", ezInputSlotFlags::IsButton);
-  
+
   RegisterInputSlot(ezInputSlot_KeyPrevTrack, "Previous Track", ezInputSlotFlags::IsButton);
   RegisterInputSlot(ezInputSlot_KeyNextTrack, "Next Track", ezInputSlotFlags::IsButton);
   RegisterInputSlot(ezInputSlot_KeyPlayPause, "Play / Pause", ezInputSlotFlags::IsButton);
@@ -375,7 +380,7 @@ void ezStandardInputDevice::WindowMessage(HWND hWnd, UINT Msg, WPARAM wParam, LP
 #if EZ_ENABLED(EZ_MOUSEBUTTON_COMPATIBILTY_MODE)
 
   case WM_LBUTTONDOWN:
-    m_InputSlotValues["mouse_button_0"] = 1.0f;
+    m_InputSlotValues[ezInputSlot_MouseButton0] = 1.0f;
 
     if (s_iMouseCaptureCount == 0)
       SetCapture(hWnd);
@@ -384,7 +389,7 @@ void ezStandardInputDevice::WindowMessage(HWND hWnd, UINT Msg, WPARAM wParam, LP
     return;
 
   case WM_LBUTTONUP:
-    m_InputSlotValues["mouse_button_0"] = 0.0f;
+    m_InputSlotValues[ezInputSlot_MouseButton0] = 0.0f;
     SetClipRect(m_bClipCursor, hWnd);
 
     --s_iMouseCaptureCount;
@@ -394,7 +399,7 @@ void ezStandardInputDevice::WindowMessage(HWND hWnd, UINT Msg, WPARAM wParam, LP
     return;
 
   case WM_RBUTTONDOWN:
-    m_InputSlotValues["mouse_button_1"] = 1.0f;
+    m_InputSlotValues[ezInputSlot_MouseButton1] = 1.0f;
 
     if (s_iMouseCaptureCount == 0)
       SetCapture(hWnd);
@@ -403,7 +408,7 @@ void ezStandardInputDevice::WindowMessage(HWND hWnd, UINT Msg, WPARAM wParam, LP
     return;
 
   case WM_RBUTTONUP:
-    m_InputSlotValues["mouse_button_1"] = 0.0f;
+    m_InputSlotValues[ezInputSlot_MouseButton1] = 0.0f;
     SetClipRect(m_bClipCursor, hWnd);
 
     --s_iMouseCaptureCount;
@@ -413,7 +418,7 @@ void ezStandardInputDevice::WindowMessage(HWND hWnd, UINT Msg, WPARAM wParam, LP
     return;
 
   case WM_MBUTTONDOWN:
-    m_InputSlotValues["mouse_button_2"] = 1.0f;
+    m_InputSlotValues[ezInputSlot_MouseButton2] = 1.0f;
 
     if (s_iMouseCaptureCount == 0)
       SetCapture(hWnd);
@@ -421,7 +426,7 @@ void ezStandardInputDevice::WindowMessage(HWND hWnd, UINT Msg, WPARAM wParam, LP
     return;
 
   case WM_MBUTTONUP:
-    m_InputSlotValues["mouse_button_2"] = 0.0f;
+    m_InputSlotValues[ezInputSlot_MouseButton2] = 0.0f;
 
     --s_iMouseCaptureCount;
     if (s_iMouseCaptureCount <= 0)
@@ -431,9 +436,9 @@ void ezStandardInputDevice::WindowMessage(HWND hWnd, UINT Msg, WPARAM wParam, LP
 
   case WM_XBUTTONDOWN:
     if (GET_XBUTTON_WPARAM(wParam) == XBUTTON1)
-      m_InputSlotValues["mouse_button_3"] = 1.0f;
+      m_InputSlotValues[ezInputSlot_MouseButton3] = 1.0f;
     if (GET_XBUTTON_WPARAM(wParam) == XBUTTON2)
-      m_InputSlotValues["mouse_button_4"] = 1.0f;
+      m_InputSlotValues[ezInputSlot_MouseButton4] = 1.0f;
 
     if (s_iMouseCaptureCount == 0)
       SetCapture(hWnd);
@@ -443,9 +448,9 @@ void ezStandardInputDevice::WindowMessage(HWND hWnd, UINT Msg, WPARAM wParam, LP
 
   case WM_XBUTTONUP:
     if (GET_XBUTTON_WPARAM(wParam) == XBUTTON1)
-      m_InputSlotValues["mouse_button_3"] = 0.0f;
+      m_InputSlotValues[ezInputSlot_MouseButton3] = 0.0f;
     if (GET_XBUTTON_WPARAM(wParam) == XBUTTON2)
-      m_InputSlotValues["mouse_button_4"] = 0.0f;
+      m_InputSlotValues[ezInputSlot_MouseButton4] = 0.0f;
 
     --s_iMouseCaptureCount;
     if (s_iMouseCaptureCount <= 0)
@@ -475,14 +480,14 @@ void ezStandardInputDevice::WindowMessage(HWND hWnd, UINT Msg, WPARAM wParam, LP
         return;
 
       ezHybridArray<ezUInt8, sizeof(RAWINPUT)> InputData;
-      InputData.SetCount(uiSize);
+      InputData.SetCountUninitialized(uiSize);
 
       if (GetRawInputData((HRAWINPUT) lParam, RID_INPUT, &InputData[0], &uiSize, sizeof(RAWINPUTHEADER)) != uiSize)
         return;
 
       RAWINPUT* raw = (RAWINPUT*) &InputData[0];
 
-      if (raw->header.dwType == RIM_TYPEKEYBOARD) 
+      if (raw->header.dwType == RIM_TYPEKEYBOARD)
       {
         static bool bIgnoreNext = false;
 
@@ -524,7 +529,7 @@ void ezStandardInputDevice::WindowMessage(HWND hWnd, UINT Msg, WPARAM wParam, LP
 
         int iRequest = raw->data.keyboard.MakeCode << 16;
 
-        if (raw->data.keyboard.Flags & RI_KEY_E0) 
+        if (raw->data.keyboard.Flags & RI_KEY_E0)
           iRequest |= 1 << 24;
 
         const bool bPressed = !(raw->data.keyboard.Flags & 0x01);
@@ -560,7 +565,7 @@ void ezStandardInputDevice::WindowMessage(HWND hWnd, UINT Msg, WPARAM wParam, LP
 
               if ((uiButtons & (RI_MOUSE_BUTTON_1_DOWN << (mb * 2))) != 0)
                 m_InputSlotValues[szTemp] = 1.0f;
-          
+
               if ((uiButtons & (RI_MOUSE_BUTTON_1_DOWN << (mb * 2 + 1))) != 0)
                 m_InputSlotValues[szTemp] = 0.0f;
             }
@@ -572,33 +577,9 @@ void ezStandardInputDevice::WindowMessage(HWND hWnd, UINT Msg, WPARAM wParam, LP
           static int iTouchPoint = 0;
           static bool bTouchPointDown = false;
 
-          const char* szSlot  = ezInputSlot_TouchPoint0;
-          const char* szSlotX = ezInputSlot_TouchPoint0_PositionX;
-          const char* szSlotY = ezInputSlot_TouchPoint0_PositionY;
-
-          switch (iTouchPoint)
-          {
-          case 1:
-            szSlot  = ezInputSlot_TouchPoint1;
-            szSlotX = ezInputSlot_TouchPoint1_PositionX;
-            szSlotY = ezInputSlot_TouchPoint1_PositionY;
-            break;
-          case 2:
-            szSlot  = ezInputSlot_TouchPoint2;
-            szSlotX = ezInputSlot_TouchPoint2_PositionX;
-            szSlotY = ezInputSlot_TouchPoint2_PositionY;
-            break;
-          case 3:
-            szSlot  = ezInputSlot_TouchPoint3;
-            szSlotX = ezInputSlot_TouchPoint3_PositionX;
-            szSlotY = ezInputSlot_TouchPoint3_PositionY;
-            break;
-          case 4:
-            szSlot  = ezInputSlot_TouchPoint4;
-            szSlotX = ezInputSlot_TouchPoint4_PositionX;
-            szSlotY = ezInputSlot_TouchPoint4_PositionY;
-            break;
-          }
+          const char* szSlot = ezInputManager::GetInputSlotTouchPoint(iTouchPoint);
+          const char* szSlotX = ezInputManager::GetInputSlotTouchPointPositionX(iTouchPoint);
+          const char* szSlotY = ezInputManager::GetInputSlotTouchPointPositionY(iTouchPoint);
 
           m_InputSlotValues[szSlotX] = (raw->data.mouse.lLastX / 65535.0f) + m_uiWindowNumber;
           m_InputSlotValues[szSlotY] = (raw->data.mouse.lLastY / 65535.0f);
@@ -617,10 +598,10 @@ void ezStandardInputDevice::WindowMessage(HWND hWnd, UINT Msg, WPARAM wParam, LP
         }
         else
         {
-          ezLog::Info("Unknown Mouse Move: %.1f | %.1f, Flags = %i", (float) raw->data.mouse.lLastX, (float) raw->data.mouse.lLastY, raw->data.mouse.usFlags);
+          ezLog::Info("Unknown Mouse Move: {0} | {1}, Flags = {2}", ezArgF(raw->data.mouse.lLastX, 1), ezArgF(raw->data.mouse.lLastY, 1), (ezUInt32)raw->data.mouse.usFlags);
         }
-      } 
-      
+      }
+
     }
   }
 }
@@ -629,13 +610,13 @@ void ezStandardInputDevice::WindowMessage(HWND hWnd, UINT Msg, WPARAM wParam, LP
 static void SetKeyNameForScanCode(int iScanCode, bool bExtended, const char* szInputSlot)
 {
   const ezUInt32 uiKeyCode = (iScanCode << 16) | (bExtended ? (1 << 24) : 0);
-  
+
   wchar_t szKeyName[32] = { 0 };
   GetKeyNameTextW(uiKeyCode, szKeyName, 30);
 
-  ezStringUtf8 sName = szKeyName;
+  ezStringUtf8 sName(szKeyName);
 
-  ezLog::Dev("Translated '%s' to '%s'", ezInputManager::GetInputSlotDisplayName(szInputSlot), sName.GetData());
+  ezLog::Dev("Translated '{0}' to '{1}'", ezInputManager::GetInputSlotDisplayName(szInputSlot), sName.GetData());
 
   ezInputManager::SetInputSlotDisplayName(szInputSlot, sName.GetData());
 }
@@ -703,7 +684,7 @@ void ezStandardInputDevice::LocalizeButtonDisplayNames()
   SetKeyNameForScanCode(52, false, ezInputSlot_KeyPeriod);
   SetKeyNameForScanCode(53, false, ezInputSlot_KeySlash);
   SetKeyNameForScanCode(54, false, ezInputSlot_KeyRightShift);
-  
+
   SetKeyNameForScanCode(55, false, ezInputSlot_KeyNumpadStar); // Overlaps with Print
 
   SetKeyNameForScanCode(56, false, ezInputSlot_KeyLeftAlt);
@@ -741,7 +722,7 @@ void ezStandardInputDevice::LocalizeButtonDisplayNames()
   SetKeyNameForScanCode(83, false, ezInputSlot_KeyNumpadPeriod); // This overlaps with Insert
 
   SetKeyNameForScanCode(86, false, ezInputSlot_KeyPipe);
-  
+
   SetKeyNameForScanCode(87, false, "keyboard_f11");
   SetKeyNameForScanCode(88, false, "keyboard_f12");
 

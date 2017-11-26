@@ -14,43 +14,56 @@ class QSpacerItem;
 class QVBoxLayout;
 class QScrollArea;
 
-class ezCollapsibleGroupBox;
-class ezDocumentBase;
+class ezQtGroupBoxBase;
+class ezDocument;
+class ezDocumentObjectManager;
+class ezCommandHistory;
+class ezObjectAccessorBase;
 struct ezDocumentObjectPropertyEvent;
+struct ezPropertyMetaStateEvent;
+struct ezObjectAccessorChangeEvent;
 
-class EZ_GUIFOUNDATION_DLL ezPropertyGridWidget : public QWidget
+class EZ_GUIFOUNDATION_DLL ezQtPropertyGridWidget : public QWidget
 {
   Q_OBJECT
 public:
-  ezPropertyGridWidget(ezDocumentBase* pDocument, QWidget* pParent);
-  ~ezPropertyGridWidget();
+  ezQtPropertyGridWidget(QWidget* pParent, ezDocument* pDocument = nullptr);
+  ~ezQtPropertyGridWidget();
+
+  void SetDocument(ezDocument* pDocument);
 
   void ClearSelection();
-  void SetSelection(const ezDeque<const ezDocumentObjectBase*>& selection);
-  const ezDocumentBase* GetDocument() const;
+  void SetSelection(const ezDeque<const ezDocumentObject*>& selection);
+  const ezDocument* GetDocument() const;
+  const ezDocumentObjectManager* GetObjectManager() const;
+  ezCommandHistory* GetCommandHistory() const;
+  ezObjectAccessorBase* GetObjectAccessor() const;
 
-  static ezRttiMappedObjectFactory<ezPropertyBaseWidget>& GetFactory();
-  static ezPropertyBaseWidget* CreateMemberPropertyWidget(const ezAbstractProperty* pProp);
-  static ezPropertyBaseWidget* CreatePropertyWidget(const ezAbstractProperty* pProp);
+  static ezRttiMappedObjectFactory<ezQtPropertyWidget>& GetFactory();
+  static ezQtPropertyWidget* CreateMemberPropertyWidget(const ezAbstractProperty* pProp);
+  static ezQtPropertyWidget* CreatePropertyWidget(const ezAbstractProperty* pProp);
 
-  void SetCollapseState(ezCollapsibleGroupBox* pBox);
+  void SetCollapseState(ezQtGroupBoxBase* pBox);
 
 public slots:
   void OnCollapseStateChanged(bool bCollapsed);
 
 private:
-  static ezRttiMappedObjectFactory<ezPropertyBaseWidget> s_Factory;
+  static ezRttiMappedObjectFactory<ezQtPropertyWidget> s_Factory;
   EZ_MAKE_SUBSYSTEM_STARTUP_FRIEND(GuiFoundation, PropertyGrid);
 
 private:
-  void SelectionEventHandler(const ezSelectionManager::Event& e);
-  void FactoryEventHandler(const ezRttiMappedObjectFactory<ezPropertyBaseWidget>::Event& e);
-  void TypeEventHandler(const ezPhantomRttiManager::Event& e);
-  ezUInt32 GetGroupBoxHash(ezCollapsibleGroupBox* pBox) const;
+  static void PropertyMetaStateEventHandler(ezPropertyMetaStateEvent& e);
+
+  void ObjectAccessorChangeEventHandler(const ezObjectAccessorChangeEvent& e);
+  void SelectionEventHandler(const ezSelectionManagerEvent& e);
+  void FactoryEventHandler(const ezRttiMappedObjectFactory<ezQtPropertyWidget>::Event& e);
+  void TypeEventHandler(const ezPhantomRttiManagerEvent& e);
+  ezUInt32 GetGroupBoxHash(ezQtGroupBoxBase* pBox) const;
 
 private:
-  ezDocumentBase* m_pDocument;
-  ezDeque<const ezDocumentObjectBase*> m_Selection;
+  ezDocument* m_pDocument;
+  ezDeque<const ezDocumentObject*> m_Selection;
   ezMap<ezUInt32, bool> m_CollapseState;
 
   QVBoxLayout* m_pLayout;
@@ -58,7 +71,7 @@ private:
   QWidget* m_pContent;
   QVBoxLayout* m_pContentLayout;
 
-  ezTypeWidget* m_pTypeWidget;
+  ezQtTypeWidget* m_pTypeWidget;
   QSpacerItem* m_pSpacer;
 };
 

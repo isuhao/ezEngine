@@ -1,4 +1,4 @@
-#include <Foundation/PCH.h>
+#include <PCH.h>
 #include <Foundation/IO/JSONWriter.h>
 
 void ezJSONWriter::AddVariableBool(const char* szName, bool value)
@@ -78,10 +78,24 @@ void ezJSONWriter::AddVariableUuid(const char* szName, ezUuid value)
   EndVariable();
 }
 
+void ezJSONWriter::AddVariableAngle(const char* szName, ezAngle value)
+{
+  BeginVariable(szName);
+  WriteAngle(value);
+  EndVariable();
+}
+
 void ezJSONWriter::AddVariableColor(const char* szName, const ezColor& value)
 {
   BeginVariable(szName);
   WriteColor(value);
+  EndVariable();
+}
+
+void ezJSONWriter::AddVariableColorGamma(const char* szName, const ezColorGammaUB& value)
+{
+  BeginVariable(szName);
+  WriteColorGamma(value);
   EndVariable();
 }
 
@@ -106,6 +120,27 @@ void ezJSONWriter::AddVariableVec4(const char* szName, const ezVec4& value)
   EndVariable();
 }
 
+void ezJSONWriter::AddVariableVec2I32(const char* szName, const ezVec2I32& value)
+{
+  BeginVariable(szName);
+  WriteVec2I32(value);
+  EndVariable();
+}
+
+void ezJSONWriter::AddVariableVec3I32(const char* szName, const ezVec3I32& value)
+{
+  BeginVariable(szName);
+  WriteVec3I32(value);
+  EndVariable();
+}
+
+void ezJSONWriter::AddVariableVec4I32(const char* szName, const ezVec4I32& value)
+{
+  BeginVariable(szName);
+  WriteVec4I32(value);
+  EndVariable();
+}
+
 void ezJSONWriter::AddVariableQuat(const char* szName, const ezQuat& value)
 {
   BeginVariable(szName);
@@ -127,6 +162,13 @@ void ezJSONWriter::AddVariableMat4(const char* szName, const ezMat4& value)
   EndVariable();
 }
 
+void ezJSONWriter::AddVariableDataBuffer(const char* szName, const ezDataBuffer& value)
+{
+  BeginVariable(szName);
+  WriteDataBuffer(value);
+  EndVariable();
+}
+
 void ezJSONWriter::AddVariableVariant(const char* szName, const ezVariant& value)
 {
   BeginVariable(szName);
@@ -137,6 +179,11 @@ void ezJSONWriter::AddVariableVariant(const char* szName, const ezVariant& value
 void ezJSONWriter::WriteColor(const ezColor& value)
 {
   EZ_REPORT_FAILURE("The complex data type ezColor is not supported by this JSON writer.");
+}
+
+void ezJSONWriter::WriteColorGamma(const ezColorGammaUB& value)
+{
+  EZ_REPORT_FAILURE("The complex data type ezColorGammaUB is not supported by this JSON writer.");
 }
 
 void ezJSONWriter::WriteVec2(const ezVec2& value)
@@ -154,6 +201,21 @@ void ezJSONWriter::WriteVec4(const ezVec4& value)
   EZ_REPORT_FAILURE("The complex data type ezVec4 is not supported by this JSON writer.");
 }
 
+void ezJSONWriter::WriteVec2I32(const ezVec2I32 & value)
+{
+  EZ_REPORT_FAILURE("The complex data type ezVec2I32 is not supported by this JSON writer.");
+}
+
+void ezJSONWriter::WriteVec3I32(const ezVec3I32 & value)
+{
+  EZ_REPORT_FAILURE("The complex data type ezVec3I32 is not supported by this JSON writer.");
+}
+
+void ezJSONWriter::WriteVec4I32(const ezVec4I32 & value)
+{
+  EZ_REPORT_FAILURE("The complex data type ezVec4I32 is not supported by this JSON writer.");
+}
+
 void ezJSONWriter::WriteQuat(const ezQuat& value)
 {
   EZ_REPORT_FAILURE("The complex data type ezQuat is not supported by this JSON writer.");
@@ -167,6 +229,11 @@ void ezJSONWriter::WriteMat3(const ezMat3& value)
 void ezJSONWriter::WriteMat4(const ezMat4& value)
 {
   EZ_REPORT_FAILURE("The complex data type ezMat4 is not supported by this JSON writer.");
+}
+
+void ezJSONWriter::WriteDataBuffer(const ezDataBuffer& value)
+{
+  EZ_REPORT_FAILURE("The complex data type ezDateBuffer is not supported by this JSON writer.");
 }
 
 void ezJSONWriter::WriteVariant(const ezVariant& value)
@@ -213,6 +280,9 @@ void ezJSONWriter::WriteVariant(const ezVariant& value)
   case ezVariant::Type::Color:
     WriteColor(value.Get<ezColor>());
     return;
+  case ezVariant::Type::ColorGamma:
+    WriteColorGamma(value.Get<ezColorGammaUB>());
+    return;
   case ezVariant::Type::Vector2:
     WriteVec2(value.Get<ezVec2>());
     return;
@@ -221,6 +291,15 @@ void ezJSONWriter::WriteVariant(const ezVariant& value)
     return;
   case ezVariant::Type::Vector4:
     WriteVec4(value.Get<ezVec4>());
+    return;
+  case ezVariant::Type::Vector2I:
+    WriteVec2I32(value.Get<ezVec2I32>());
+    return;
+  case ezVariant::Type::Vector3I:
+    WriteVec3I32(value.Get<ezVec3I32>());
+    return;
+  case ezVariant::Type::Vector4I:
+    WriteVec4I32(value.Get<ezVec4I32>());
     return;
   case ezVariant::Type::Quaternion:
     WriteQuat(value.Get<ezQuat>());
@@ -234,11 +313,23 @@ void ezJSONWriter::WriteVariant(const ezVariant& value)
   case ezVariant::Type::String:
     WriteString(value.Get<ezString>().GetData());
     return;
+  case ezVariant::Type::StringView:
+    {
+      ezStringBuilder s = value.Get<ezStringView>();
+      WriteString(s.GetData());
+      return;
+    }
   case ezVariant::Type::Time:
     WriteTime(value.Get<ezTime>());
     return;
   case ezVariant::Type::Uuid:
     WriteUuid(value.Get<ezUuid>());
+    return;
+  case ezVariant::Type::Angle:
+    WriteAngle(value.Get<ezAngle>());
+    return;
+  case ezVariant::Type::DataBuffer:
+    WriteDataBuffer(value.Get<ezDataBuffer>());
     return;
   case ezVariant::Type::VariantArray:
     {
@@ -259,7 +350,7 @@ void ezJSONWriter::WriteVariant(const ezVariant& value)
     break;
   }
 
-  EZ_REPORT_FAILURE("The Variant Type %i is not supported by ezJSONWriter::WriteVariant.", value.GetType());
+  EZ_REPORT_FAILURE("The Variant Type {0} is not supported by ezJSONWriter::WriteVariant.", value.GetType());
 }
 
 

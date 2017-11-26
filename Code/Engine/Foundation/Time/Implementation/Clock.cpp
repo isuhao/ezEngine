@@ -1,41 +1,26 @@
-#include <Foundation/PCH.h>
+#include <PCH.h>
 #include <Foundation/Time/Clock.h>
+#include <Foundation/Configuration/Startup.h>
 
-ezDynamicArray<ezClock> ezClock::s_GlobalClocks;
 ezClock::Event ezClock::s_TimeEvents;
-ezUInt32 ezClock::s_uiClockCount = 0;
+ezClock* ezClock::s_pGlobalClock = nullptr;
 
-void ezClock::SetNumGlobalClocks(ezUInt32 uiNumClocks)
-{
-  const bool bEmpty = s_GlobalClocks.IsEmpty();
+EZ_BEGIN_SUBSYSTEM_DECLARATION(Foundation, Clock)
 
-  s_GlobalClocks.SetCount(uiNumClocks);
+  BEGIN_SUBSYSTEM_DEPENDENCIES
+    "Time"
+  END_SUBSYSTEM_DEPENDENCIES
 
-  if (bEmpty)
+  ON_BASE_STARTUP
   {
-    if (uiNumClocks > 0)
-      s_GlobalClocks[0].SetClockName("GameLogic");
-    if (uiNumClocks > 1)
-      s_GlobalClocks[1].SetClockName("UI");
+    ezClock::s_pGlobalClock = new ezClock("Global");
   }
-}
 
-void ezClock::UpdateAllGlobalClocks()
+EZ_END_SUBSYSTEM_DECLARATION
+
+ezClock::ezClock(const char* szName)
 {
-  if (s_GlobalClocks.IsEmpty())
-    SetNumGlobalClocks();
-
-  for (ezUInt32 i = 0; i < s_GlobalClocks.GetCount(); ++i)
-    s_GlobalClocks[i].Update();
-}
-
-ezClock::ezClock()
-{
-  ++s_uiClockCount;
-
-  ezStringBuilder sName;
-  sName.Format("Clock %i", s_uiClockCount);
-  SetClockName(sName.GetData());
+  SetClockName(szName);
 
   Reset(true);
 }
@@ -112,7 +97,7 @@ void ezClock::SetAccumulatedTime(ezTime t)
   m_LastTimeDiff = ezTime::Seconds(0.01);
 }
 
-void ezClock::Save(ezStreamWriterBase& Stream) const
+void ezClock::Save(ezStreamWriter& Stream) const
 {
   const ezUInt8 uiVersion = 1;
 
@@ -126,12 +111,12 @@ void ezClock::Save(ezStreamWriterBase& Stream) const
   Stream << m_bPaused;
 }
 
-void ezClock::Load(ezStreamReaderBase& Stream)
+void ezClock::Load(ezStreamReader& Stream)
 {
   ezUInt8 uiVersion = 0;
   Stream >> uiVersion;
 
-  EZ_ASSERT_DEV(uiVersion == 1, "Wrong version for ezClock: %i", uiVersion);
+  EZ_ASSERT_DEV(uiVersion == 1, "Wrong version for ezClock: {0}", uiVersion);
 
   Stream >> m_AccumulatedTime;
   Stream >> m_LastTimeDiff;

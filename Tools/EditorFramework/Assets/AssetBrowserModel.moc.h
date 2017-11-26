@@ -1,44 +1,49 @@
-#pragma once
+﻿#pragma once
 
 #include <EditorFramework/Plugin.h>
-#include <EditorFramework/Assets/AssetCurator.h>
+#include <Foundation/Containers/DynamicArray.h>
+#include <Foundation/Containers/Set.h>
+#include <Foundation/Types/Uuid.h>
 #include <QAbstractItemModel>
 
-class EZ_EDITORFRAMEWORK_DLL ezAssetBrowserModel : public QAbstractItemModel
+struct ezAssetInfo;
+struct ezAssetCuratorEvent;
+struct ezSubAsset;
+
+class EZ_EDITORFRAMEWORK_DLL ezQtAssetFilter : public QObject
 {
   Q_OBJECT
+public:
+  explicit ezQtAssetFilter(QObject* pParent);
+  virtual bool IsAssetFiltered(const ezSubAsset* pInfo) const = 0;
+  virtual bool Less(const ezSubAsset* pInfoA, const ezSubAsset* pInfoB) const = 0;
 
+signals:
+  void FilterChanged();
+};
+
+class EZ_EDITORFRAMEWORK_DLL ezQtAssetBrowserModel : public QAbstractItemModel
+{
+  Q_OBJECT
 public:
 
-  ezAssetBrowserModel(QObject* pParent);
-  ~ezAssetBrowserModel();
-  
+  enum UserRoles
+  {
+    SubAssetGuid = Qt::UserRole + 0,
+    AssetGuid,
+    AbsolutePath,
+    RelativePath,
+    AssetIconPath,
+    TransformState,
+  };
+
+  ezQtAssetBrowserModel(QObject* pParent, ezQtAssetFilter* pFilter);
+  ~ezQtAssetBrowserModel();
+
   void resetModel();
 
   void SetIconMode(bool bIconMode) { m_bIconMode = bIconMode; }
   bool GetIconMode() { return m_bIconMode; }
-
-  void SetShowItemsInSubFolders(bool bShow);
-  bool GetShowItemsInSubFolders() { return m_bShowItemsInSubFolders; }
-
-  void SetSortByRecentUse(bool bSort);
-  bool GetSortByRecentUse() { return m_bSortByRecentUse; }
-
-  void SetTextFilter(const char* szText);
-  const char* GetTextFilter() const { return m_sTextFilter; }
-
-  void SetPathFilter(const char* szPath);
-  const char* GetPathFilter() const { return m_sPathFilter; }
-
-  void SetTypeFilter(const char* szTypes);
-  const char* GetTypeFilter() const { return m_sTypeFilter; }
-
-signals:
-  void TextFilterChanged();
-  void TypeFilterChanged();
-  void PathFilterChanged();
-  void ShowSubFolderItemsChanged();
-  void SortByRecentUseChanged();
 
 private slots:
   void ThumbnailLoaded(QString sPath, QModelIndex index, QVariant UserData1, QVariant UserData2);
@@ -56,23 +61,27 @@ public: //QAbstractItemModel interface
   virtual QMimeData* mimeData(const QModelIndexList& indexes) const override;
 
 private:
-  bool m_bIconMode;
-  bool m_bShowItemsInSubFolders;
-  bool m_bSortByRecentUse;
-  void AssetCuratorEventHandler(const ezAssetCurator::Event& e);
-
+  friend struct AssetComparer;
   struct AssetEntry
   {
-    ezString m_sSortingKey;
     ezUuid m_Guid;
     mutable ezUInt32 m_uiThumbnailID;
-
-    inline bool operator<(const AssetEntry& rhs) const
-    {
-      return m_sSortingKey < rhs.m_sSortingKey;
-    }
   };
 
-  ezString m_sTextFilter, m_sTypeFilter, m_sPathFilter;
-  ezDeque<AssetEntry> m_AssetsToDisplay;
+  enum class AssetOp
+  {
+    Add,
+    Remove,
+    Updated,
+  };
+  void AssetCuratorEventHandler(const ezAssetCuratorEvent& e);
+  ezInt32 FindAssetIndex(const ezUuid& assetGuid) const;
+  void HandleAsset(const ezSubAsset* pInfo, AssetOp op);
+  void Init(AssetEntry& ae, const ezSubAsset* pInfo);
+
+  ezQtAssetFilter* m_pFilter;
+  ezDynamicArray<AssetEntry> m_AssetsToDisplay;
+  ezSet<ezUuid> m_DisplayedEntries;
+
+  bool m_bIconMode;
 };

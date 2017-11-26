@@ -20,7 +20,7 @@ namespace BuildMachine
     {
       if (sBuildType == "C++")
       {
-        if (settings.Configuration.StartsWith("WinVs"))
+        if (settings.Configuration.StartsWith("Win"))
         {
           bool bIs64Bit = settings.Configuration.Contains("64");
           if (settings.Configuration.Contains("2012"))
@@ -30,6 +30,10 @@ namespace BuildMachine
           else if (settings.Configuration.Contains("2013"))
           {
             return new ezBuildWinVS(settings, VSVersion.VS2013, bIs64Bit);
+          }
+          else if (settings.Configuration.Contains("2015"))
+          {
+            return new ezBuildWinVS(settings, VSVersion.VS2015, bIs64Bit);
           }
         }
         else if (settings.Configuration.StartsWith("Osx"))
@@ -63,6 +67,10 @@ namespace BuildMachine
           else if (settings.Configuration.Contains("2013"))
           {
             return new ezBuildWinD(settings, VSVersion.VS2013, bIs64Bit);
+          }
+          else if (settings.Configuration.Contains("2015"))
+          {
+            return new ezBuildWinD(settings, VSVersion.VS2015, bIs64Bit);
           }
         }
       }

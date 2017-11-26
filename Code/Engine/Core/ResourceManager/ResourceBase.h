@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <Core/Basics.h>
 #include <Foundation/Strings/HashedString.h>
@@ -11,12 +11,41 @@
 
 class ezResourceTypeLoader;
 
+enum class ezResourceEventType
+{
+  ResourceExists,
+  ResourceCreated,
+  ResourceDeleted,
+  ResourceContentUpdated,
+  ResourceContentUnloading, ///< Resource is about to be unloaded, but still valid at this point
+  ResourceInPreloadQueue,
+  ResourceOutOfPreloadQueue,
+  ResourcePriorityChanged,
+  ResourceDueDateChanged,
+};
+
+struct ezResourceEvent
+{
+  ezResourceEventType m_EventType;
+  const ezResourceBase* m_pResource;
+};
+
+struct ezResourceCategory
+{
+  ezString m_sName;
+  ezUInt64 m_uiMemoryLimitCPU;
+  ezUInt64 m_uiMemoryLimitGPU;
+  ezAtomicInteger64 m_uiMemoryUsageCPU;
+  ezAtomicInteger64 m_uiMemoryUsageGPU;
+};
+
+
 /// \brief The case class for all resources.
 ///
 /// \note Never derive directly from ezResourceBase, but derive from ezResource instead.
 class EZ_CORE_DLL ezResourceBase : public ezReflectedClass
 {
-  EZ_ADD_DYNAMIC_REFLECTION(ezResourceBase);
+  EZ_ADD_DYNAMIC_REFLECTION(ezResourceBase, ezReflectedClass);
 
 protected:
   enum class DoUpdate
@@ -52,7 +81,10 @@ public:
   };
 
   /// \brief Returns the unique ID that identifies this resource. On a file resource this might be a path. Can also be a GUID or any other scheme that uniquely identifies the resource.
-  const ezString& GetResourceID() const { return m_UniqueID; }
+  EZ_ALWAYS_INLINE const ezString& GetResourceID() const { return m_UniqueID; }
+
+  /// \brief Returns the hash of the unique ID.
+  EZ_ALWAYS_INLINE ezUInt32 GetResourceIDHash() const { return m_uiUniqueIDHash; }
 
   /// \brief The resource description allows to store an additional string that might be more descriptive during debugging, than the unique ID.
   void SetResourceDescription(const char* szDescription);
@@ -61,7 +93,7 @@ public:
   const ezString& GetResourceDescription() const { return m_sResourceDescription; }
 
   /// \brief Returns the current state in which this resource is in.
-  ezResourceState GetLoadingState() const { return m_LoadingState; }
+  EZ_ALWAYS_INLINE ezResourceState GetLoadingState() const { return m_LoadingState; }
 
   /// \brief Returns the current maximum quality level that the resource could have.
   ///
@@ -78,10 +110,10 @@ public:
   /// mipmap above that, which would result in 5 quality levels for a 1024*1024 texture.
   ///
   /// Most resource will have zero or one quality levels (which is the same) as they are either loaded or not.
-  ezUInt8 GetNumQualityLevelsDiscardable() const { return m_uiQualityLevelsDiscardable; }
+  EZ_ALWAYS_INLINE ezUInt8 GetNumQualityLevelsDiscardable() const { return m_uiQualityLevelsDiscardable; }
 
   /// \brief Returns how many quality levels the resource may additionally load.
-  ezUInt8 GetNumQualityLevelsLoadable() const { return m_uiQualityLevelsLoadable; }
+  EZ_ALWAYS_INLINE ezUInt8 GetNumQualityLevelsLoadable() const { return m_uiQualityLevelsLoadable; }
 
   /// \brief Sets the current priority of this resource.
   ///
@@ -102,7 +134,7 @@ public:
   void SetPriority(ezResourcePriority priority);
 
   /// \brief Returns the currently user-specified priority of this resource. \see SetPriority
-  ezResourcePriority GetPriority() const { return m_Priority; }
+  EZ_ALWAYS_INLINE ezResourcePriority GetPriority() const { return m_Priority; }
 
   /// \brief Specifies the time (usually in the future) at which this resource is needed and should be fully loaded.
   ///
@@ -128,28 +160,46 @@ public:
   virtual ezTime GetLoadingDeadline(ezTime tNow) const;
 
   /// \brief Returns the basic flags for the resource type. Mostly used the resource manager.
-  const ezBitflags<ezResourceFlags>& GetBaseResourceFlags() const { return m_Flags; }
+  EZ_ALWAYS_INLINE const ezBitflags<ezResourceFlags>& GetBaseResourceFlags() const { return m_Flags; }
 
   /// \brief Returns the information about the current memory usage of the resource.
-  const MemoryUsage& GetMemoryUsage() const { return m_MemoryUsage; }
+  EZ_ALWAYS_INLINE const MemoryUsage& GetMemoryUsage() const { return m_MemoryUsage; }
 
   /// \brief Returns the time at which the resource was (tried to be) acquired last.
   /// If a resource is acquired using ezResourceAcquireMode::PointerOnly, this does not update the last acquired time, since the resource is not acquired for full use.
-  ezTime GetLastAcquireTime() const { return m_LastAcquire; }
+  EZ_ALWAYS_INLINE ezTime GetLastAcquireTime() const { return m_LastAcquire; }
 
   /// \brief Returns the reference count of this resource.
-  ezInt32 GetReferenceCount() const { return m_iReferenceCount; }
+  EZ_ALWAYS_INLINE ezInt32 GetReferenceCount() const { return m_iReferenceCount; }
 
   /// \brief Returns the modification date of the file from which this resource was loaded.
   ///
   /// The date may be invalid, if it cannot be retrieved or the resource was created and not loaded.
-  const ezTimestamp& GetLoadedFileModificationTime() const { return m_LoadedFileModificationTime; }
+  EZ_ALWAYS_INLINE const ezTimestamp& GetLoadedFileModificationTime() const { return m_LoadedFileModificationTime; }
+
+  /// \brief Returns the current value of the resource change counter.
+  /// Can be used to detect whether the resource has changed since using it last time.
+  ///
+  /// The resource change counter is increased by calling IncResourceChangeCounter() or
+  /// whenever the resource content is updated.
+  EZ_ALWAYS_INLINE ezUInt32 GetCurrentResourceChangeCounter() const { return m_uiResourceChangeCounter; }
+
+  /// \brief Allows to manually increase the resource change counter to signal that dependent code might need to update.
+  EZ_ALWAYS_INLINE void IncResourceChangeCounter() { ++m_uiResourceChangeCounter; }
+
+  /// \brief This is true for resources that are used as a 'missing resource' fallback. Through this function one can detect whether acquiring a resource returned the missing resource fallback.
+  EZ_ALWAYS_INLINE bool IsMissingResource() const { return m_Flags.IsSet(ezResourceFlags::IsMissingFallback); }
+
+  /// \brief If the resource has modifications from the original state, it should reset itself to that state now (or force a reload on itself).
+  virtual void ResetResource() {}
+
+  mutable ezEvent<const ezResourceEvent&> m_ResourceEvents;
 
 private:
 
   friend class ezResourceManager;
-  friend class ezResourceManagerWorker;
-  friend class ezResourceManagerWorkerGPU;
+  friend class ezResourceManagerWorkerDiskRead;
+  friend class ezResourceManagerWorkerMainThread;
 
   /// \brief Called by ezResourceManager shortly after resource creation.
   void SetUniqueID(const char* szUniqueID, bool bIsReloadable);
@@ -159,10 +209,10 @@ private:
   /// \brief Requests the resource to unload another quality level. If bFullUnload is true, the resource should unload all data, because it is going to be deleted afterwards.
   virtual ezResourceLoadDesc UnloadData(Unload WhatToUnload) = 0;
 
-  void CallUpdateContent(ezStreamReaderBase* Stream);
+  void CallUpdateContent(ezStreamReader* Stream);
 
   /// \brief Called whenever more data for the resource is available. The resource must read the stream to update it's data.
-  virtual ezResourceLoadDesc UpdateContent(ezStreamReaderBase* Stream) = 0;
+  virtual ezResourceLoadDesc UpdateContent(ezStreamReader* Stream) = 0;
 
   /// \brief Returns the resource type loader that should be used for this type of resource, unless it has been overridden on the ezResourceManager.
   ///
@@ -178,6 +228,7 @@ private:
   ezUInt8 m_uiQualityLevelsDiscardable;
   ezUInt8 m_uiQualityLevelsLoadable;
 
+
 protected:
 
   /// \brief Non-const version for resources that want to write this variable directly.
@@ -191,7 +242,7 @@ protected:
 
 private:
   template<typename ResourceType>
-  friend class ezResourceHandle;
+  friend class ezTypedResourceHandle;
 
   template<typename SELF, typename SELF_DESCRIPTOR>
   friend class ezResource;
@@ -205,8 +256,12 @@ private:
   /// It is called by the resource manager whenever the resource's data has been loaded or unloaded.
   virtual void UpdateMemoryUsage(MemoryUsage& out_NewMemoryUsage) = 0;
 
+  virtual void ReportResourceIsMissing();
+
   ezBitflags<ezResourceFlags> m_Flags;
 
+  ezUInt32 m_uiUniqueIDHash;
+  ezUInt32 m_uiResourceChangeCounter;
   ezResourcePriority m_Priority;
   ezAtomicInteger32 m_iReferenceCount;
   ezAtomicInteger32 m_iLockCount;
@@ -219,3 +274,4 @@ private:
   ezTime m_DueDate;
   ezTimestamp m_LoadedFileModificationTime;
 };
+

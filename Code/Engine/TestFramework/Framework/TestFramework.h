@@ -1,7 +1,6 @@
-#pragma once
+﻿#pragma once
 
 #include <TestFramework/Basics.h>
-#include <Foundation/Profiling/Profiling.h>
 #include <TestFramework/Framework/Declarations.h>
 #include <TestFramework/Framework/TestBaseClass.h>
 #include <TestFramework/Framework/SimpleTest.h>
@@ -25,6 +24,7 @@ public:
   void LoadTestOrder();
   void SaveTestOrder();
   void SetAllTestsEnabledStatus(bool bEnable);
+  void SetAllFailedTestsEnabledStatus();
 
   void GetTestSettingsFromCommandLine(int argc, const char** argv);
 
@@ -66,6 +66,9 @@ public:
   bool CompareImages(ezUInt32 uiMaxError, char* szErrorMsg);
 
 protected:
+  void Initialize();
+  void DeInitialize();
+
   virtual void ErrorImpl(const char* szError, const char* szFile, ezInt32 iLine, const char* szFunction, const char* szMsg);
   virtual void OutputImpl(ezTestOutput::Enum Type, const char* szMsg);
   virtual void TestResultImpl(ezInt32 iSubTestIndex, bool bSuccess, double fDuration);
@@ -75,12 +78,13 @@ protected:
 public:
   static const char* s_szTestBlockName;
   static int s_iAssertCounter;
+  static bool s_bCallstackOnAssert;
 
   // static functions
 public:
-  static EZ_FORCE_INLINE ezTestFramework* GetInstance() { return s_pInstance; }
+  static EZ_ALWAYS_INLINE ezTestFramework* GetInstance() { return s_pInstance; }
 
-  /// \brief Returns whether to asset on test fail, will return false if no debugger is attached to prevent crashing. 
+  /// \brief Returns whether to asset on test fail, will return false if no debugger is attached to prevent crashing.
   static bool GetAssertOnTestFail();
 
   static void Output(ezTestOutput::Enum Type, const char* szMsg, ...);
@@ -90,7 +94,7 @@ public:
   // static members
 private:
   static ezTestFramework* s_pInstance;
-  
+
 private:
   std::string m_sTestName;  ///< The name of the tests being done
   std::string m_sAbsTestDir; ///< Absolute path to the output folder where results and temp data is stored
@@ -113,6 +117,8 @@ private:
   double m_fTotalSubTestDuration;
   ezInt32 m_iErrorCountBeforeTest;
 
+  bool m_bIsInitialized;
+
 protected:
   ezInt32 m_iCurrentTestIndex;
   ezInt32 m_iCurrentSubTestIndex;
@@ -130,15 +136,11 @@ struct ezTestBlock
   };
 };
 
-#if EZ_ENABLED(EZ_PLATFORM_WINDOWS)
-  #define safeprintf sprintf_s
-#else
-  #define safeprintf snprintf
-#endif
+#define safeprintf ezStringUtils::snprintf
 
-/// \brief Starts a small test block inside a larger test. 
+/// \brief Starts a small test block inside a larger test.
 ///
-/// First parameter allows to quickly disable a block depending on a condition (e.g. platform). 
+/// First parameter allows to quickly disable a block depending on a condition (e.g. platform).
 /// Second parameter just gives it a name for better error reporting.
 /// Also skipped tests are highlighted in the output, such that people can quickly see when a test is currently deactivated.
 #define EZ_TEST_BLOCK(enable, name) \
@@ -240,13 +242,31 @@ inline float ToFloat(double f) { return (float) f; }
 #define EZ_TEST_STRING_MSG(s1, s2, msg, ...) \
 { \
   ezTestFramework::s_iAssertCounter++; \
-  const char* internal_sz1 = s1; \
-  const char* internal_sz2 = s2; \
+  const std::string lhs = static_cast<const char*>(s1); \
+  const std::string rhs = static_cast<const char*>(s2); \
   \
-  if (strcmp(internal_sz1, internal_sz2) != 0) \
+  if (strcmp(lhs.c_str(), rhs.c_str()) != 0) \
   { \
-    char szLocal_TestMacro[512]; \
-    safeprintf(szLocal_TestMacro, 512, "Failure: '%s' (%s) does not equal '%s' (%s)", EZ_STRINGIZE(internal_s1), internal_sz1, EZ_STRINGIZE(internal_s2), internal_sz2); \
+    char szLocal_TestMacro[2048]; \
+    safeprintf(szLocal_TestMacro, 2048, "Failure: '%s' (%s) does not equal '%s' (%s)", EZ_STRINGIZE(s1), lhs.c_str(), EZ_STRINGIZE(s2), rhs.c_str()); \
+    EZ_TEST_FAILURE(szLocal_TestMacro, msg, ##__VA_ARGS__); \
+  } \
+}
+
+/// \brief Tests two strings for equality. On failure both actual and expected values are output. Does not embed the original expression to work around issues with the current code page and unicode literals.
+#define EZ_TEST_STRING_UNICODE(i1, i2) EZ_TEST_STRING_UNICODE_MSG(i1, i2, "")
+
+/// \brief Tests two strings for equality. On failure both actual and expected values are output, also a custom message is printed. Does not embed the original expression to work around issues with the current code page and unicode literals.
+#define EZ_TEST_STRING_UNICODE_MSG(s1, s2, msg, ...) \
+{ \
+  ezTestFramework::s_iAssertCounter++; \
+  const std::string lhs = static_cast<const char*>(s1); \
+  const std::string rhs = static_cast<const char*>(s2); \
+  \
+  if (strcmp(lhs.c_str(), rhs.c_str()) != 0) \
+  { \
+    char szLocal_TestMacro[2048]; \
+    safeprintf(szLocal_TestMacro, 2048, "Failure: '%s' does not equal '%s'", lhs.c_str(), rhs.c_str()); \
     EZ_TEST_FAILURE(szLocal_TestMacro, msg, ##__VA_ARGS__); \
   } \
 }

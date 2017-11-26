@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Foundation/Time/Time.h>
+#include <Foundation/Reflection/Reflection.h>
 
 struct ezSIUnitOfTime
 {
@@ -25,8 +26,9 @@ public:
   {
     enum Enum
     {
-      FileTime,  ///< Uses a resolution that guarantees that a file's timestamp is considered equal on all platforms.
+      FileTimeEqual,  ///< Uses a resolution that guarantees that a file's timestamp is considered equal on all platforms.
       Identical, ///< Uses maximal stored resolution.
+      Newer, ///< Just compares values and returns true if the left-hand side is larger than the right hand side
     };
   };
   /// \brief  Returns the current timestamp. Returned value will always be valid.
@@ -63,7 +65,7 @@ public:
   /// Use CompareMode::FileTime when working with file time stamps across platforms.
   /// It will use the lowest resolution supported by all platforms to make sure the
   /// timestamp of a file is considered equal regardless on which platform it was retrieved.
-  bool IsEqual(const ezTimestamp& rhs, CompareMode::Enum mode) const; // [tested]
+  bool Compare(const ezTimestamp& rhs, CompareMode::Enum mode) const; // [tested]
 
 // *** Operators ***
 public:
@@ -85,6 +87,7 @@ public:
 
 
 private:
+  EZ_ALLOW_PRIVATE_PROPERTIES(ezTimestamp);
   /// \brief The date is stored as microseconds since Unix epoch.
   ezInt64 m_iTimestamp;
 };
@@ -92,6 +95,7 @@ private:
 /// \brief Returns a timestamp that is "timeSpan" further into the future from "timestamp".
 const ezTimestamp operator+ (ezTime& timeSpan, const ezTimestamp& timestamp);
 
+EZ_DECLARE_REFLECTABLE_TYPE(EZ_FOUNDATION_DLL, ezTimestamp);
 
 /// \brief The ezDateTime class can be used to convert ezTimestamp into a human readable form.
 ///

@@ -7,8 +7,8 @@
 #include <Core/ResourceManager/ResourceTypeLoader.h>
 #include <Foundation/Time/Timestamp.h>
 
-typedef ezResourceHandle<class ezShaderPermutationResource> ezShaderPermutationResourceHandle;
-typedef ezResourceHandle<class ezShaderStateResource> ezShaderStateResourceHandle;
+typedef ezTypedResourceHandle<class ezShaderPermutationResource> ezShaderPermutationResourceHandle;
+typedef ezTypedResourceHandle<class ezShaderStateResource> ezShaderStateResourceHandle;
 
 struct ezShaderPermutationResourceDescriptor
 {
@@ -16,7 +16,7 @@ struct ezShaderPermutationResourceDescriptor
 
 class EZ_RENDERERCORE_DLL ezShaderPermutationResource : public ezResource<ezShaderPermutationResource, ezShaderPermutationResourceDescriptor>
 {
-  EZ_ADD_DYNAMIC_REFLECTION(ezShaderPermutationResource);
+  EZ_ADD_DYNAMIC_REFLECTION(ezShaderPermutationResource, ezResourceBase);
 
 public:
   ezShaderPermutationResource();
@@ -30,13 +30,17 @@ public:
 
   bool IsShaderValid() const { return m_bShaderPermutationValid; }
 
+  ezArrayPtr<const ezPermutationVar> GetPermutationVars() const { return m_PermutationVars; }
+
 private:
   virtual ezResourceLoadDesc UnloadData(Unload WhatToUnload) override;
-  virtual ezResourceLoadDesc UpdateContent(ezStreamReaderBase* Stream) override;
+  virtual ezResourceLoadDesc UpdateContent(ezStreamReader* Stream) override;
   virtual void UpdateMemoryUsage(MemoryUsage& out_NewMemoryUsage) override;
   virtual ezResourceTypeLoader* GetDefaultResourceTypeLoader() const override;
 
 private:
+
+  friend class ezShaderManager;
 
   ezShaderStageBinary* m_pShaderStageBinaries[ezGALShaderStage::ENUM_COUNT];
 
@@ -46,6 +50,8 @@ private:
   ezGALBlendStateHandle m_hBlendState;
   ezGALDepthStencilStateHandle m_hDepthStencilState;
   ezGALRasterizerStateHandle m_hRasterizerState;
+
+  ezHybridArray<ezPermutationVar, 16> m_PermutationVars;
 };
 
 

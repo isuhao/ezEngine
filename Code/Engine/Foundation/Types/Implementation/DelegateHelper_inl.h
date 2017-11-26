@@ -1,4 +1,4 @@
-
+﻿
 template <typename R EZ_COMMA_IF(ARG_COUNT) EZ_LIST(typename ARG, ARG_COUNT)>
 struct ezDelegate<R (EZ_LIST(ARG, ARG_COUNT))> : public ezDelegateBase
 {
@@ -8,7 +8,7 @@ private:
 public:
   EZ_DECLARE_POD_TYPE();
 
-  EZ_FORCE_INLINE ezDelegate() : m_pDispatchFunction(nullptr)
+  EZ_ALWAYS_INLINE ezDelegate() : m_pDispatchFunction(nullptr)
   {
   }
 
@@ -17,7 +17,7 @@ public:
   EZ_FORCE_INLINE ezDelegate(Method method, Class* pInstance)
   {
     EZ_CHECK_AT_COMPILETIME_MSG(sizeof(Method) <= DATA_SIZE, "Member function pointer must not be bigger than 16 bytes");
-    EZ_ASSERT_DEBUG(ezMemoryUtils::IsAligned(&m_Data, EZ_ALIGNMENT_OF(Method)), "Wrong alignment. Expected %d bytes alignment", EZ_ALIGNMENT_OF(Method));
+    EZ_ASSERT_DEBUG(ezMemoryUtils::IsAligned(&m_Data, EZ_ALIGNMENT_OF(Method)), "Wrong alignment. Expected {0} bytes alignment", EZ_ALIGNMENT_OF(Method));
 
     memcpy(m_Data, &method, sizeof(Method));
     memset(m_Data + sizeof(Method), 0, DATA_SIZE - sizeof(Method));
@@ -39,7 +39,7 @@ public:
   EZ_FORCE_INLINE ezDelegate(Method method, const Class* pInstance)
   {
     EZ_CHECK_AT_COMPILETIME_MSG(sizeof(Method) <= DATA_SIZE, "Member function pointer must not be bigger than 16 bytes");
-    EZ_ASSERT_DEBUG(ezMemoryUtils::IsAligned(&m_Data, EZ_ALIGNMENT_OF(Method)), "Wrong alignment. Expected %d bytes alignment", EZ_ALIGNMENT_OF(Method));
+    EZ_ASSERT_DEBUG(ezMemoryUtils::IsAligned(&m_Data, EZ_ALIGNMENT_OF(Method)), "Wrong alignment. Expected {0} bytes alignment", EZ_ALIGNMENT_OF(Method));
 
     memcpy(m_Data, &method, sizeof(Method));
     memset(m_Data + sizeof(Method), 0, DATA_SIZE - sizeof(Method));
@@ -61,7 +61,7 @@ public:
   EZ_FORCE_INLINE ezDelegate(Function function)
   {
     EZ_CHECK_AT_COMPILETIME_MSG(sizeof(Function) <= DATA_SIZE, "Function object must not be bigger than 16 bytes");
-    EZ_ASSERT_DEBUG(ezMemoryUtils::IsAligned(&m_Data, EZ_ALIGNMENT_OF(Function)), "Wrong alignment. Expected %d bytes alignment", EZ_ALIGNMENT_OF(Function));
+    EZ_ASSERT_DEBUG(ezMemoryUtils::IsAligned(&m_Data, EZ_ALIGNMENT_OF(Function)), "Wrong alignment. Expected {0} bytes alignment", EZ_ALIGNMENT_OF(Function));
 
     memcpy(m_Data, &function, sizeof(Function));
     memset(m_Data + sizeof(Function), 0, DATA_SIZE - sizeof(Function));
@@ -69,7 +69,7 @@ public:
   }
 
 #if EZ_ENABLED(EZ_COMPILE_FOR_DEBUG)
-  EZ_FORCE_INLINE ~ezDelegate()
+  EZ_ALWAYS_INLINE ~ezDelegate()
   {
     m_pDispatchFunction = nullptr;
   }
@@ -83,6 +83,12 @@ public:
     memcpy(m_Data, other.m_Data, DATA_SIZE);
   }
 
+  /// \brief Resets a delegate to an invalid state.
+  EZ_FORCE_INLINE void operator=(std::nullptr_t)
+  {
+    m_pDispatchFunction = nullptr;
+  }
+
   /// \brief Function call operator. This will call the function that is bound to the delegate, or assert if nothing was bound.
   EZ_FORCE_INLINE R operator()(EZ_PAIR_LIST(ARG, arg, ARG_COUNT)) const
   {
@@ -91,27 +97,33 @@ public:
   }
 
   /// \brief Checks whether two delegates are bound to the exact same function, including the class instance.
-  EZ_FORCE_INLINE bool operator==(const SelfType& other) const
+  EZ_ALWAYS_INLINE bool operator==(const SelfType& other) const
   {
-    return m_pInstance.m_Ptr == other.m_pInstance.m_Ptr && 
+    return m_pInstance.m_Ptr == other.m_pInstance.m_Ptr &&
       m_pDispatchFunction == other.m_pDispatchFunction &&
       memcmp(m_Data, other.m_Data, DATA_SIZE) == 0;
   }
 
   /// \brief Checks whether two delegates are bound to the exact same function, including the class instance.
-  EZ_FORCE_INLINE bool operator!=(const SelfType& other) const
+  EZ_ALWAYS_INLINE bool operator!=(const SelfType& other) const
   {
     return !(*this == other);
   }
 
   /// \brief Returns true when the delegate is bound to a valid non-nullptr function.
-  EZ_FORCE_INLINE bool IsValid() const
+  EZ_ALWAYS_INLINE bool IsValid() const
   {
     return m_pDispatchFunction != nullptr;
   }
 
+  /// \brief Resets a delegate to an invalid state.
+  EZ_ALWAYS_INLINE void Invalidate()
+  {
+    m_pDispatchFunction = nullptr;
+  }
+
   /// \brief Returns the class instance that is used to call a member function pointer on.
-  EZ_FORCE_INLINE void* GetInstance() const
+  EZ_ALWAYS_INLINE void* GetClassInstance() const
   {
     return m_pInstance.m_Ptr;
   }
@@ -134,7 +146,7 @@ private:
   }
 
   template <typename Function>
-  static EZ_FORCE_INLINE R DispatchToFunction(const SelfType& self EZ_COMMA_IF(ARG_COUNT) EZ_PAIR_LIST(ARG, arg, ARG_COUNT))
+  static EZ_ALWAYS_INLINE R DispatchToFunction(const SelfType& self EZ_COMMA_IF(ARG_COUNT) EZ_PAIR_LIST(ARG, arg, ARG_COUNT))
   {
     return (*reinterpret_cast<Function*>(&self.m_Data))(EZ_LIST(arg, ARG_COUNT));
   }
@@ -158,3 +170,4 @@ struct ezMakeDelegateHelper< R(Class::*)(EZ_LIST(ARG, ARG_COUNT)) const >
 {
   typedef ezDelegate<R(EZ_LIST(ARG, ARG_COUNT))> DelegateType;
 };
+

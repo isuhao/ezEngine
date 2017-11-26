@@ -1,0 +1,111 @@
+[PLATFORMS]
+ALL
+
+[PERMUTATIONS]
+PARTICLE_RENDER_MODE
+
+
+[RENDERSTATE]
+
+BlendingEnabled0 = true
+SourceBlend0 = Blend_One
+
+DepthTest = true
+DepthWrite = false
+
+
+#if PARTICLE_RENDER_MODE == PARTICLE_RENDER_MODE_ADDITIVE
+  // also premultiplied alpha assuming alpha is zero
+  DestBlend0 = Blend_One
+#elif PARTICLE_RENDER_MODE == PARTICLE_RENDER_MODE_BLENDED
+  // premultiplied alpha
+  DestBlend0 = Blend_InvSrcAlpha
+#elif PARTICLE_RENDER_MODE == PARTICLE_RENDER_MODE_OPAQUE
+  BlendingEnabled0 = false
+  DepthWrite = true
+#endif
+
+[VERTEXSHADER]
+
+#define USE_TEXCOORD0
+#define USE_COLOR
+
+#include <Shaders/Common/GlobalConstants.h>
+#include <Shaders/Materials/MaterialInterpolator.h>
+#include <Shaders/Particles/BillboardShaderData.h>
+#include <Shaders/Particles/ParticleHelpers.h>
+
+#if EZ_ENABLED(PLATFORM_DX11)
+
+VS_OUT main(uint VertexID : SV_VertexID)
+{
+  float2 texCoords[6] =
+  {
+    float2(0.0, 0.0),
+    float2(1.0, 0.0),
+    float2(1.0, 1.0),
+    float2(0.0, 0.0),
+    float2(1.0, 1.0),
+    float2(0.0, 1.0),
+  };
+
+  uint index = VertexID / 6;
+  uint vertexIndex = VertexID % 6;
+
+  ezBillboardParticleData particle = particleData[index];
+
+  float4 position = TransformToPosition(particle.Transform);
+  float3x3 rotation = TransformToRotation(particle.Transform);
+
+  float3 offsetRight = GetCameraDirRight() * (texCoords[vertexIndex].x - 0.5) * particle.Size;
+  float3 offsetUp = GetCameraDirUp() * (texCoords[vertexIndex].y - 0.5) * -particle.Size;
+
+  float3 offsetRightCS = mul(GetWorldToCameraMatrix(), float4(offsetRight, 0)).xzy;
+  float3 offsetUpCS = mul(GetWorldToCameraMatrix(), float4(offsetUp, 0)).xzy;
+
+  offsetRightCS = mul(rotation, offsetRightCS);
+  offsetUpCS = mul(rotation, offsetUpCS);
+
+  float4 worldPosition = mul(ObjectToWorldMatrix, position);
+  float4 cameraPosition = mul(GetWorldToCameraMatrix(), worldPosition);
+  cameraPosition.xzy = cameraPosition.xzy + offsetRightCS + offsetUpCS;
+  float4 screenPosition = mul(GetCameraToScreenMatrix(), cameraPosition);
+
+  VS_OUT ret;
+  ret.TexCoords = ComputeSpriteAnimationTexCoord(texCoords[vertexIndex], NumSpritesX, NumSpritesY, particle.Life);
+  ret.Position = screenPosition;
+  ret.Color = RGBA8ToFloat4(particle.Color);
+
+  return ret;
+}
+
+#endif
+
+
+[PIXELSHADER]
+
+#define USE_TEXCOORD0
+#define USE_COLOR
+
+#include <Shaders/Materials/MaterialInterpolator.h>
+#include "ParticleSystemConstants.h"
+
+#if EZ_ENABLED(PLATFORM_DX11)
+
+Texture2D ParticleTexture;
+SamplerState ParticleTexture_AutoSampler;
+
+float4 main(PS_IN Input) : SV_Target
+{
+  float4 color = ParticleTexture.Sample(ParticleTexture_AutoSampler, Input.TexCoords.xy);
+
+  if (Input.Color.a * color.a < 0.01)
+    discard;
+
+  float opacity = Input.Color.a * color.a;
+
+  return float4(color.rgb * Input.Color.rgb * opacity, opacity);
+}
+
+#endif
+

@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <GuiFoundation/Basics.h>
 #include <Foundation/Strings/HashedString.h>
@@ -54,6 +54,7 @@ struct ezActionType
     Action,
     Category,
     Menu,
+    ActionAndMenu,
     Default = Action
   };
   typedef ezUInt8 StorageType;
@@ -65,7 +66,7 @@ struct EZ_GUIFOUNDATION_DLL ezActionContext
   ezActionContext()
     : m_pDocument(nullptr), m_pWindow(nullptr) {}
 
-  ezDocumentBase* m_pDocument;
+  ezDocument* m_pDocument;
   ezString m_sMapping;
   QWidget* m_pWindow;
 };
@@ -86,13 +87,18 @@ struct EZ_GUIFOUNDATION_DLL ezActionDescriptor
   ezString m_sCategoryPath; ///< Category in key configuration dialog, e.g. "Tree View" or "File"
   
   ezString m_sShortcut;
+  ezString m_sDefaultShortcut;
 
   ezAction* CreateAction(const ezActionContext& context) const;
   void DeleteAction(ezAction* pAction) const;
 
+  void UpdateExistingActions();
+
 private:
   CreateActionFunc m_CreateAction;
   DeleteActionFunc m_DeleteAction;
+
+  mutable ezHybridArray<ezAction*, 4> m_CreatedActions;
 };
 
 
@@ -100,7 +106,7 @@ private:
 ///
 class EZ_GUIFOUNDATION_DLL ezAction : public ezReflectedClass
 {
-  EZ_ADD_DYNAMIC_REFLECTION(ezAction);
+  EZ_ADD_DYNAMIC_REFLECTION(ezAction, ezReflectedClass);
   EZ_DISALLOW_COPY_AND_ASSIGN(ezAction);
 public:
   ezAction(const ezActionContext& context) { m_Context = context; }

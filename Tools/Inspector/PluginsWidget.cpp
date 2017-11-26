@@ -2,10 +2,11 @@
 #include <Inspector/PluginsWidget.moc.h>
 #include <Foundation/Communication/Telemetry.h>
 #include <MainWindow.moc.h>
+#include <GuiFoundation/UIServices/UIServices.moc.h>
 
-ezPluginsWidget* ezPluginsWidget::s_pWidget = nullptr;
+ezQtPluginsWidget* ezQtPluginsWidget::s_pWidget = nullptr;
 
-ezPluginsWidget::ezPluginsWidget(QWidget* parent) : QDockWidget (parent)
+ezQtPluginsWidget::ezQtPluginsWidget(QWidget* parent) : QDockWidget (parent)
 {
   s_pWidget = this;
 
@@ -14,19 +15,19 @@ ezPluginsWidget::ezPluginsWidget(QWidget* parent) : QDockWidget (parent)
   ResetStats();
 }
 
-void ezPluginsWidget::ResetStats()
+void ezQtPluginsWidget::ResetStats()
 {
   m_bUpdatePlugins = true;
   m_Plugins.Clear();
 }
 
 
-void ezPluginsWidget::UpdateStats()
+void ezQtPluginsWidget::UpdateStats()
 {
   UpdatePlugins();
 }
 
-void ezPluginsWidget::UpdatePlugins()
+void ezQtPluginsWidget::UpdatePlugins()
 {
   if (!m_bUpdatePlugins)
     return;
@@ -54,16 +55,14 @@ void ezPluginsWidget::UpdatePlugins()
 
     for (ezMap<ezString, PluginsData>::Iterator it = m_Plugins.GetIterator(); it.IsValid(); ++it)
     {
-      const PluginsData& ssd = it.Value();
-
       QLabel* pIcon = new QLabel();
-      pIcon->setPixmap(QPixmap(":/Icons/Icons/Plugin.png"));
+      pIcon->setPixmap(ezQtUiServices::GetCachedPixmapResource(":/Icons/Icons/Plugin.png"));
       pIcon->setAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
       TablePlugins->setCellWidget(iRow, 0, pIcon);
 
-      sTemp.Format("  %s  ", it.Key().GetData());
+      sTemp.Format("  {0}  ", it.Key());
       TablePlugins->setCellWidget(iRow, 1, new QLabel(sTemp.GetData()));
-      
+
       if (it.Value().m_bReloadable)
         TablePlugins->setCellWidget(iRow, 2, new QLabel("<p><span style=\"font-weight:600; color:#00aa00;\">  Yes  </span></p>"));
       else
@@ -82,7 +81,7 @@ void ezPluginsWidget::UpdatePlugins()
   TablePlugins->blockSignals(false);
 }
 
-void ezPluginsWidget::ProcessTelemetry(void* pUnuseed)
+void ezQtPluginsWidget::ProcessTelemetry(void* pUnuseed)
 {
   if (!s_pWidget)
     return;
@@ -93,7 +92,7 @@ void ezPluginsWidget::ProcessTelemetry(void* pUnuseed)
   {
     switch (Msg.GetMessageID())
     {
-    case 'CLR':
+    case ' CLR':
       {
         s_pWidget->m_Plugins.Clear();
         s_pWidget->m_bUpdatePlugins = true;

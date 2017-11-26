@@ -3,11 +3,11 @@
 #include <RendererCore/Meshes/MeshBufferResource.h>
 #include <RendererCore/Meshes/MeshResourceDescriptor.h>
 
-typedef ezResourceHandle<class ezMaterialResource> ezMaterialResourceHandle;
+typedef ezTypedResourceHandle<class ezMaterialResource> ezMaterialResourceHandle;
 
 class EZ_RENDERERCORE_DLL ezMeshResource : public ezResource<ezMeshResource, ezMeshResourceDescriptor>
 {
-  EZ_ADD_DYNAMIC_REFLECTION(ezMeshResource);
+  EZ_ADD_DYNAMIC_REFLECTION(ezMeshResource, ezResourceBase);
 
 public:
   ezMeshResource();
@@ -38,7 +38,7 @@ public:
 
 private:
   virtual ezResourceLoadDesc UnloadData(Unload WhatToUnload) override;
-  virtual ezResourceLoadDesc UpdateContent(ezStreamReaderBase* Stream) override;
+  virtual ezResourceLoadDesc UpdateContent(ezStreamReader* Stream) override;
   virtual void UpdateMemoryUsage(MemoryUsage& out_NewMemoryUsage) override;
   virtual ezResourceLoadDesc CreateResource(const ezMeshResourceDescriptor& descriptor) override;
 
@@ -51,4 +51,4 @@ private:
   static ezUInt32 s_MeshBufferNameSuffix;
 };
 
-typedef ezResourceHandle<ezMeshResource> ezMeshResourceHandle;
+typedef ezTypedResourceHandle<class ezMeshResource> ezMeshResourceHandle;

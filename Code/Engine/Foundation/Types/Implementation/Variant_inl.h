@@ -1,32 +1,32 @@
-
-EZ_FORCE_INLINE ezVariant::ezVariant()
+﻿
+EZ_ALWAYS_INLINE ezVariant::ezVariant()
 {
   m_Type = Type::Invalid;
   m_bIsShared = false;
 }
 
-EZ_FORCE_INLINE ezVariant::ezVariant(const ezVariant& other)
+EZ_ALWAYS_INLINE ezVariant::ezVariant(const ezVariant& other)
 {
   CopyFrom(other);
 }
 
-EZ_FORCE_INLINE ezVariant::ezVariant(ezVariant&& other)
+EZ_ALWAYS_INLINE ezVariant::ezVariant(ezVariant&& other)
 {
   MoveFrom(std::move(other));
 }
 
 template <typename T>
-EZ_FORCE_INLINE ezVariant::ezVariant(const T& value)
+EZ_ALWAYS_INLINE ezVariant::ezVariant(const T& value)
 {
   Init(value);
 }
 
-EZ_FORCE_INLINE ezVariant::~ezVariant() 
+EZ_ALWAYS_INLINE ezVariant::~ezVariant()
 {
   Release();
 }
 
-EZ_FORCE_INLINE void ezVariant::operator=(const ezVariant& other)
+EZ_ALWAYS_INLINE void ezVariant::operator=(const ezVariant& other)
 {
   if (this != &other)
   {
@@ -35,7 +35,7 @@ EZ_FORCE_INLINE void ezVariant::operator=(const ezVariant& other)
   }
 }
 
-EZ_FORCE_INLINE void ezVariant::operator=(ezVariant&& other)
+EZ_ALWAYS_INLINE void ezVariant::operator=(ezVariant&& other)
 {
   if (this != &other)
   {
@@ -45,13 +45,13 @@ EZ_FORCE_INLINE void ezVariant::operator=(ezVariant&& other)
 }
 
 template <typename T>
-EZ_FORCE_INLINE void ezVariant::operator=(const T& value)
+EZ_ALWAYS_INLINE void ezVariant::operator=(const T& value)
 {
   Release();
   Init(value);
 }
 
-EZ_FORCE_INLINE bool ezVariant::operator!=(const ezVariant& other) const
+EZ_ALWAYS_INLINE bool ezVariant::operator!=(const ezVariant& other) const
 {
   return !(*this == other);
 }
@@ -59,6 +59,7 @@ EZ_FORCE_INLINE bool ezVariant::operator!=(const ezVariant& other) const
 template <typename T>
 EZ_FORCE_INLINE bool ezVariant::operator==(const T& other) const
 {
+  using StorageType = typename TypeDeduction<T>::StorageType;
   struct TypeInfo
   {
     enum
@@ -76,51 +77,51 @@ EZ_FORCE_INLINE bool ezVariant::operator==(const T& other) const
     return ezVariantHelper::CompareNumber(*this, other, ezTraitInt<TypeInfo::isNumber>());
   }
 
-  EZ_ASSERT_DEV(IsA<T>(), "Stored type '%d' does not match comparison type '%d'", m_Type, TypeDeduction<T>::value);
-  return Cast<T>() == other;
+  EZ_ASSERT_DEV(IsA<StorageType>(), "Stored type '{0}' does not match comparison type '{1}'", m_Type, TypeDeduction<T>::value);
+  return Cast<StorageType>() == other;
 }
 
 template <typename T>
-EZ_FORCE_INLINE bool ezVariant::operator!=(const T& other) const
+EZ_ALWAYS_INLINE bool ezVariant::operator!=(const T& other) const
 {
   return !(*this == other);
 }
 
-EZ_FORCE_INLINE bool ezVariant::IsValid() const
+EZ_ALWAYS_INLINE bool ezVariant::IsValid() const
 {
   return m_Type != Type::Invalid;
 }
 
 template <typename T>
-EZ_FORCE_INLINE bool ezVariant::IsA() const
+EZ_ALWAYS_INLINE bool ezVariant::IsA() const
 {
   return m_Type == TypeDeduction<T>::value;
 }
 
-EZ_FORCE_INLINE ezVariant::Type::Enum ezVariant::GetType() const
+EZ_ALWAYS_INLINE ezVariant::Type::Enum ezVariant::GetType() const
 {
   return static_cast<Type::Enum>(m_Type);
 }
 
 template <typename T>
-EZ_FORCE_INLINE const T& ezVariant::Get() const
+EZ_ALWAYS_INLINE const T& ezVariant::Get() const
 {
-  EZ_ASSERT_DEV(IsA<T>(), "Stored type '%d' does not match requested type '%d'", m_Type, TypeDeduction<T>::value);
+  EZ_ASSERT_DEV(IsA<T>(), "Stored type '{0}' does not match requested type '{1}'", m_Type, TypeDeduction<T>::value);
   return Cast<T>();
 }
 
-EZ_FORCE_INLINE void* ezVariant::GetData()
+EZ_ALWAYS_INLINE void* ezVariant::GetData()
 {
   return m_bIsShared ? m_Data.shared->m_Ptr : &m_Data;
 }
 
-EZ_FORCE_INLINE const void* ezVariant::GetData() const
+EZ_ALWAYS_INLINE const void* ezVariant::GetData() const
 {
   return m_bIsShared ? m_Data.shared->m_Ptr : &m_Data;
 }
 
 template <typename T>
-EZ_FORCE_INLINE bool ezVariant::CanConvertTo() const
+EZ_ALWAYS_INLINE bool ezVariant::CanConvertTo() const
 {
   return CanConvertTo(static_cast<Type::Enum>(TypeDeduction<T>::value));
 }
@@ -155,7 +156,7 @@ T ezVariant::ConvertTo(ezResult* out_pConversionStatus /* = nullptr*/) const
 }
 
 // for some reason MSVC does not accept the template keyword here
-#if EZ_ENABLED(EZ_COMPILER_MSVC)
+#if EZ_ENABLED(EZ_COMPILER_MSVC_PURE)
   #define CALL_FUNCTOR(functor, type) functor.operator()<type>()
 #else
   #define CALL_FUNCTOR(functor, type) functor.template operator()<type>()
@@ -214,6 +215,10 @@ void ezVariant::DispatchTo(Functor& functor, Type::Enum type)
     CALL_FUNCTOR(functor, ezColor);
     break;
 
+  case Type::ColorGamma:
+    CALL_FUNCTOR(functor, ezColorGammaUB);
+    break;
+
   case Type::Vector2:
     CALL_FUNCTOR(functor, ezVec2);
     break;
@@ -224,6 +229,30 @@ void ezVariant::DispatchTo(Functor& functor, Type::Enum type)
 
   case Type::Vector4:
     CALL_FUNCTOR(functor, ezVec4);
+    break;
+
+  case Type::Vector2I:
+    CALL_FUNCTOR(functor, ezVec2I32);
+    break;
+
+  case Type::Vector3I:
+    CALL_FUNCTOR(functor, ezVec3I32);
+    break;
+
+  case Type::Vector4I:
+    CALL_FUNCTOR(functor, ezVec4I32);
+    break;
+
+  case Type::Vector2U:
+    CALL_FUNCTOR(functor, ezVec2U32);
+    break;
+
+  case Type::Vector3U:
+    CALL_FUNCTOR(functor, ezVec3U32);
+    break;
+
+  case Type::Vector4U:
+    CALL_FUNCTOR(functor, ezVec4U32);
     break;
 
   case Type::Quaternion:
@@ -238,8 +267,20 @@ void ezVariant::DispatchTo(Functor& functor, Type::Enum type)
     CALL_FUNCTOR(functor, ezMat4);
     break;
 
+  case Type::Transform:
+    CALL_FUNCTOR(functor, ezTransform);
+    break;
+
   case Type::String:
     CALL_FUNCTOR(functor, ezString);
+    break;
+
+  case Type::StringView:
+    CALL_FUNCTOR(functor, ezStringView);
+    break;
+
+  case Type::DataBuffer:
+    CALL_FUNCTOR(functor, ezDataBuffer);
     break;
 
   case Type::Time:
@@ -248,6 +289,10 @@ void ezVariant::DispatchTo(Functor& functor, Type::Enum type)
 
   case Type::Uuid:
     CALL_FUNCTOR(functor, ezUuid);
+    break;
+
+  case Type::Angle:
+    CALL_FUNCTOR(functor, ezAngle);
     break;
 
   case Type::VariantArray:
@@ -267,9 +312,9 @@ void ezVariant::DispatchTo(Functor& functor, Type::Enum type)
     break;
 
   default:
-    EZ_REPORT_FAILURE("Could not dispatch type '%d'", type);
+    EZ_REPORT_FAILURE("Could not dispatch type '{0}'", type);
     break;
-  }  
+  }
 }
 
 #undef CALL_FUNCTOR
@@ -295,7 +340,7 @@ EZ_FORCE_INLINE void ezVariant::Store(const T& value, ezTraitInt<0>)
 }
 
 template <typename StorageType, typename T>
-EZ_FORCE_INLINE void ezVariant::Store(const T& value, ezTraitInt<1>)
+EZ_ALWAYS_INLINE void ezVariant::Store(const T& value, ezTraitInt<1>)
 {
   m_Data.shared = EZ_DEFAULT_NEW(TypedSharedData<StorageType>, value);
   m_bIsShared = true;
@@ -316,7 +361,7 @@ inline void ezVariant::CopyFrom(const ezVariant& other)
 {
   m_Type = other.m_Type;
   m_bIsShared = other.m_bIsShared;
-  
+
   if (m_bIsShared)
   {
     m_Data.shared = other.m_Data.shared;
@@ -328,7 +373,7 @@ inline void ezVariant::CopyFrom(const ezVariant& other)
   }
 }
 
-EZ_FORCE_INLINE void ezVariant::MoveFrom(ezVariant&& other)
+EZ_ALWAYS_INLINE void ezVariant::MoveFrom(ezVariant&& other)
 {
   m_Type = other.m_Type;
   m_bIsShared = other.m_bIsShared;
@@ -363,12 +408,12 @@ EZ_FORCE_INLINE const T& ezVariant::Cast() const
     *reinterpret_cast<const T*>(&m_Data);
 }
 
-EZ_FORCE_INLINE bool ezVariant::IsNumber(ezUInt32 type)
+EZ_ALWAYS_INLINE bool ezVariant::IsNumber(ezUInt32 type)
 {
   return type > Type::Invalid && type <= Type::Double;
 }
 
-EZ_FORCE_INLINE bool ezVariant::IsFloatingPoint(ezUInt32 type)
+EZ_ALWAYS_INLINE bool ezVariant::IsFloatingPoint(ezUInt32 type)
 {
   return type == Type::Float || type == Type::Double;
 }
@@ -395,14 +440,29 @@ T ezVariant::ConvertNumber() const
   case Type::Int64:
     return static_cast<T>(Cast<ezInt64>());
   case Type::UInt64:
-    return static_cast<T>(Cast<ezUInt64>());  
+    return static_cast<T>(Cast<ezUInt64>());
   case Type::Float:
     return static_cast<T>(Cast<float>());
   case Type::Double:
     return static_cast<T>(Cast<double>());
   }
-  
+
   EZ_REPORT_FAILURE("Variant is not a number");
   return T(0);
 }
+
+template <>
+struct ezHashHelper<ezVariant>
+{
+  EZ_ALWAYS_INLINE static ezUInt32 Hash(const ezVariant& value)
+  {
+    ezUInt64 uiHash = value.ComputeHash(0);
+    return (ezUInt32)uiHash;
+  }
+
+  EZ_ALWAYS_INLINE static bool Equal(const ezVariant& a, const ezVariant& b)
+  {
+    return a == b;
+  }
+};
 

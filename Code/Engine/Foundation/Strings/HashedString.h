@@ -44,6 +44,8 @@ public:
   /// Returns the number of unused strings that were removed.
   static ezUInt32 ClearUnusedStrings();
 
+  EZ_DECLARE_MEM_RELOCATABLE_TYPE();
+
   /// \brief Initializes this string to the empty string.
   ezHashedString(); // [tested]
 
@@ -100,11 +102,17 @@ public:
   /// \brief Returns the hash of the stored string.
   ezUInt32 GetHash() const; // [tested]
 
+  /// \brief Returns whether the string is empty.
+  bool IsEmpty() const;
+
+  /// \brief Resets the string to the empty string.
+  void Clear();
+
   /// \brief Returns a string view to this string's data.
-  operator ezStringView() const { return GetString(); }
+  EZ_ALWAYS_INLINE operator ezStringView() const { return GetString(); }
 
   /// \brief Returns a pointer to the internal Utf8 string.
-  operator const char*() const { return GetData(); }
+  EZ_ALWAYS_INLINE operator const char*() const { return GetData(); }
 
 private:
   static void InitHashedString();
@@ -112,6 +120,10 @@ private:
 
   HashedType m_Data;
 };
+
+/// \brief Helper function to create an ezHashedString. This can be used to initialize static hashed string variables.
+template <size_t N>
+ezHashedString ezMakeHashedString(const char(&szString)[N]);
 
 
 /// \brief A class to use together with ezHashedString for quick comparisons with temporary strings that need not be stored further.
@@ -123,10 +135,10 @@ class EZ_FOUNDATION_DLL ezTempHashedString
 {
   friend class ezHashedString;
 
-  /// \brief Default constructor is disabled, you are not supposed to store these objects as members.
-  ezTempHashedString();
-
 public:
+
+  ezTempHashedString() { m_uiHash = 0; }
+
   /// \brief Creates an ezTempHashedString object from the given string constant. The hash can be computed at compile time.
   template <size_t N>
   ezTempHashedString(const char(&szString)[N]); // [tested]
@@ -142,11 +154,11 @@ public:
 
   /// \brief Copies the hash from the integer.
   ezTempHashedString(ezUInt32 uiHash);
-  
+
   /// \brief The hash of the given string can be computed at compile time.
   template <size_t N>
   void operator= (const char(&szString)[N]); // [tested]
-  
+
   /// \brief Computes and stores the hash of the given string during runtime, which might be slow.
   void operator= (ezHashing::StringWrapper szString); // [tested]
 
@@ -168,9 +180,18 @@ public:
   /// \brief Returns the hash of the stored string.
   ezUInt32 GetHash() const; // [tested]
 
+  template <size_t N>
+  static constexpr ezUInt32 ComputeHash(const char(&szString)[N]);
+
+  static ezUInt32 ComputeHash(ezHashing::StringWrapper szString);
+  
+
 private:
   ezUInt32 m_uiHash;
 };
 
+// For ezFormatString
+EZ_FOUNDATION_DLL ezStringView BuildString(char* tmp, ezUInt32 uiLength, const ezHashedString& arg);
 
 #include <Foundation/Strings/Implementation/HashedString_inl.h>
+

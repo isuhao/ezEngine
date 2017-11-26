@@ -11,7 +11,7 @@ static bool TelemetryAssertHandler(const char* szSourceFile, ezUInt32 uiLine, co
   if (ezTelemetry::IsConnectedToClient())
   {
     ezTelemetryMessage msg;
-    msg.SetMessageID('APP', 'ASRT');
+    msg.SetMessageID(' APP', 'ASRT');
     msg.GetWriter() << szSourceFile;
     msg.GetWriter() << uiLine;
     msg.GetWriter() << szFunction;
@@ -24,7 +24,7 @@ static bool TelemetryAssertHandler(const char* szSourceFile, ezUInt32 uiLine, co
     // since we are crashing the application in (half) 'a second', we need to make sure the network traffic has indeed been sent
     for (ezUInt32 i = 0; i < 5; ++i)
     {
-      ezThreadUtils::Sleep(100);
+      ezThreadUtils::Sleep(ezTime::Milliseconds(100));
       ezTelemetry::UpdateNetwork();
     }
   }
@@ -54,10 +54,10 @@ void SetAppStats()
 
   ezStats::SetStat("Platform/Name", info.GetPlatformName());
 
-  sOut.Format("%i", info.GetCPUCoreCount());
+  sOut.Format("{0}", info.GetCPUCoreCount());
   ezStats::SetStat("Hardware/CPU Cores", sOut.GetData());
 
-  sOut.Format("%.1f GB", info.GetInstalledMainMemory() / 1024.0f / 1024.0f / 1024.0f);
+  sOut.Format("{0} GB", ezArgF(info.GetInstalledMainMemory() / 1024.0f / 1024.0f / 1024.0f, 1));
   ezStats::SetStat("Hardware/RAM", sOut.GetData());
 
   sOut = info.Is64BitOS() ? "64 Bit" : "32 Bit";

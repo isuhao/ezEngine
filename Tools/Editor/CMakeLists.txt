@@ -32,14 +32,29 @@ SET (LINK_LIBRARIES
   Core
   ThirdParty
   EditorFramework
+  EditorEngineProcessFramework
   ToolsFoundation
   GuiFoundation
 )
 
 SET (ADDITIONAL_DEPENDENCIES
+  EditorProcessor
   EditorEngineProcess
   EditorPluginScene
   EditorPluginAssets
+  EditorPluginPhysX
+  EditorPluginFmod
+  EditorPluginParticle
+  EditorPluginFileserve
+  PhysXPlugin
+  FmodPlugin
+  ParticlePlugin
+  TexConv
+  InspectorPlugin
+  ShaderCompiler
+  RecastPlugin
+  InputXBox360
+  ProtonPlugin
 )
 
 include (${CMAKE_SOURCE_DIR}/Code/BuildSystem/CMake/CMAKE_Application.txt)

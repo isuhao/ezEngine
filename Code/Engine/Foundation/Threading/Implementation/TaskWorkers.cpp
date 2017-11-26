@@ -1,8 +1,5 @@
-#include <Foundation/PCH.h>
+﻿#include <PCH.h>
 #include <Foundation/Threading/TaskSystem.h>
-#include <Foundation/Threading/Lock.h>
-#include <Foundation/Configuration/Startup.h>
-#include <Foundation/Math/Math.h>
 #include <Foundation/System/SystemInformation.h>
 
 // Helper function to generate a nice thread name.
@@ -13,14 +10,14 @@ static const char* GenerateThreadName(ezWorkerThreadType::Enum ThreadType, ezUIn
   switch (ThreadType)
   {
   case ezWorkerThreadType::ShortTasks:
-    sTemp.Format("Short Tasks %i", iThreadNumber + 1);
+    sTemp.Format("Short Tasks {0}", iThreadNumber + 1);
     break;
   case ezWorkerThreadType::LongTasks:
-    sTemp.Format("Long Tasks %i", iThreadNumber + 1);
+    sTemp.Format("Long Tasks {0}", iThreadNumber + 1);
     break;
   case ezWorkerThreadType::FileAccess:
     if (iThreadNumber > 0)
-      sTemp.Format("Resource Loading %i", iThreadNumber + 1);
+      sTemp.Format("Resource Loading {0}", iThreadNumber + 1);
     else
       sTemp = "Resource Loading";
     break;
@@ -49,6 +46,7 @@ bool ezTaskSystem::IsLoadingThread()
   if (s_WorkerThreads[ezWorkerThreadType::FileAccess].IsEmpty())
     return false;
 
+  EZ_ASSERT_DEBUG(s_WorkerThreads[ezWorkerThreadType::FileAccess].GetCount() == 1, "The number of loading threads cannot be changed without adjusting other code");
   return ezThreadUtils::GetCurrentThreadID() == s_WorkerThreads[ezWorkerThreadType::FileAccess][0]->GetThreadID();
 }
 
@@ -87,7 +85,7 @@ void ezTaskSystem::StopWorkerThreads()
       }
     }
   }
-  
+
   for (ezUInt32 type = 0; type < ezWorkerThreadType::ENUM_COUNT; ++type)
   {
     for (ezUInt32 i = 0; i < s_WorkerThreads[type].GetCount(); ++i)
@@ -158,7 +156,7 @@ ezUInt32 ezTaskWorkerThread::Run()
     LastPriority = ezTaskPriority::FileAccess;
   }
 
-  EZ_ASSERT_DEBUG(m_WorkerType < ezWorkerThreadType::ENUM_COUNT, "Worker Thread Type is invalid: %i", m_WorkerType);
+  EZ_ASSERT_DEBUG(m_WorkerType < ezWorkerThreadType::ENUM_COUNT, "Worker Thread Type is invalid: {0}", m_WorkerType);
 
   m_bExecutingTask = false;
 

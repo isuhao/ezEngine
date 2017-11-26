@@ -1,38 +1,45 @@
 #pragma once
 
 #include <ToolsFoundation/Basics.h>
-#include <EditorFramework/Gizmos/GizmoHandle.h>
+#include <EditorEngineProcessFramework/Gizmos/GizmoHandle.h>
 #include <EditorFramework/Gizmos/GizmoBase.h>
+#include <Foundation/Math/Quat.h>
 
-class EZ_EDITORFRAMEWORK_DLL ezDragToPositionGizmo : public ezGizmoBase
+class EZ_EDITORFRAMEWORK_DLL ezDragToPositionGizmo : public ezGizmo
 {
-  EZ_ADD_DYNAMIC_REFLECTION(ezDragToPositionGizmo);
+  EZ_ADD_DYNAMIC_REFLECTION(ezDragToPositionGizmo, ezGizmo);
 
 public:
   ezDragToPositionGizmo();
 
-  virtual void FocusLost() override;
+  const ezVec3 GetTranslationResult() const { return GetTransformation().m_vPosition - m_vStartPosition; }
+  const ezQuat GetRotationResult() const { return GetTransformation().m_qRotation; }
 
-  virtual bool mousePressEvent(QMouseEvent* e) override;
-  virtual bool mouseReleaseEvent(QMouseEvent* e) override;
-  virtual bool mouseMoveEvent(QMouseEvent* e) override;
+  virtual bool IsPickingSelectedAllowed() const { return false; }
 
-  const ezVec3 GetTranslationResult() const { return GetTransformation().GetTranslationVector() - m_vStartPosition; }
-  const ezQuat GetRotationResult() const { ezQuat q; q.SetFromMat3(GetTransformation().GetRotationalPart()); return q; }
+  /// \brief Returns true if any of the 'align with' handles is selected, and thus the rotation of the dragged object should be modified as well
+  bool ModifiesRotation() const { return m_bModifiesRotation; }
 
 protected:
-  virtual void OnSetOwner(ezDocumentWindow3D* pOwnerWindow, ezEngineViewWidget* pOwnerView) override;
+  virtual void DoFocusLost(bool bCancel) override;
+
+  virtual ezEditorInput DoMousePressEvent(QMouseEvent* e) override;
+  virtual ezEditorInput DoMouseReleaseEvent(QMouseEvent* e) override;
+  virtual ezEditorInput DoMouseMoveEvent(QMouseEvent* e) override;
+  
+  virtual void OnSetOwner(ezQtEngineDocumentWindow* pOwnerWindow, ezQtEngineViewWidget* pOwnerView) override;
   virtual void OnVisibleChanged(bool bVisible) override;
-  virtual void OnTransformationChanged(const ezMat4& transform) override;
+  virtual void OnTransformationChanged(const ezTransform& transform) override;
 
-  ezGizmoHandle m_Bobble;
-  ezGizmoHandle m_AlignPX;
-  ezGizmoHandle m_AlignNX;
-  ezGizmoHandle m_AlignPY;
-  ezGizmoHandle m_AlignNY;
-  ezGizmoHandle m_AlignPZ;
-  ezGizmoHandle m_AlignNZ;
+  ezEngineGizmoHandle m_Bobble;
+  ezEngineGizmoHandle m_AlignPX;
+  ezEngineGizmoHandle m_AlignNX;
+  ezEngineGizmoHandle m_AlignPY;
+  ezEngineGizmoHandle m_AlignNY;
+  ezEngineGizmoHandle m_AlignPZ;
+  ezEngineGizmoHandle m_AlignNZ;
 
+  bool m_bModifiesRotation;
   ezTime m_LastInteraction;
   ezVec3 m_vStartPosition;
 };

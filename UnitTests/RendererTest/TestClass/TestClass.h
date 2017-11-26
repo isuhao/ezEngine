@@ -5,7 +5,7 @@
 #include <System/Window/Window.h>
 #include <RendererCore/Meshes/MeshResource.h>
 #include <RendererCore/Meshes/MeshBufferResource.h>
-#include <CoreUtils/Geometry/GeomUtils.h>
+#include <Core/Graphics/Geometry.h>
 #include <RendererCore/ShaderCompiler/ShaderCompiler.h>
 #include <RendererCore/RenderContext/RenderContext.h>
 
@@ -47,13 +47,15 @@ protected:
   ezMeshBufferResourceHandle CreateSphere(ezInt32 iSubDivs, float fRadius);
   ezMeshBufferResourceHandle CreateTorus(ezInt32 iSubDivs, float fInnerRadius, float fOuterRadius);
   ezMeshBufferResourceHandle CreateBox(float fWidth, float fHeight, float fDepth);
+  ezMeshBufferResourceHandle CreateLineBox(float fWidth, float fHeight, float fDepth);
   void RenderObject(ezMeshBufferResourceHandle hObject, const ezMat4& mTransform, const ezColor& color, ezBitflags<ezShaderBindFlags> ShaderBindFlags = ezShaderBindFlags::Default);
 
   ezWindow* m_pWindow;
   ezGALDevice* m_pDevice;
 
-  ezConstantBufferResourceHandle m_hObjectTransformCB;
+  ezConstantBufferStorageHandle m_hObjectTransformCB;
   ezShaderResourceHandle m_hShader;
+  ezGALTextureHandle m_hDepthStencilTexture;
 };
 
 

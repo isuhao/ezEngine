@@ -1,102 +1,135 @@
-#pragma once
+﻿#pragma once
 
+#include <Foundation/Configuration/CVar.h>
 #include <Foundation/Containers/DynamicArray.h>
 #include <Foundation/Containers/HybridArray.h>
-#include <Foundation/Memory/FrameAllocator.h>
-#include <CoreUtils/Graphics/Camera.h>
-#include <RendererFoundation/Context/Context.h>
-#include <RendererFoundation/Device/Device.h>
-#include <RendererCore/Pipeline/RenderPipelinePass.h>
-#include <RendererCore/Pipeline/ViewData.h>
+#include <Foundation/Strings/HashedString.h>
+#include <Foundation/Types/UniquePtr.h>
+#include <RendererCore/Pipeline/ExtractedRenderData.h>
 
-class EZ_RENDERERCORE_DLL ezRenderPipeline
+class ezProfilingId;
+class ezView;
+class ezRenderPipelinePass;
+class ezFrameDataProviderBase;
+
+class EZ_RENDERERCORE_DLL ezRenderPipeline : public ezRefCounted
 {
 public:
+  enum class PipelineState
+  {
+    Uninitialized,
+    RebuildError,
+    Initialized
+  };
+
   ezRenderPipeline();
   ~ezRenderPipeline();
 
-  void ExtractData(const ezView& view);
-  void Render(ezRenderContext* pRenderer);
+  // \brief Resets the pipeline state to 'Uninitialized' to force a recompute (e.g. when the render target has changed).
+  void ResetPipelineState();
 
   void AddPass(ezUniquePtr<ezRenderPipelinePass>&& pPass);
-  void RemovePass(ezUniquePtr<ezRenderPipelinePass>&& pPass);
+  void RemovePass(ezRenderPipelinePass* pPass);
+  void GetPasses(ezHybridArray<const ezRenderPipelinePass*, 16>& passes) const;
+  void GetPasses(ezHybridArray<ezRenderPipelinePass*, 16>& passes);
+  ezRenderPipelinePass* GetPassByName(const ezStringView& sPassName);
 
-  void Connect(ezNode* pOutputNode, ezTempHashedString sOutputPinName, ezNode* pInputNode, ezTempHashedString sInputPinName);
-  void Rebuild();
+  bool Connect(ezRenderPipelinePass* pOutputNode, const char* szOutputPinName, ezRenderPipelinePass* pInputNode, const char* szInputPinName);
+  bool Connect(ezRenderPipelinePass* pOutputNode, ezHashedString sOutputPinName, ezRenderPipelinePass* pInputNode, ezHashedString sInputPinName);
+  bool Disconnect(ezRenderPipelinePass* pOutputNode, ezHashedString sOutputPinName, ezRenderPipelinePass* pInputNode, ezHashedString sInputPinName);
 
+  const ezRenderPipelinePassConnection* GetInputConnection(ezRenderPipelinePass* pPass, ezHashedString sInputPinName) const;
+  const ezRenderPipelinePassConnection* GetOutputConnection(ezRenderPipelinePass* pPass, ezHashedString sOutputPinName) const;
+
+  void AddExtractor(ezUniquePtr<ezExtractor>&& pExtractor);
+  void RemoveExtractor(ezExtractor* pExtractor);
+  void GetExtractors(ezHybridArray<const ezExtractor*, 16>& extractors) const;
+  void GetExtractors(ezHybridArray<ezExtractor*, 16>& extractors);
+  ezExtractor* GetExtractorByName(const ezStringView& sExtractorName);
 
   template <typename T>
-  T* CreateRenderData(ezRenderPassType passType, const ezGameObject* pOwner);
-  
-  ezArrayPtr<const ezRenderData* const> GetRenderDataWithPassType(ezRenderPassType passType) const;
+  EZ_ALWAYS_INLINE T* GetFrameDataProvider() { return static_cast<T*>(GetFrameDataProvider(ezGetStaticRTTI<T>())); }
 
+  const ezExtractedRenderData& GetRenderData() const;
+  ezRenderDataBatchList GetRenderDataBatchesWithCategory(ezRenderData::Category category, ezRenderDataBatch::Filter filter = ezRenderDataBatch::Filter()) const;
 
-  static ezRenderPassType FindOrRegisterPassType(const char* szPassTypeName);
-
-  static const char* GetPassTypeName(ezRenderPassType passType);
-  static ezProfilingId& GetPassTypeProfilingID(ezRenderPassType passType);
+#if EZ_ENABLED(EZ_COMPILE_FOR_DEVELOPMENT)
+  static ezCVarBool s_DebugCulling;
+#endif
 
   EZ_DISALLOW_COPY_AND_ASSIGN(ezRenderPipeline);
 
 private:
+  friend class ezRenderWorld;
   friend class ezView;
 
+  // \brief Rebuilds the render pipeline, e.g. sorting passes via dependencies and creating render targets.
+  PipelineState Rebuild(const ezView& view);
+  bool RebuildInternal(const ezView& view);
+  bool SortPasses();
+  bool InitRenderTargetDescriptions(const ezView& view);
+  bool CreateRenderTargetUsage(const ezView& view);
+  bool InitRenderPipelinePasses();
+  void SortExtractors();
+  void UpdateViewData(const ezView& view);
+
+  void RemoveConnections(ezRenderPipelinePass* pPass);
+  void ClearRenderPassGraphTextures();
+  bool AreInputDescriptionsAvailable(const ezRenderPipelinePass* pPass, const ezDynamicArray<ezRenderPipelinePass*>& done) const;
+  bool ArePassThroughInputsDone(const ezRenderPipelinePass* pPass, const ezDynamicArray<ezRenderPipelinePass*>& done) const;
+
+  ezFrameDataProviderBase* GetFrameDataProvider(const ezRTTI* pRtti);
+
+  void ExtractData(const ezView& view);
+  void FindVisibleObjects(const ezView& view);
+
+  void Render(ezRenderContext* pRenderer);
+
+private: // Member data
+  // Thread data
   ezThreadID m_CurrentExtractThread;
   ezThreadID m_CurrentRenderThread;
 
-  struct PassData
+  // Pipeline render data
+  ezExtractedRenderData m_Data[2];
+  ezDynamicArray<const ezGameObject*> m_visibleObjects;
+
+#if EZ_ENABLED(EZ_COMPILE_FOR_DEVELOPMENT)
+  float m_fAverageCullingTime;
+#endif
+
+  ezHashedString m_sName;
+  ezUInt64 m_uiLastExtractionFrame;
+  ezUInt64 m_uiLastRenderFrame;
+
+  // Render pass graph data
+  PipelineState m_PipelineState;
+
+  struct ConnectionData
   {
-    void SortRenderData();
-
-    ezDynamicArray<const ezRenderData*> m_RenderData;
+    // Inputs / outputs match the node pin indices. Value at index is nullptr if not connected.
+    ezDynamicArray<ezRenderPipelinePassConnection*> m_Inputs;
+    ezDynamicArray<ezRenderPipelinePassConnection*> m_Outputs;
   };
-
-  struct PipelineData
-  {
-    ezCamera m_Camera;
-    ezViewData m_ViewData;
-
-    ezHybridArray<PassData, 8> m_PassData;
-  };
-
-  PipelineData m_Data[2];
-
-  PipelineData* GetPipelineDataForExtraction();
-  PipelineData* GetPipelineDataForRendering();
-  const PipelineData* GetPipelineDataForRendering() const;
-
-  ezProfilingId m_RenderProfilingID;
-  ezUInt32 m_uiLastExtractionFrame;
-  ezUInt32 m_uiLastRenderFrame;
-
-  static void ClearPipelineData(PipelineData* pPipeLineData);
-  static bool IsPipelineDataEmpty(PipelineData* pPipeLineData);
-
   ezDynamicArray<ezUniquePtr<ezRenderPipelinePass>> m_Passes;
+  ezMap<const ezRenderPipelinePass*, ConnectionData> m_Connections;
 
-  static ezRenderPassType s_uiNextPassType;
-
-  struct PassTypeData
+  /// \brief Contains all connections that share the same path-through texture and their first and last usage pass index.
+  struct TextureUsageData
   {
-    ezHashedString m_sName;
-    ezProfilingId m_ProfilingID;
+    ezHybridArray<ezRenderPipelinePassConnection*, 4> m_UsedBy;
+    ezUInt16 m_uiFirstUsageIdx;
+    ezUInt16 m_uiLastUsageIdx;
+    bool m_bTargetTexture;
   };
+  ezDynamicArray<TextureUsageData> m_TextureUsage;
+  ezDynamicArray<ezUInt16> m_TextureUsageIdxSortedByFirstUsage; ///< Indices map into m_TextureUsage
+  ezDynamicArray<ezUInt16> m_TextureUsageIdxSortedByLastUsage; ///< Indices map into m_TextureUsage
 
-  enum
-  {
-    MAX_PASS_TYPES = 32
-  };
+  // Extractors
+  ezDynamicArray<ezUniquePtr<ezExtractor>> m_Extractors;
 
-  static PassTypeData s_PassTypeData[MAX_PASS_TYPES];
+  // Data Providers
+  ezDynamicArray<ezUniquePtr<ezFrameDataProviderBase>> m_DataProviders;
+  ezHashTable<const ezRTTI*, ezUInt32> m_TypeToDataProviderIndex;
 };
-
-class EZ_RENDERERCORE_DLL ezDefaultPassTypes
-{
-public:
-  static ezRenderPassType Opaque;
-  static ezRenderPassType Masked;
-  static ezRenderPassType Transparent;
-  static ezRenderPassType Foreground;
-};
-
-#include <RendererCore/Pipeline/Implementation/RenderPipeline_inl.h>

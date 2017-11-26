@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <Foundation/Basics.h>
 #include <Foundation/Strings/StringBuilder.h>
@@ -12,9 +12,7 @@ struct ezOSFileData;
 
 #if EZ_ENABLED(EZ_USE_POSIX_FILE_API)
   #include <Foundation/IO/Implementation/Posix/OSFileDeclarations_posix.h>
-#endif
-
-#if EZ_ENABLED(EZ_PLATFORM_WINDOWS)
+#elif EZ_ENABLED(EZ_PLATFORM_WINDOWS)
   #include <Foundation/IO/Implementation/Win/OSFileDeclarations_win.h>
 #endif
 
@@ -154,6 +152,9 @@ public:
   /// \brief Reads up to the given number of bytes from the file. Returns the actual number of bytes that was read.
   ezUInt64 Read(void* pBuffer, ezUInt64 uiBytes); // [tested]
 
+  /// \brief Reads the entire file content into the given array
+  ezUInt64 ReadAll(ezDynamicArray<ezUInt8>& out_FileContent); // [tested]
+
   /// \brief Returns the name of the file that is currently opened. Returns an empty string, if no file is open.
   const char* GetOpenFileName() const { return m_sFileName.GetData(); } // [tested]
 
@@ -188,12 +189,21 @@ public:
   /// \brief Gets the stats about the given file or folder. Returns false, if the stats could not be determined.
   static ezResult GetFileStats(const char* szFileOrFolder, ezFileStats& out_Stats); // [tested]
 
+#if (EZ_ENABLED(EZ_SUPPORTS_CASE_INSENSITIVE_PATHS) && EZ_ENABLED(EZ_SUPPORTS_UNRESTRICTED_FILE_ACCESS)) || defined(EZ_DOCS)
   /// \brief Useful on systems that are not strict about the casing of file names. Determines the correct name of a file.
   static ezResult GetFileCasing(const char* szFileOrFolder, ezStringBuilder& out_sCorrectSpelling); // [tested]
 #endif
 
+#endif
+
   /// \brief Returns the path in which the applications binary file is located.
   static const char* GetApplicationDirectory();
+
+  /// \brief Returns the folder into which user data may be safely written.
+  ///
+  /// On Windows this is typically the %appdata% folder.
+  /// If szSubFolder is specified, it will be appended to the result.
+  static ezString GetUserDataFolder(const char* szSubFolder = nullptr);
 
 public:
 
@@ -206,7 +216,7 @@ public:
       FileOpen,     ///< A file has been (attempted) to open.
       FileClose,    ///< An open file has been closed.
       FileExists,   ///< A check whether a file exists has been done.
-      DirectoryExists, ///< A check whether a directory exists has been done. 
+      DirectoryExists, ///< A check whether a directory exists has been done.
       FileDelete,   ///< A file was attempted to be deleted.
       FileRead,     ///< From an open file data was read.
       FileWrite,    ///< Data was written to an open file.
@@ -292,6 +302,9 @@ private:
   /// \brief Stores the mode with which the file was opened.
   ezFileMode::Enum m_FileMode;
 
+  /// [internal] On win32 when a file is already open, and this is true, ezOSFile will wait until the file becomes available
+  bool m_bRetryOnSharingViolation = true;
+
   /// \brief Stores the (cleaned up) filename that was used to open the file.
   ezStringBuilder m_sFileName;
 
@@ -303,6 +316,9 @@ private:
 
   /// \brief The application binaries' path.
   static ezString64 s_ApplicationPath;
+
+  /// \brief The path where user data is stored on this OS
+  static ezString64 s_UserDataPath;
 
   /// \brief Counts how many different files are touched.225
   static ezAtomicInteger32 s_FileCounter;

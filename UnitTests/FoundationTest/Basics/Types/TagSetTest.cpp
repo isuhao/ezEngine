@@ -1,4 +1,4 @@
-#include <PCH.h>
+﻿#include <PCH.h>
 #include <Foundation/Types/Tag.h>
 #include <Foundation/Types/TagSet.h>
 #include <Foundation/Types/TagRegistry.h>
@@ -10,25 +10,25 @@ EZ_CREATE_SIMPLE_TEST(Basics, TagSet)
   {
     ezTagRegistry TempTestRegistry;
 
-    ezTag TestTag;
-    EZ_TEST_BOOL(!TestTag.IsValid());
+    {
+      ezTag TestTag;
+      EZ_TEST_BOOL(!TestTag.IsValid());
+    }
 
     ezHashedString TagName;
     TagName.Assign("BASIC_TAG_TEST");
 
-    ezTag SecondInstance;
-
-    TempTestRegistry.RegisterTag(TagName, &SecondInstance);
-
+    const ezTag& SecondInstance = TempTestRegistry.RegisterTag(TagName);
     EZ_TEST_BOOL(SecondInstance.IsValid());
 
-    EZ_TEST_BOOL(TestTag != SecondInstance);
+    const ezTag* SecondInstance2 = TempTestRegistry.GetTagByName("BASIC_TAG_TEST");
 
-    EZ_TEST_BOOL(TempTestRegistry.GetTag("BASIC_TAG_TEST", TestTag).Succeeded());
+    EZ_TEST_BOOL(SecondInstance2 != nullptr);
+    EZ_TEST_BOOL(SecondInstance2->IsValid());
 
-    EZ_TEST_BOOL(TestTag == SecondInstance);
+    EZ_TEST_BOOL(&SecondInstance == SecondInstance2);
 
-    EZ_TEST_STRING(TestTag.GetTagString(), "BASIC_TAG_TEST");
+    EZ_TEST_STRING(SecondInstance2->GetTagString(), "BASIC_TAG_TEST");
   }
 
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "Basic Tag Registration")
@@ -39,13 +39,13 @@ EZ_CREATE_SIMPLE_TEST(Basics, TagSet)
 
     EZ_TEST_BOOL(!TestTag.IsValid());
 
-    EZ_TEST_BOOL(TempTestRegistry.GetTag("TEST_TAG1", TestTag).Failed());
+    EZ_TEST_BOOL(TempTestRegistry.GetTagByName("TEST_TAG1") == nullptr);
 
-    TempTestRegistry.RegisterTag("TEST_TAG1", &TestTag);
+    TestTag = TempTestRegistry.RegisterTag("TEST_TAG1");
 
     EZ_TEST_BOOL(TestTag.IsValid());
 
-    EZ_TEST_BOOL(TempTestRegistry.GetTag("TEST_TAG1", TestTag).Succeeded());
+    EZ_TEST_BOOL(TempTestRegistry.GetTagByName("TEST_TAG1") != nullptr);
   }
 
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "Basic Tag Work")
@@ -54,32 +54,31 @@ EZ_CREATE_SIMPLE_TEST(Basics, TagSet)
 
     TempTestRegistry.RegisterTag("TEST_TAG1");
 
-    ezTag TestTag1;
-    EZ_TEST_BOOL(TempTestRegistry.GetTag("TEST_TAG1", TestTag1).Succeeded());
+    const ezTag* TestTag1 = TempTestRegistry.GetTagByName("TEST_TAG1");
+    EZ_TEST_BOOL(TestTag1 != nullptr);
 
-    ezTag TestTag2;
-    TempTestRegistry.RegisterTag("TEST_TAG2", &TestTag2);
-    
+    const ezTag& TestTag2 = TempTestRegistry.RegisterTag("TEST_TAG2");
+
     EZ_TEST_BOOL(TestTag2.IsValid());
 
     ezTagSet TagSet;
-    
-    EZ_TEST_BOOL(TagSet.IsSet(TestTag1) == false);
+
+    EZ_TEST_BOOL(TagSet.IsSet(*TestTag1) == false);
     EZ_TEST_BOOL(TagSet.IsSet(TestTag2) == false);
 
     TagSet.Set(TestTag2);
 
-    EZ_TEST_BOOL(TagSet.IsSet(TestTag1) == false);
+    EZ_TEST_BOOL(TagSet.IsSet(*TestTag1) == false);
     EZ_TEST_BOOL(TagSet.IsSet(TestTag2) == true);
 
-    TagSet.Set(TestTag1);
+    TagSet.Set(*TestTag1);
 
-    EZ_TEST_BOOL(TagSet.IsSet(TestTag1) == true);
+    EZ_TEST_BOOL(TagSet.IsSet(*TestTag1) == true);
     EZ_TEST_BOOL(TagSet.IsSet(TestTag2) == true);
 
-    TagSet.Clear(TestTag1);
+    TagSet.Remove(*TestTag1);
 
-    EZ_TEST_BOOL(TagSet.IsSet(TestTag1) == false);
+    EZ_TEST_BOOL(TagSet.IsSet(*TestTag1) == false);
     EZ_TEST_BOOL(TagSet.IsSet(TestTag2) == true);
   }
 
@@ -100,12 +99,14 @@ EZ_CREATE_SIMPLE_TEST(Basics, TagSet)
     for (ezUInt32 i = 0; i < 250; ++i)
     {
       ezStringBuilder TagName;
-      TagName.Format("TEST_TAG%u", i);
+      TagName.Format("TEST_TAG{0}", i);
 
-      TempTestRegistry.RegisterTag(TagName.GetData(), &RegisteredTags[i]);
+      RegisteredTags[i] = TempTestRegistry.RegisterTag(TagName.GetData());
 
       EZ_TEST_BOOL(RegisteredTags[i].IsValid());
     }
+
+    EZ_TEST_INT(TempTestRegistry.GetNumTags(), 250);
 
     // Set all tags
     ezTagSet BigTagSet;
@@ -125,7 +126,7 @@ EZ_CREATE_SIMPLE_TEST(Basics, TagSet)
 
     for (ezUInt32 i = 10; i < 60; ++i)
     {
-      BigTagSet.Clear(RegisteredTags[i]);
+      BigTagSet.Remove(RegisteredTags[i]);
     }
 
     for (ezUInt32 i = 0; i < 10; ++i)
@@ -149,6 +150,10 @@ EZ_CREATE_SIMPLE_TEST(Basics, TagSet)
     EZ_TEST_BOOL(Non0BlockStartSet.IsSet(RegisteredTags[100]));
     EZ_TEST_BOOL(!Non0BlockStartSet.IsSet(RegisteredTags[0]));
 
+    // Also test allocating a tag in an earlier block than the first tag allocated in the set
+    Non0BlockStartSet.Set(RegisteredTags[0]);
+    EZ_TEST_BOOL( Non0BlockStartSet.IsSet( RegisteredTags[100] ) );
+    EZ_TEST_BOOL( Non0BlockStartSet.IsSet( RegisteredTags[0] ) );
 
     // Copying a tag set should work as well
     ezTagSet SecondTagSet = BigTagSet;
@@ -177,9 +182,9 @@ EZ_CREATE_SIMPLE_TEST(Basics, TagSet)
     for (ezUInt32 i = 0; i < 250; ++i)
     {
       ezStringBuilder TagName;
-      TagName.Format("TEST_TAG%u", i);
+      TagName.Format("TEST_TAG{0}", i);
 
-      TempTestRegistry.RegisterTag(TagName.GetData(), &RegisteredTags[i]);
+      RegisteredTags[i] = TempTestRegistry.RegisterTag(TagName.GetData());
 
       EZ_TEST_BOOL(RegisteredTags[i].IsValid());
     }
@@ -189,7 +194,7 @@ EZ_CREATE_SIMPLE_TEST(Basics, TagSet)
 
     EZ_TEST_BOOL(!EmptyTagSet.IsAnySet(SecondEmptyTagSet));
     EZ_TEST_BOOL(!SecondEmptyTagSet.IsAnySet(EmptyTagSet));
-    
+
 
     ezTagSet SimpleSingleTagBlock0;
     SimpleSingleTagBlock0.Set(RegisteredTags[0]);
@@ -202,7 +207,7 @@ EZ_CREATE_SIMPLE_TEST(Basics, TagSet)
     EZ_TEST_BOOL(SimpleSingleTagBlock0.IsAnySet(SimpleSingleTagBlock0));
     EZ_TEST_BOOL(SimpleSingleTagBlock0.IsAnySet(SimpleSingleTagBlock1));
 
-    SimpleSingleTagBlock1.Clear(RegisteredTags[0]);
+    SimpleSingleTagBlock1.Remove(RegisteredTags[0]);
     EZ_TEST_BOOL(!SimpleSingleTagBlock1.IsAnySet(SimpleSingleTagBlock0));
 
     // Try with different block sizes/offsets (but same bit index)
@@ -232,6 +237,71 @@ EZ_CREATE_SIMPLE_TEST(Basics, TagSet)
     OffsetBlock2.Set(RegisteredTags[65]);
     EZ_TEST_BOOL(OffsetBlock.IsAnySet(OffsetBlock2));
     EZ_TEST_BOOL(OffsetBlock2.IsAnySet(OffsetBlock));
+  }
+
+  EZ_TEST_BLOCK(ezTestBlock::Enabled, "Add / Remove / IsEmpty / Clear")
+  {
+    ezTagRegistry TempTestRegistry;
+
+    TempTestRegistry.RegisterTag("TEST_TAG1");
+
+    const ezTag* TestTag1 = TempTestRegistry.GetTagByName("TEST_TAG1");
+    EZ_TEST_BOOL(TestTag1 != nullptr);
+
+    const ezTag& TestTag2 = TempTestRegistry.RegisterTag("TEST_TAG2");
+
+    EZ_TEST_BOOL(TestTag2.IsValid());
+
+    ezTagSet TagSet;
+
+    EZ_TEST_BOOL(TagSet.IsEmpty());
+    EZ_TEST_BOOL(TagSet.IsSet(*TestTag1) == false);
+    EZ_TEST_BOOL(TagSet.IsSet(TestTag2) == false);
+
+    TagSet.Clear();
+
+    EZ_TEST_BOOL(TagSet.IsEmpty());
+    EZ_TEST_BOOL(TagSet.IsSet(*TestTag1) == false);
+    EZ_TEST_BOOL(TagSet.IsSet(TestTag2) == false);
+
+    TagSet.Set(TestTag2);
+
+    EZ_TEST_BOOL(!TagSet.IsEmpty());
+    EZ_TEST_BOOL(TagSet.IsSet(*TestTag1) == false);
+    EZ_TEST_BOOL(TagSet.IsSet(TestTag2) == true);
+
+    TagSet.Remove(TestTag2);
+
+    EZ_TEST_BOOL(TagSet.IsEmpty());
+    EZ_TEST_BOOL(TagSet.IsSet(*TestTag1) == false);
+    EZ_TEST_BOOL(TagSet.IsSet(TestTag2) == false);
+
+    TagSet.Set(*TestTag1);
+    TagSet.Set(TestTag2);
+
+    EZ_TEST_BOOL(!TagSet.IsEmpty());
+    EZ_TEST_BOOL(TagSet.IsSet(*TestTag1) == true);
+    EZ_TEST_BOOL(TagSet.IsSet(TestTag2) == true);
+
+    TagSet.Remove(*TestTag1);
+    TagSet.Remove(TestTag2);
+
+    EZ_TEST_BOOL(TagSet.IsEmpty());
+    EZ_TEST_BOOL(TagSet.IsSet(*TestTag1) == false);
+    EZ_TEST_BOOL(TagSet.IsSet(TestTag2) == false);
+
+    TagSet.Set(*TestTag1);
+    TagSet.Set(TestTag2);
+
+    EZ_TEST_BOOL(!TagSet.IsEmpty());
+    EZ_TEST_BOOL(TagSet.IsSet(*TestTag1) == true);
+    EZ_TEST_BOOL(TagSet.IsSet(TestTag2) == true);
+
+    TagSet.Clear();
+
+    EZ_TEST_BOOL(TagSet.IsEmpty());
+    EZ_TEST_BOOL(TagSet.IsSet(*TestTag1) == false);
+    EZ_TEST_BOOL(TagSet.IsSet(TestTag2) == false);
   }
 }
 

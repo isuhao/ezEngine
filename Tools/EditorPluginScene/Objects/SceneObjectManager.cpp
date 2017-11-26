@@ -1,28 +1,11 @@
 #include <PCH.h>
 #include <EditorPluginScene/Objects/SceneObjectManager.h>
-#include <EditorPluginScene/Objects/TestObjects.h>
 #include <ToolsFoundation/Reflection/PhantomRttiManager.h>
 #include <Core/World/GameObject.h>
+#include <GameEngine/Components/PrefabReferenceComponent.h>
 
 ezSceneObjectManager::ezSceneObjectManager() : ezDocumentObjectManager()
 {
-}
-
-ezDocumentObjectBase* ezSceneObjectManager::InternalCreateObject(const ezRTTI* pRtti)
-{
-  static int iCount = 0;
-  ezDocumentObjectBase* pObj = EZ_DEFAULT_NEW(ezDocumentObject, pRtti);
-
-  ezStringBuilder sName;
-  sName.Format("%s %03d", pRtti->GetTypeName(), iCount);
-  iCount++;
-  pObj->GetTypeAccessor().SetValue("Name", sName.GetData());  
-  return pObj;
-}
-
-void ezSceneObjectManager::InternalDestroyObject(ezDocumentObjectBase* pObject)
-{
-  EZ_DEFAULT_DELETE(pObject);
 }
 
 void ezSceneObjectManager::GetCreateableTypes(ezHybridArray<const ezRTTI*, 32>& Types) const
@@ -30,7 +13,7 @@ void ezSceneObjectManager::GetCreateableTypes(ezHybridArray<const ezRTTI*, 32>& 
   Types.PushBack(ezRTTI::FindTypeByName(ezGetStaticRTTI<ezGameObject>()->GetTypeName()));
 
   const ezRTTI* pComponentType = ezRTTI::FindTypeByName(ezGetStaticRTTI<ezComponent>()->GetTypeName());
-  
+
   for (auto it = ezRTTI::GetFirstInstance(); it != nullptr; it = it->GetNextInstance())
   {
     if (it->IsDerivedFrom(pComponentType) && !it->GetTypeFlags().IsSet(ezTypeFlags::Abstract))
@@ -38,26 +21,64 @@ void ezSceneObjectManager::GetCreateableTypes(ezHybridArray<const ezRTTI*, 32>& 
   }
 }
 
-bool ezSceneObjectManager::InternalCanAdd(const ezRTTI* pRtti, const ezDocumentObjectBase* pParent, const char* szParentProperty, const ezVariant& index) const
+ezStatus ezSceneObjectManager::InternalCanAdd(const ezRTTI* pRtti, const ezDocumentObject* pParent, const char* szParentProperty, const ezVariant& index) const
 {
   const ezRTTI* pGameObjectType = ezRTTI::FindTypeByName(ezGetStaticRTTI<ezGameObject>()->GetTypeName());
-  // TODO: BLA
-  //const ezRTTI* pComponentType  = ezRTTI::FindTypeByName(ezGetStaticRTTI<ezComponent>()->GetTypeName());
 
   if (pParent == nullptr)
   {
-    return pRtti->IsDerivedFrom(pGameObjectType);
+    bool bIsDerived = pRtti->IsDerivedFrom(pGameObjectType);
+    if (!bIsDerived)
+    {
+      return ezStatus("Only ezGameObject can be added to the root of the world!");
+    }
   }
-  
-  return true;
+  else
+  {
+    if (pParent->GetTypeAccessor().GetType()->IsDerivedFrom<ezGameObject>())
+    {
+      auto children = pParent->GetChildren();
+      for (auto pChild : children)
+      {
+        if (pChild->GetType()->IsDerivedFrom<ezPrefabReferenceComponent>())
+          return ezStatus("Cannot add objects to a prefab node.");
+      }
+    }
+
+    if (pRtti->IsDerivedFrom<ezPrefabReferenceComponent>())
+    {
+      if (!pParent->GetChildren().IsEmpty())
+        return ezStatus("Prefab components can only be added to empty nodes.");
+    }
+  }
+
+  return ezStatus(EZ_SUCCESS);
 }
 
-bool ezSceneObjectManager::InternalCanRemove(const ezDocumentObjectBase* pObject) const
+ezStatus ezSceneObjectManager::InternalCanMove(const ezDocumentObject* pObject, const ezDocumentObject* pNewParent, const char* szParentProperty, const ezVariant& index) const
 {
-  return true;
+  if (pNewParent != nullptr)
+  {
+    if (pNewParent->GetTypeAccessor().GetType()->IsDerivedFrom<ezGameObject>())
+    {
+      auto children = pNewParent->GetChildren();
+      for (auto pChild : children)
+      {
+        if (pChild->GetType()->IsDerivedFrom<ezPrefabReferenceComponent>())
+          return ezStatus("Cannot move objects into a prefab node.");
+      }
+    }
+  }
+
+  return ezStatus(EZ_SUCCESS);
 }
 
-bool ezSceneObjectManager::InternalCanMove(const ezDocumentObjectBase* pObject, const ezDocumentObjectBase* pNewParent, const char* szParentProperty, const ezVariant& index) const
+ezStatus ezSceneObjectManager::InternalCanSelect(const ezDocumentObject* pObject) const
 {
-  return true;
+  if (pObject->GetTypeAccessor().GetType() != ezGetStaticRTTI<ezGameObject>())
+  {
+    return ezStatus(ezFmt("Object of type '{0}' is not a 'ezGameObject' and can't be selected.", pObject->GetTypeAccessor().GetType()->GetTypeName()));
+  }
+  return ezStatus(EZ_SUCCESS);
 }
+

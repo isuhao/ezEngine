@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <Foundation/Logging/Log.h>
 #include <Foundation/Containers/Deque.h>
@@ -64,11 +64,11 @@ public:
   /// @{ 
 
   static void Broadcast(TransmitMode tm, ezUInt32 uiSystemID, ezUInt32 uiMsgID, const void* pData, ezUInt32 uiDataBytes);
-  static void Broadcast(TransmitMode tm, ezUInt32 uiSystemID, ezUInt32 uiMsgID, ezStreamReaderBase& Stream, ezInt32 iDataBytes = -1);
+  static void Broadcast(TransmitMode tm, ezUInt32 uiSystemID, ezUInt32 uiMsgID, ezStreamReader& Stream, ezInt32 iDataBytes = -1);
   static void Broadcast(TransmitMode tm, ezTelemetryMessage& Msg);
 
   static void SendToServer(ezUInt32 uiSystemID, ezUInt32 uiMsgID, const void* pData = nullptr, ezUInt32 uiDataBytes = 0);
-  static void SendToServer(ezUInt32 uiSystemID, ezUInt32 uiMsgID, ezStreamReaderBase& Stream, ezInt32 iDataBytes = -1);
+  static void SendToServer(ezUInt32 uiSystemID, ezUInt32 uiMsgID, ezStreamReader& Stream, ezInt32 iDataBytes = -1);
   static void SendToServer(ezTelemetryMessage& Msg);
 
   /// @}
@@ -92,7 +92,7 @@ public:
   static ezTime GetPingToServer() { return s_PingToServer; }
 
   /// \brief Returns the name of the machine on which the Server is running. Only meaningful if there is an active connection (see IsConnectedToServer() ).
-  static const char* GetServerName() { return s_ServerName.GetData(); }
+  //static const char* GetServerName() { return s_ServerName.GetData(); }
 
   /// \brief Returns the IP address of the machine on which the Server is running. Only meaningful if there is an active connection (see IsConnectedToServer() ).
   static const char* GetServerIP() { return s_ServerIP.GetData(); }
@@ -188,7 +188,7 @@ private:
   static void Transmit(TransmitMode tm, const void* pData, ezUInt32 uiDataBytes);
 
   static void Send(TransmitMode tm, ezUInt32 uiSystemID, ezUInt32 uiMsgID, const void* pData, ezUInt32 uiDataBytes);
-  static void Send(TransmitMode tm, ezUInt32 uiSystemID, ezUInt32 uiMsgID, ezStreamReaderBase& Stream, ezInt32 iDataBytes = -1);
+  static void Send(TransmitMode tm, ezUInt32 uiSystemID, ezUInt32 uiMsgID, ezStreamReader& Stream, ezInt32 iDataBytes = -1);
   static void Send(TransmitMode tm, ezTelemetryMessage& msg);
 
   friend class ezTelemetryThread;
@@ -202,7 +202,7 @@ private:
   static ezUInt32 s_uiApplicationID;
   static ezUInt32 s_uiServerID;
 
-  static ezString s_ServerName;
+  //static ezString s_ServerName;
   static ezString s_ServerIP;
 
   static bool s_bConnectedToServer;

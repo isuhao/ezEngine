@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <Foundation/Strings/StringUtils.h>
 #include <Foundation/Strings/StringView.h>
@@ -7,7 +7,7 @@
 #include <Foundation/Containers/HybridArray.h>
 
 class ezStringBuilder;
-class ezStreamReaderBase;
+class ezStreamReader;
 
 /// \brief A string class for storing and passing around strings.
 ///
@@ -81,7 +81,7 @@ public:
   operator ezStringView() const; // [tested]
 
   /// \brief Returns a pointer to the internal Utf8 string.
-  operator const char*() const { return GetData(); }
+  EZ_ALWAYS_INLINE operator const char*() const { return GetData(); }
 
   /// \brief Resets this string to an empty string.
   ///
@@ -116,7 +116,7 @@ public:
   ezStringView GetLast(ezUInt32 uiNumCharacters) const; // [tested]
 
   /// \brief Replaces the current string with the content from the stream. Reads the stream to its end.
-  void ReadAll(ezStreamReaderBase& Stream);
+  void ReadAll(ezStreamReader& Stream);
 
   /// \brief Returns the amount of bytes that are currently allocated on the heap.
   ezUInt64 GetHeapMemoryUsage() const { return m_Data.GetHeapMemoryUsage(); }
@@ -163,6 +163,8 @@ public:
 
 
 typedef ezHybridString<1> ezDynamicString;
+/// \brief String that uses the static allocator to prevent leak reports in RTTI attributes.
+typedef ezHybridString<32, ezStaticAllocatorWrapper> ezUntrackedString;
 typedef ezHybridString<32> ezString;
 typedef ezHybridString<16> ezString16;
 typedef ezHybridString<24> ezString24;
@@ -171,6 +173,104 @@ typedef ezHybridString<48> ezString48;
 typedef ezHybridString<64> ezString64;
 typedef ezHybridString<128> ezString128;
 typedef ezHybridString<256> ezString256;
+
+template<>
+struct ezCompareHelper<ezString>
+{
+  template <typename DerivedLhs, typename DerivedRhs>
+  EZ_ALWAYS_INLINE bool Less(const ezStringBase<DerivedLhs>& lhs, const ezStringBase<DerivedRhs>& rhs) const
+  {
+    return ezStringUtils::Compare(lhs.InternalGetData(), rhs.InternalGetData(), lhs.InternalGetDataEnd(), rhs.InternalGetDataEnd()) < 0;
+  }
+
+  template <typename DerivedRhs>
+  EZ_ALWAYS_INLINE bool Less(const char* lhs, const ezStringBase<DerivedRhs>& rhs) const
+  {
+    return rhs.Compare(lhs) > 0;
+  }
+
+  template <typename DerivedLhs>
+  EZ_ALWAYS_INLINE bool Less(const ezStringBase<DerivedLhs>& lhs, const char* rhs) const
+  {
+    return lhs.Compare(rhs) < 0;
+  }
+
+  template <typename DerivedLhs, typename DerivedRhs>
+  EZ_ALWAYS_INLINE bool Equal(const ezStringBase<DerivedLhs>& lhs, const ezStringBase<DerivedRhs>& rhs) const
+  {
+    return ezStringUtils::IsEqual(lhs.InternalGetData(), rhs.InternalGetData(), lhs.InternalGetDataEnd(), rhs.InternalGetDataEnd());
+  }
+
+  template <typename DerivedRhs>
+  EZ_ALWAYS_INLINE bool Equal(const char* lhs, const ezStringBase<DerivedRhs>& rhs) const
+  {
+    return rhs.IsEqual(lhs);
+  }
+
+  template <typename DerivedLhs>
+  EZ_ALWAYS_INLINE bool Equal(const ezStringBase<DerivedLhs>& lhs, const char* rhs) const
+  {
+    return lhs.IsEqual(rhs);
+  }
+};
+
+struct ezCompareString_NoCase
+{
+  template <typename DerivedLhs, typename DerivedRhs>
+  EZ_ALWAYS_INLINE bool Less(const ezStringBase<DerivedLhs>& lhs, const ezStringBase<DerivedRhs>& rhs) const
+  {
+    return ezStringUtils::Compare_NoCase(lhs.InternalGetData(), rhs.InternalGetData(), lhs.InternalGetDataEnd(), rhs.InternalGetDataEnd()) < 0;
+  }
+
+  template <typename DerivedRhs>
+  EZ_ALWAYS_INLINE bool Less(const char* lhs, const ezStringBase<DerivedRhs>& rhs) const
+  {
+    return rhs.Compare_NoCase(lhs) > 0;
+  }
+
+  template <typename DerivedLhs>
+  EZ_ALWAYS_INLINE bool Less(const ezStringBase<DerivedLhs>& lhs, const char* rhs) const
+  {
+    return lhs.Compare_NoCase(rhs) < 0;
+  }
+
+  template <typename DerivedLhs, typename DerivedRhs>
+  EZ_ALWAYS_INLINE bool Equal(const ezStringBase<DerivedLhs>& lhs, const ezStringBase<DerivedRhs>& rhs) const
+  {
+    return ezStringUtils::IsEqual_NoCase(lhs.InternalGetData(), rhs.InternalGetData(), lhs.InternalGetDataEnd(), rhs.InternalGetDataEnd());
+  }
+
+  template <typename DerivedRhs>
+  EZ_ALWAYS_INLINE bool Equal(const char* lhs, const ezStringBase<DerivedRhs>& rhs) const
+  {
+    return rhs.IsEqual_NoCase(lhs);
+  }
+
+  template <typename DerivedLhs>
+  EZ_ALWAYS_INLINE bool Equal(const ezStringBase<DerivedLhs>& lhs, const char* rhs) const
+  {
+    return lhs.IsEqual_NoCase(rhs);
+  }
+};
+
+struct CompareConstChar
+{
+  /// \brief Returns true if a is less than b
+  EZ_ALWAYS_INLINE bool Less(const char* a, const char* b) const
+  {
+    return ezStringUtils::Compare(a, b) < 0;
+  }
+
+  /// \brief Returns true if a is equal to b
+  EZ_ALWAYS_INLINE bool Equal(const char* a, const char* b) const
+  {
+    return ezStringUtils::IsEqual(a, b);
+  }
+};
+
+// For ezFormatString
+EZ_FOUNDATION_DLL ezStringView BuildString(char* tmp, ezUInt32 uiLength, const ezString& arg);
+EZ_FOUNDATION_DLL ezStringView BuildString(char* tmp, ezUInt32 uiLength, const ezUntrackedString& arg);
 
 #include <Foundation/Strings/Implementation/String_inl.h>
 

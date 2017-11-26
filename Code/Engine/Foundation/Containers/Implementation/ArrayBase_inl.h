@@ -1,15 +1,16 @@
-
+﻿
 template <typename T, typename Derived>
 ezArrayBase<T, Derived>::ezArrayBase()
 {
   m_pElements = nullptr;
   m_uiCount = 0;
+  m_uiCapacity = 0;
 }
 
 template <typename T, typename Derived>
 ezArrayBase<T, Derived>::~ezArrayBase()
 {
-  EZ_ASSERT_DEBUG(m_uiCount == 0, "The derived class did not destruct all objects. Count is %i.", m_uiCount);
+  EZ_ASSERT_DEBUG(m_uiCount == 0, "The derived class did not destruct all objects. Count is {0}.", m_uiCount);
   EZ_ASSERT_DEBUG(m_pElements == nullptr, "The derived class did not free its memory.");
 }
 
@@ -26,7 +27,7 @@ void ezArrayBase<T, Derived>::operator= (const ezArrayPtr<const T>& rhs)
   {
     static_cast<Derived*>(this)->Reserve(uiNewCount);
     ezMemoryUtils::Copy(m_pElements, rhs.GetPtr(), uiOldCount);
-    ezMemoryUtils::CopyConstruct(m_pElements + uiOldCount, rhs.GetPtr() + uiOldCount, uiNewCount - uiOldCount);
+    ezMemoryUtils::CopyConstructArray(m_pElements + uiOldCount, rhs.GetPtr() + uiOldCount, uiNewCount - uiOldCount);
   }
   else
   {
@@ -38,13 +39,13 @@ void ezArrayBase<T, Derived>::operator= (const ezArrayPtr<const T>& rhs)
 }
 
 template <typename T, typename Derived>
-EZ_FORCE_INLINE ezArrayBase<T, Derived>::operator ezArrayPtr<const T>() const
+EZ_ALWAYS_INLINE ezArrayBase<T, Derived>::operator ezArrayPtr<const T>() const
 {
   return ezArrayPtr<const T>(m_pElements, m_uiCount);
 }
 
 template <typename T, typename Derived>
-EZ_FORCE_INLINE ezArrayBase<T, Derived>::operator ezArrayPtr<T>()
+EZ_ALWAYS_INLINE ezArrayBase<T, Derived>::operator ezArrayPtr<T>()
 {
   return ezArrayPtr<T>(m_pElements, m_uiCount);
 }
@@ -59,22 +60,22 @@ bool ezArrayBase<T, Derived>::operator== (const ezArrayPtr<const T>& rhs) const
 }
 
 template <typename T, typename Derived>
-EZ_FORCE_INLINE bool ezArrayBase<T, Derived>::operator!= (const ezArrayPtr<const T>& rhs) const
+EZ_ALWAYS_INLINE bool ezArrayBase<T, Derived>::operator!= (const ezArrayPtr<const T>& rhs) const
 {
   return !(*this == rhs);
 }
 
 template <typename T, typename Derived>
-EZ_FORCE_INLINE const T& ezArrayBase<T, Derived>::operator[](const ezUInt32 uiIndex) const
+EZ_ALWAYS_INLINE const T& ezArrayBase<T, Derived>::operator[](const ezUInt32 uiIndex) const
 {
-  EZ_ASSERT_DEV(uiIndex < m_uiCount, "Out of bounds access. Array has %i elements, trying to access element at index %i.", m_uiCount, uiIndex);
+  EZ_ASSERT_DEV(uiIndex < m_uiCount, "Out of bounds access. Array has {0} elements, trying to access element at index {1}.", m_uiCount, uiIndex);
   return m_pElements[uiIndex];
 }
 
 template <typename T, typename Derived>
-EZ_FORCE_INLINE T& ezArrayBase<T, Derived>::operator[](const ezUInt32 uiIndex)
+EZ_ALWAYS_INLINE T& ezArrayBase<T, Derived>::operator[](const ezUInt32 uiIndex)
 {
-  EZ_ASSERT_DEV(uiIndex < m_uiCount, "Out of bounds access. Array has %i elements, trying to access element at index %i.", m_uiCount, uiIndex);
+  EZ_ASSERT_DEV(uiIndex < m_uiCount, "Out of bounds access. Array has {0} elements, trying to access element at index {1}.", m_uiCount, uiIndex);
   return m_pElements[uiIndex];
 }
 
@@ -117,13 +118,13 @@ void ezArrayBase<T, Derived>::SetCountUninitialized(ezUInt32 uiCount)
 }
 
 template <typename T, typename Derived>
-EZ_FORCE_INLINE ezUInt32 ezArrayBase<T, Derived>::GetCount() const
+EZ_ALWAYS_INLINE ezUInt32 ezArrayBase<T, Derived>::GetCount() const
 {
   return m_uiCount;
 }
 
 template <typename T, typename Derived>
-EZ_FORCE_INLINE bool ezArrayBase<T, Derived>::IsEmpty() const
+EZ_ALWAYS_INLINE bool ezArrayBase<T, Derived>::IsEmpty() const
 {
   return m_uiCount == 0;
 }
@@ -144,7 +145,7 @@ bool ezArrayBase<T, Derived>::Contains(const T& value) const
 template <typename T, typename Derived>
 void ezArrayBase<T, Derived>::Insert(const T& value, ezUInt32 uiIndex)
 {
-  EZ_ASSERT_DEV(uiIndex <= m_uiCount, "Invalid index. Array has %i elements, trying to insert element at index %i.", m_uiCount, uiIndex);
+  EZ_ASSERT_DEV(uiIndex <= m_uiCount, "Invalid index. Array has {0} elements, trying to insert element at index {1}.", m_uiCount, uiIndex);
 
   static_cast<Derived*>(this)->Reserve(m_uiCount + 1);
 
@@ -155,7 +156,7 @@ void ezArrayBase<T, Derived>::Insert(const T& value, ezUInt32 uiIndex)
 template <typename T, typename Derived>
 void ezArrayBase<T, Derived>::Insert(T&& value, ezUInt32 uiIndex)
 {
-  EZ_ASSERT_DEV(uiIndex <= m_uiCount, "Invalid index. Array has %i elements, trying to insert element at index %i.", m_uiCount, uiIndex);
+  EZ_ASSERT_DEV(uiIndex <= m_uiCount, "Invalid index. Array has {0} elements, trying to insert element at index {1}.", m_uiCount, uiIndex);
 
   static_cast<Derived*>(this)->Reserve(m_uiCount + 1);
 
@@ -190,7 +191,7 @@ bool ezArrayBase<T, Derived>::RemoveSwap(const T& value)
 template <typename T, typename Derived>
 void ezArrayBase<T, Derived>::RemoveAt(ezUInt32 uiIndex)
 {
-  EZ_ASSERT_DEV(uiIndex < m_uiCount, "Out of bounds access. Array has %i elements, trying to remove element at index %i.", m_uiCount, uiIndex);
+  EZ_ASSERT_DEV(uiIndex < m_uiCount, "Out of bounds access. Array has {0} elements, trying to remove element at index {1}.", m_uiCount, uiIndex);
 
   m_uiCount--;
   ezMemoryUtils::RelocateOverlapped(m_pElements + uiIndex, m_pElements + uiIndex + 1, m_uiCount - uiIndex);
@@ -199,7 +200,7 @@ void ezArrayBase<T, Derived>::RemoveAt(ezUInt32 uiIndex)
 template <typename T, typename Derived>
 void ezArrayBase<T, Derived>::RemoveAtSwap(ezUInt32 uiIndex)
 {
-  EZ_ASSERT_DEV(uiIndex < m_uiCount, "Out of bounds access. Array has %i elements, trying to remove element at index %i.", m_uiCount, uiIndex);
+  EZ_ASSERT_DEV(uiIndex < m_uiCount, "Out of bounds access. Array has {0} elements, trying to remove element at index {1}.", m_uiCount, uiIndex);
 
   m_uiCount--;
   if (m_uiCount != uiIndex)
@@ -287,14 +288,14 @@ void ezArrayBase<T, Derived>::PushBackRange(const ezArrayPtr<const T>& range)
   const ezUInt32 uiRangeCount = range.GetCount();
   static_cast<Derived*>(this)->Reserve(m_uiCount + uiRangeCount);
 
-  ezMemoryUtils::CopyConstruct(m_pElements + m_uiCount, range.GetPtr(), uiRangeCount);
+  ezMemoryUtils::CopyConstructArray(m_pElements + m_uiCount, range.GetPtr(), uiRangeCount);
   m_uiCount += uiRangeCount;
 }
 
 template <typename T, typename Derived>
 void ezArrayBase<T, Derived>::PopBack(ezUInt32 uiCountToRemove /* = 1 */)
 {
-  EZ_ASSERT_DEV(m_uiCount >= uiCountToRemove, "Out of bounds access. Array has %i elements, trying to pop %i elements.", m_uiCount, uiCountToRemove);
+  EZ_ASSERT_DEV(m_uiCount >= uiCountToRemove, "Out of bounds access. Array has {0} elements, trying to pop {1} elements.", m_uiCount, uiCountToRemove);
 
   m_uiCount -= uiCountToRemove;
   ezMemoryUtils::Destruct(m_pElements + m_uiCount, uiCountToRemove);
@@ -336,7 +337,7 @@ void ezArrayBase<T, Derived>::Sort()
 }
 
 template <typename T, typename Derived>
-T* ezArrayBase<T, Derived>::GetData()
+EZ_ALWAYS_INLINE T* ezArrayBase<T, Derived>::GetData()
 {
   if (IsEmpty())
     return nullptr;
@@ -345,7 +346,7 @@ T* ezArrayBase<T, Derived>::GetData()
 }
 
 template <typename T, typename Derived>
-const T* ezArrayBase<T, Derived>::GetData() const
+EZ_ALWAYS_INLINE const T* ezArrayBase<T, Derived>::GetData() const
 {
   if (IsEmpty())
     return nullptr;
@@ -354,13 +355,34 @@ const T* ezArrayBase<T, Derived>::GetData() const
 }
 
 template <typename T, typename Derived>
-ezArrayPtr<T> ezArrayBase<T, Derived>::GetArrayPtr()
+EZ_ALWAYS_INLINE ezArrayPtr<T> ezArrayBase<T, Derived>::GetArrayPtr()
 {
     return ezArrayPtr<T>(GetData(), GetCount());
 }
 
 template <typename T, typename Derived>
-ezArrayPtr<const T> ezArrayBase<T, Derived>::GetArrayPtr() const
+EZ_ALWAYS_INLINE ezArrayPtr<const T> ezArrayBase<T, Derived>::GetArrayPtr() const
 {
     return ezArrayPtr<const T>(GetData(), GetCount());
 }
+
+template <typename T, typename Derived>
+EZ_ALWAYS_INLINE ezArrayPtr<typename ezArrayPtr<T>::ByteType> ezArrayBase<T, Derived>::GetByteArrayPtr()
+{
+  return GetArrayPtr().ToByteArray();
+}
+
+template <typename T, typename Derived>
+EZ_ALWAYS_INLINE ezArrayPtr<typename ezArrayPtr<const T>::ByteType> ezArrayBase<T, Derived>::GetByteArrayPtr() const
+{
+  return GetArrayPtr().ToByteArray();
+}
+
+template <typename T, typename Derived>
+void ezArrayBase<T, Derived>::DoSwap(ezArrayBase<T, Derived>& other)
+{
+  ezMath::Swap(this->m_pElements, other.m_pElements);
+  ezMath::Swap(this->m_uiCapacity, other.m_uiCapacity);
+  ezMath::Swap(this->m_uiCount, other.m_uiCount);
+}
+

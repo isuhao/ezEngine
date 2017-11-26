@@ -1,4 +1,4 @@
-#cmake
+﻿#cmake
 
 #
 # Copy this file into the folder of an engine library to add it to the solution.
@@ -20,12 +20,6 @@ BUILD_CONDITIONAL(BUILDSYSTEM_PLATFORM_WINDOWS)
 # Set this to true, if your application is a real win32 app (not a console app)
 SET (IS_WIN32_APPLICATION true)
 
-# Enables the use of Qt in this project and sets up the required modules.
-QT_MODULES(Core Gui Widgets Network)
-
-# Call this in case this project does not function without Qt.
-BUILD_REQUIRES_QT()
-
 BUILD_REQUIRES_DX11()
 
 # Add all the libraries that this project needs to link against here
@@ -38,16 +32,35 @@ SET (LINK_LIBRARIES
   RendererFoundation
   RendererDX11
   RendererCore
-  CoreUtils
-  EditorFramework
-  GameFoundation
-  GameUtils
+  EditorEngineProcessFramework
+  GameEngine
+  InputXBox360
 )
 
 SET (ADDITIONAL_DEPENDENCIES
   ShaderCompilerHLSL
   EnginePluginScene
+  EnginePluginAssets
+  EnginePluginParticle
+  RecastPlugin
+  InspectorPlugin
 )
+
+# For plugins to work in UWP builds, they must be direct link dependencies, otherwise they are not packaged with the app.
+if (BUILDSYSTEM_PLATFORM_WINDOWS_UWP)
+  LIST(APPEND LINK_LIBRARIES InspectorPlugin)
+
+  if (EZ_BUILD_FMOD)
+  LIST(APPEND LINK_LIBRARIES "FmodPlugin")
+  endif()
+
+  if (EZ_BUILD_PHYSX)
+    LIST(APPEND LINK_LIBRARIES "PhysXPlugin" "PhysXCooking")
+  endif()
+endif()
+
+AddPhysX(TRUE)
+AddFmod()
 
 include (${CMAKE_SOURCE_DIR}/Code/BuildSystem/CMake/CMAKE_Application.txt)
 

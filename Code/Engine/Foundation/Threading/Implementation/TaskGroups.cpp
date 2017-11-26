@@ -1,13 +1,17 @@
-#include <Foundation/PCH.h>
+#include <PCH.h>
+#include <Foundation/Profiling/Profiling.h>
 #include <Foundation/Threading/TaskSystem.h>
 #include <Foundation/Threading/Lock.h>
-#include <Foundation/Configuration/Startup.h>
-#include <Foundation/Math/Math.h>
 
 ezTaskGroupID::ezTaskGroupID()
 {
   m_pTaskGroup = nullptr;
   m_uiGroupCounter = 0;
+}
+
+bool ezTaskGroupID::IsValid() const
+{
+  return m_pTaskGroup != nullptr;
 }
 
 ezTaskGroup::ezTaskGroup()
@@ -72,8 +76,6 @@ void ezTaskSystem::AddTaskToGroup(ezTaskGroupID Group, ezTask* pTask)
   pTask->Reset();
   pTask->m_BelongsToGroup = Group;
   Group.m_pTaskGroup->m_Tasks.PushBack(pTask);
-
-  pTask->CreateProfilingID();
 }
 
 void ezTaskSystem::AddTaskGroupDependency(ezTaskGroupID Group, ezTaskGroupID DependsOn)
@@ -130,7 +132,7 @@ void ezTaskSystem::StartTaskGroup(ezTaskGroupID Group)
 bool ezTaskSystem::IsTaskGroupFinished(ezTaskGroupID Group)
 {
   // if the counters differ, the task group has been reused since the GroupID was created, so that group has finished
-  return Group.m_pTaskGroup->m_uiGroupCounter != Group.m_uiGroupCounter;
+  return (Group.m_pTaskGroup == nullptr) || (Group.m_pTaskGroup->m_uiGroupCounter != Group.m_uiGroupCounter);
 }
 
 void ezTaskSystem::ScheduleGroupTasks(ezTaskGroup* pGroup)
@@ -211,7 +213,7 @@ void ezTaskSystem::WaitForGroup(ezTaskGroupID Group)
   // This function is less goal oriented, it does not try to pick out tasks that belong to the given group (at the moment)
   // It simply helps running tasks, until the given Group has been finished as well
 
-  EZ_PROFILE(s_ProfileWaitForGroup);
+  EZ_PROFILE("WaitForGroup");
 
   const bool bIsMainThread = ezThreadUtils::IsMainThread();
 
@@ -246,7 +248,7 @@ ezResult ezTaskSystem::CancelGroup(ezTaskGroupID Group, ezOnTaskRunning::Enum On
   if (ezTaskSystem::IsTaskGroupFinished(Group))
     return EZ_SUCCESS;
 
-  EZ_PROFILE(s_ProfileCancelGroup);
+  EZ_PROFILE("CancelGroup");
 
   EZ_LOCK(s_TaskSystemMutex);
 

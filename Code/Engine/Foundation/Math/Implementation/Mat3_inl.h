@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 template<typename Type>
 ezMat3Template<Type>::ezMat3Template()
@@ -29,7 +29,7 @@ ezMat3Template<Type>::ezMat3Template(Type c1r1, Type c2r1, Type c3r1,
 }
 
 template<typename Type>
-EZ_FORCE_INLINE const ezMat3Template<Type> ezMat3Template<Type>::IdentityMatrix()
+EZ_ALWAYS_INLINE const ezMat3Template<Type> ezMat3Template<Type>::IdentityMatrix()
 {
   return ezMat3Template<Type>(1, 0, 0,
                 0, 1, 0,
@@ -37,7 +37,7 @@ EZ_FORCE_INLINE const ezMat3Template<Type> ezMat3Template<Type>::IdentityMatrix(
 }
 
 template<typename Type>
-EZ_FORCE_INLINE const ezMat3Template<Type> ezMat3Template<Type>::ZeroMatrix()
+EZ_ALWAYS_INLINE const ezMat3Template<Type> ezMat3Template<Type>::ZeroMatrix()
 {
   return ezMat3Template<Type>(0, 0, 0,
                 0, 0, 0,
@@ -45,7 +45,7 @@ EZ_FORCE_INLINE const ezMat3Template<Type> ezMat3Template<Type>::ZeroMatrix()
 }
 
 template<typename Type>
-void ezMat3Template<Type>::SetFromArray(const Type* EZ_RESTRICT const pData, ezMatrixLayout::Enum layout)
+void ezMat3Template<Type>::SetFromArray(const Type* const pData, ezMatrixLayout::Enum layout)
 {
   if (layout == ezMatrixLayout::ColumnMajor)
   {
@@ -175,7 +175,7 @@ const ezMat3Template<Type> ezMat3Template<Type>::GetInverse() const
 template<typename Type>
 ezVec3Template<Type> ezMat3Template<Type>::GetRow(ezUInt32 uiRow) const
 {
-  EZ_ASSERT_DEBUG(uiRow <= 2, "Invalid Row Index %d", uiRow);
+  EZ_ASSERT_DEBUG(uiRow <= 2, "Invalid Row Index {0}", uiRow);
 
   ezVec3Template<Type> r;
   r.x = Element(0, uiRow);
@@ -189,7 +189,7 @@ ezVec3Template<Type> ezMat3Template<Type>::GetRow(ezUInt32 uiRow) const
 template<typename Type>
 void ezMat3Template<Type>::SetRow(ezUInt32 uiRow, const ezVec3Template<Type>& row)
 {
-  EZ_ASSERT_DEBUG(uiRow <= 2, "Invalid Row Index %d", uiRow);
+  EZ_ASSERT_DEBUG(uiRow <= 2, "Invalid Row Index {0}", uiRow);
 
   Element(0, uiRow) = row.x;
   Element(1, uiRow) = row.y;
@@ -199,7 +199,7 @@ void ezMat3Template<Type>::SetRow(ezUInt32 uiRow, const ezVec3Template<Type>& ro
 template<typename Type>
 ezVec3Template<Type> ezMat3Template<Type>::GetColumn(ezUInt32 uiColumn) const
 {
-  EZ_ASSERT_DEBUG(uiColumn <= 2, "Invalid Column Index %d", uiColumn);
+  EZ_ASSERT_DEBUG(uiColumn <= 2, "Invalid Column Index {0}", uiColumn);
 
   ezVec3Template<Type> r;
   r.x = Element(uiColumn, 0);
@@ -213,7 +213,7 @@ ezVec3Template<Type> ezMat3Template<Type>::GetColumn(ezUInt32 uiColumn) const
 template<typename Type>
 void ezMat3Template<Type>::SetColumn(ezUInt32 uiColumn, const ezVec3Template<Type>& column)
 {
-  EZ_ASSERT_DEBUG(uiColumn <= 2, "Invalid Column Index %d", uiColumn);
+  EZ_ASSERT_DEBUG(uiColumn <= 2, "Invalid Column Index {0}", uiColumn);
 
   Element(uiColumn, 0) = column.x;
   Element(uiColumn, 1) = column.y;
@@ -281,7 +281,7 @@ const ezMat3Template<Type> operator* (const ezMat3Template<Type>& m1, const ezMa
 }
 
 template<typename Type>
-EZ_FORCE_INLINE const ezVec3Template<Type> operator* (const ezMat3Template<Type>& m, const ezVec3Template<Type>& v)
+EZ_ALWAYS_INLINE const ezVec3Template<Type> operator* (const ezMat3Template<Type>& m, const ezVec3Template<Type>& v)
 {
   return m.TransformDirection(v);
 }
@@ -291,7 +291,7 @@ EZ_FORCE_INLINE const ezVec3Template<Type> operator* (const ezMat3Template<Type>
 // *** free functions ***
 
 template<typename Type>
-EZ_FORCE_INLINE const ezMat3Template<Type> operator* (Type f, const ezMat3Template<Type>& m1)
+EZ_ALWAYS_INLINE const ezMat3Template<Type> operator* (Type f, const ezMat3Template<Type>& m1)
 {
   return operator* (m1, f);
 }
@@ -310,7 +310,7 @@ const ezMat3Template<Type> operator* (const ezMat3Template<Type>& m1, Type f)
 }
 
 template<typename Type>
-EZ_FORCE_INLINE const ezMat3Template<Type> operator/ (const ezMat3Template<Type>& m1, Type f)
+EZ_ALWAYS_INLINE const ezMat3Template<Type> operator/ (const ezMat3Template<Type>& m1, Type f)
 {
   return operator* (m1, ezMath::Invert(f));
 }
@@ -374,13 +374,13 @@ bool ezMat3Template<Type>::IsEqual(const ezMat3Template<Type>& rhs, Type fEpsilo
 }
 
 template<typename Type>
-EZ_FORCE_INLINE bool operator== (const ezMat3Template<Type>& lhs, const ezMat3Template<Type>& rhs)
+EZ_ALWAYS_INLINE bool operator== (const ezMat3Template<Type>& lhs, const ezMat3Template<Type>& rhs)
 {
   return lhs.IsIdentical(rhs);
 }
 
 template<typename Type>
-EZ_FORCE_INLINE bool operator!= (const ezMat3Template<Type>& lhs, const ezMat3Template<Type>& rhs)
+EZ_ALWAYS_INLINE bool operator!= (const ezMat3Template<Type>& lhs, const ezMat3Template<Type>& rhs)
 {
   return !lhs.IsIdentical(rhs);
 }
@@ -473,6 +473,19 @@ ezResult ezMat3Template<Type>::SetScalingFactors(const ezVec3Template<Type>& vXY
   Element(2, 0) = tz.x; Element(2, 1) = tz.y; Element(2, 2) = tz.z;
 
   return EZ_SUCCESS;
+}
+
+template<typename Type>
+Type ezMat3Template<Type>::GetDeterminant() const
+{
+  // Using rule of Sarrus
+  Type fDeterminant = 0;
+  for (int i = 0; i < 3; i++)
+  {
+    fDeterminant += Element(i, 0) * Element((i + 1) % 3, 1) * Element((i + 2) % 3, 2);
+    fDeterminant -= Element(i, 2) * Element((i + 1) % 3, 1) * Element((i + 2) % 3, 0);
+  }
+  return fDeterminant;
 }
 
 #include <Foundation/Math/Implementation/AllClasses_inl.h>

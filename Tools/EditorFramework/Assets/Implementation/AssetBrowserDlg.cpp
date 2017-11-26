@@ -1,30 +1,32 @@
 #include <PCH.h>
 #include <EditorFramework/Assets/AssetBrowserDlg.moc.h>
 #include <EditorFramework/EditorApp/EditorApp.moc.h>
+#include <EditorFramework/Assets/AssetBrowserModel.moc.h>
+#include <EditorFramework/Assets/AssetBrowserFilter.moc.h>
+
 #include <QSettings>
 #include <QFileDialog>
 
-bool ezAssetBrowserDlg::s_bShowItemsInSubFolder = true;
-bool ezAssetBrowserDlg::s_bSortByRecentUse = true;
-ezMap<ezString, ezString> ezAssetBrowserDlg::s_sTextFilter;
-ezMap<ezString, ezString> ezAssetBrowserDlg::s_sPathFilter;
-ezMap<ezString, ezString> ezAssetBrowserDlg::s_sTypeFilter;
+bool ezQtAssetBrowserDlg::s_bShowItemsInSubFolder = true;
+bool ezQtAssetBrowserDlg::s_bShowItemsInHiddenFolder = false;
+bool ezQtAssetBrowserDlg::s_bSortByRecentUse = true;
+ezMap<ezString, ezString> ezQtAssetBrowserDlg::s_sTextFilter;
+ezMap<ezString, ezString> ezQtAssetBrowserDlg::s_sPathFilter;
+ezMap<ezString, ezString> ezQtAssetBrowserDlg::s_sTypeFilter;
 
-ezAssetBrowserDlg::ezAssetBrowserDlg(QWidget* parent, const char* szPreselectedAsset, const char* szVisibleFilters) : QDialog(parent)
+ezQtAssetBrowserDlg::ezQtAssetBrowserDlg(QWidget* parent, const ezUuid& preselectedAsset, const char* szVisibleFilters) : QDialog(parent)
 {
   setupUi(this);
 
   m_sVisibleFilters = szVisibleFilters;
+  ButtonSelect->setEnabled(false);
 
-  /// \todo Implement this
-  //m_sSelectedPath = szPreselectedAsset;
+  AssetBrowserWidget->SetSelectedAsset(preselectedAsset);
 
-  // Ok / Cancel buttons are disable atm
-  ButtonOk->setVisible(false);
-  ButtonCancel->setVisible(false);
-
-  AssetBrowserWidget->SetSelectedAsset(szPreselectedAsset);
-  AssetBrowserWidget->ShowOnlyTheseTypeFilters(szVisibleFilters);
+  if (!ezStringUtils::IsEqual(szVisibleFilters, ";;")) // that's an empty filter list
+  {
+    AssetBrowserWidget->ShowOnlyTheseTypeFilters(szVisibleFilters);
+  }
 
   QSettings Settings;
   Settings.beginGroup(QLatin1String("AssetBrowserDlg"));
@@ -37,28 +39,30 @@ ezAssetBrowserDlg::ezAssetBrowserDlg(QWidget* parent, const char* szPreselectedA
 
   AssetBrowserWidget->SetDialogMode();
   AssetBrowserWidget->RestoreState("AssetBrowserDlg");
-  AssetBrowserWidget->GetAssetBrowserModel()->SetSortByRecentUse(s_bSortByRecentUse);
-  AssetBrowserWidget->GetAssetBrowserModel()->SetShowItemsInSubFolders(s_bShowItemsInSubFolder);
+  AssetBrowserWidget->GetAssetBrowserFilter()->SetSortByRecentUse(s_bSortByRecentUse);
+  AssetBrowserWidget->GetAssetBrowserFilter()->SetShowItemsInSubFolders(s_bShowItemsInSubFolder);
+  AssetBrowserWidget->GetAssetBrowserFilter()->SetShowItemsInHiddenFolders(s_bShowItemsInHiddenFolder);
 
   if (!s_sTextFilter[m_sVisibleFilters].IsEmpty())
-    AssetBrowserWidget->GetAssetBrowserModel()->SetTextFilter(s_sTextFilter[m_sVisibleFilters]);
+    AssetBrowserWidget->GetAssetBrowserFilter()->SetTextFilter(s_sTextFilter[m_sVisibleFilters]);
 
   if (!s_sPathFilter[m_sVisibleFilters].IsEmpty())
-    AssetBrowserWidget->GetAssetBrowserModel()->SetPathFilter(s_sPathFilter[m_sVisibleFilters]);
+    AssetBrowserWidget->GetAssetBrowserFilter()->SetPathFilter(s_sPathFilter[m_sVisibleFilters]);
 
   if (!s_sTypeFilter[m_sVisibleFilters].IsEmpty())
-    AssetBrowserWidget->GetAssetBrowserModel()->SetTypeFilter(s_sTypeFilter[m_sVisibleFilters]);
+    AssetBrowserWidget->GetAssetBrowserFilter()->SetTypeFilter(s_sTypeFilter[m_sVisibleFilters]);
 
-  AssetBrowserWidget->LineSearchFilter->setFocus();
+  AssetBrowserWidget->SearchWidget->setFocus();
 }
 
-ezAssetBrowserDlg::~ezAssetBrowserDlg()
+ezQtAssetBrowserDlg::~ezQtAssetBrowserDlg()
 {
-  s_bShowItemsInSubFolder = AssetBrowserWidget->GetAssetBrowserModel()->GetShowItemsInSubFolders();
-  s_bSortByRecentUse = AssetBrowserWidget->GetAssetBrowserModel()->GetSortByRecentUse();
-  s_sTextFilter[m_sVisibleFilters] = AssetBrowserWidget->GetAssetBrowserModel()->GetTextFilter();
-  s_sPathFilter[m_sVisibleFilters] = AssetBrowserWidget->GetAssetBrowserModel()->GetPathFilter();
-  s_sTypeFilter[m_sVisibleFilters] = AssetBrowserWidget->GetAssetBrowserModel()->GetTypeFilter();
+  s_bShowItemsInSubFolder = AssetBrowserWidget->GetAssetBrowserFilter()->GetShowItemsInSubFolders();
+  s_bShowItemsInHiddenFolder = AssetBrowserWidget->GetAssetBrowserFilter()->GetShowItemsInHiddenFolders();
+  s_bSortByRecentUse = AssetBrowserWidget->GetAssetBrowserFilter()->GetSortByRecentUse();
+  s_sTextFilter[m_sVisibleFilters] = AssetBrowserWidget->GetAssetBrowserFilter()->GetTextFilter();
+  s_sPathFilter[m_sVisibleFilters] = AssetBrowserWidget->GetAssetBrowserFilter()->GetPathFilter();
+  s_sTypeFilter[m_sVisibleFilters] = AssetBrowserWidget->GetAssetBrowserFilter()->GetTypeFilter();
 
   QSettings Settings;
   Settings.beginGroup(QLatin1String("AssetBrowserDlg"));
@@ -72,33 +76,40 @@ ezAssetBrowserDlg::~ezAssetBrowserDlg()
   AssetBrowserWidget->SaveState("AssetBrowserDlg");
 }
 
-void ezAssetBrowserDlg::on_AssetBrowserWidget_ItemSelected(QString sAssetGUID, QString sAssetPathRelative, QString sAssetPathAbsolute)
+void ezQtAssetBrowserDlg::on_AssetBrowserWidget_ItemSelected(ezUuid guid, QString sAssetPathRelative, QString sAssetPathAbsolute)
 {
-  m_sSelectedAssetGuid = sAssetGUID.toUtf8().data();
+  m_SelectedAssetGuid = guid;
   m_sSelectedAssetPathRelative = sAssetPathRelative.toUtf8().data();
   m_sSelectedAssetPathAbsolute = sAssetPathAbsolute.toUtf8().data();
+
+  ButtonSelect->setEnabled(m_SelectedAssetGuid.IsValid());
 }
 
-void ezAssetBrowserDlg::on_AssetBrowserWidget_ItemChosen(QString sAssetGUID, QString sAssetPathRelative, QString sAssetPathAbsolute)
+void ezQtAssetBrowserDlg::on_AssetBrowserWidget_ItemChosen(ezUuid guid, QString sAssetPathRelative, QString sAssetPathAbsolute)
 {
-  m_sSelectedAssetGuid = sAssetGUID.toUtf8().data();
+  m_SelectedAssetGuid = guid;
   m_sSelectedAssetPathRelative = sAssetPathRelative.toUtf8().data();
   m_sSelectedAssetPathAbsolute = sAssetPathAbsolute.toUtf8().data();
 
   accept();
 }
 
-void ezAssetBrowserDlg::on_ButtonFileDialog_clicked()
+void ezQtAssetBrowserDlg::on_AssetBrowserWidget_ItemCleared()
+{
+  ButtonSelect->setEnabled(false);
+}
+
+void ezQtAssetBrowserDlg::on_ButtonFileDialog_clicked()
 {
   hide();
 
   static QString sLastPath;
 
-  m_sSelectedAssetGuid.Clear();
+  m_SelectedAssetGuid = ezUuid();
   m_sSelectedAssetPathRelative.Clear();
   m_sSelectedAssetPathAbsolute.Clear();
 
-  const QString sFile = QFileDialog::getOpenFileName(QApplication::activeWindow(), QLatin1String("Open File"), sLastPath);
+  const QString sFile = QFileDialog::getOpenFileName(QApplication::activeWindow(), QLatin1String("Open File"), sLastPath, QString(), nullptr, QFileDialog::Option::DontResolveSymlinks);
 
   if (sFile.isEmpty())
   {
@@ -109,7 +120,7 @@ void ezAssetBrowserDlg::on_ButtonFileDialog_clicked()
   m_sSelectedAssetPathAbsolute = sFile.toUtf8().data();
   m_sSelectedAssetPathRelative = m_sSelectedAssetPathAbsolute;
 
-  if (!ezEditorApp::GetInstance()->MakePathDataDirectoryRelative(m_sSelectedAssetPathRelative))
+  if (!ezQtEditorApp::GetSingleton()->MakePathDataDirectoryRelative(m_sSelectedAssetPathRelative))
   {
     // \todo Message Box: Invalid Path
 
@@ -118,17 +129,12 @@ void ezAssetBrowserDlg::on_ButtonFileDialog_clicked()
   }
 
   sLastPath = sFile;
-  on_AssetBrowserWidget_ItemChosen("", QString::fromUtf8(m_sSelectedAssetPathRelative.GetData()), sFile);
+  on_AssetBrowserWidget_ItemChosen(ezUuid(), QString::fromUtf8(m_sSelectedAssetPathRelative.GetData()), sFile);
 }
 
-void ezAssetBrowserDlg::on_ButtonOk_clicked()
+void ezQtAssetBrowserDlg::on_ButtonSelect_clicked()
 {
   /// \todo Deactivate Ok button, when nothing is selectable
 
   accept();
-}
-
-void ezAssetBrowserDlg::on_ButtonCancel_clicked()
-{
-  reject();
 }

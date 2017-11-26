@@ -4,6 +4,8 @@
   #undef EZ_PLATFORM_WINDOWS
   #define EZ_PLATFORM_WINDOWS EZ_ON
 
+  // further distinction between desktop, UWP etc. is done in Platform_win.h
+
 #elif defined(__APPLE__) && defined(__MACH__)
   #include <TargetConditionals.h>
 

@@ -1,32 +1,41 @@
-#include <GuiFoundation/PCH.h>
+#include <PCH.h>
 #include <GuiFoundation/Action/ActionManager.h>
 #include <GuiFoundation/Action/DocumentActions.h>
 #include <GuiFoundation/Action/StandardMenus.h>
 #include <GuiFoundation/Action/CommandHistoryActions.h>
 #include <GuiFoundation/Action/EditActions.h>
 #include <Foundation/Configuration/Startup.h>
+#include <Foundation/IO/FileSystem/FileWriter.h>
+#include <Foundation/IO/FileSystem/FileReader.h>
+#include <Foundation/Logging/Log.h>
+#include <EditorFramework/EditorApp/EditorApp.moc.h>
+#include <ToolsFoundation/Application/ApplicationServices.h>
+#include <Foundation/IO/OpenDdlWriter.h>
+#include <Foundation/IO/OpenDdlReader.h>
+#include <Foundation/IO/FileSystem/DeferredFileWriter.h>
 
 EZ_BEGIN_SUBSYSTEM_DECLARATION(GuiFoundation, ActionManager)
 
-  BEGIN_SUBSYSTEM_DEPENDENCIES
-    "ToolsFoundation"
-  END_SUBSYSTEM_DEPENDENCIES
+BEGIN_SUBSYSTEM_DEPENDENCIES
+"ToolsFoundation"
+END_SUBSYSTEM_DEPENDENCIES
 
-  ON_CORE_STARTUP
-  {
-    ezActionManager::Startup();
-  }
+ON_CORE_STARTUP
+{
+  ezActionManager::Startup();
+}
 
-  ON_CORE_SHUTDOWN
-  {
-    ezActionManager::Shutdown();
-  }
+ON_CORE_SHUTDOWN
+{
+  ezActionManager::Shutdown();
+}
 
 EZ_END_SUBSYSTEM_DECLARATION
 
 ezEvent<const ezActionManager::Event&> ezActionManager::s_Events;
 ezIdTable<ezActionId, ezActionDescriptor*> ezActionManager::s_ActionTable;
 ezMap<ezString, ezActionManager::CategoryData> ezActionManager::s_CategoryPathToActions;
+ezMap<ezString, ezString> ezActionManager::s_ShortcutOverride;
 
 ////////////////////////////////////////////////////////////////////////
 // ezActionManager public functions
@@ -35,17 +44,24 @@ ezMap<ezString, ezActionManager::CategoryData> ezActionManager::s_CategoryPathTo
 ezActionDescriptorHandle ezActionManager::RegisterAction(const ezActionDescriptor& desc)
 {
   ezActionDescriptorHandle hType = GetActionHandle(desc.m_sCategoryPath, desc.m_sActionName);
-  EZ_ASSERT_DEV(hType.IsInvalidated(), "The action '%s' in category '%s' was already registered!", desc.m_sActionName.GetData(), desc.m_sCategoryPath.GetData());
+  EZ_ASSERT_DEV(hType.IsInvalidated(), "The action '{0}' in category '{1}' was already registered!", desc.m_sActionName, desc.m_sCategoryPath);
 
   ezActionDescriptor* pDesc = CreateActionDesc(desc);
-  
-  hType = s_ActionTable.Insert(pDesc);
+
+  // apply shortcut override
+  {
+    auto ovride = s_ShortcutOverride.Find(desc.m_sActionName);
+    if (ovride.IsValid())
+      pDesc->m_sShortcut = ovride.Value();
+  }
+
+  hType = ezActionDescriptorHandle(s_ActionTable.Insert(pDesc));
   pDesc->m_Handle = hType;
 
   auto it = s_CategoryPathToActions.FindOrAdd(pDesc->m_sCategoryPath);
   it.Value().m_Actions.Insert(hType);
   it.Value().m_ActionNameToHandle[pDesc->m_sActionName.GetData()] = hType;
-  
+
   {
     Event msg;
     msg.m_Type = Event::Type::ActionAdded;
@@ -106,6 +122,96 @@ ezActionDescriptorHandle ezActionManager::GetActionHandle(const char* szCategory
   return hAction;
 }
 
+
+void ezActionManager::SaveShortcutAssignment()
+{
+  ezStringBuilder sFile = ezApplicationServices::GetSingleton()->GetApplicationPreferencesFolder();
+  sFile.AppendPath("Settings/Shortcuts.ddl");
+
+  EZ_LOG_BLOCK("LoadShortcutAssignment", sFile.GetData());
+
+  ezDeferredFileWriter file;
+  file.SetOutput(sFile);
+
+  ezOpenDdlWriter writer;
+  writer.SetOutputStream(&file);
+  writer.SetCompactMode(false);
+  writer.SetPrimitiveTypeStringMode(ezOpenDdlWriter::TypeStringMode::Compliant);
+
+  ezStringBuilder sKey;
+
+  for (auto it = GetActionIterator(); it.IsValid(); ++it)
+  {
+    auto pAction = it.Value();
+
+    if (pAction->m_Type != ezActionType::Action)
+      continue;
+
+    if (pAction->m_sShortcut == pAction->m_sDefaultShortcut)
+      sKey.Set("default: ", pAction->m_sShortcut);
+    else
+      sKey = pAction->m_sShortcut;
+
+    writer.BeginPrimitiveList(ezOpenDdlPrimitiveType::String, pAction->m_sActionName);
+    writer.WriteString(sKey);
+    writer.EndPrimitiveList();
+  }
+
+  if (file.Close().Failed())
+  {
+    ezLog::Error("Failed to write shortcuts config file '{0}'", sFile);
+  }
+}
+
+void ezActionManager::LoadShortcutAssignment()
+{
+  ezStringBuilder sFile = ezApplicationServices::GetSingleton()->GetApplicationPreferencesFolder();
+  sFile.AppendPath("Settings/Shortcuts.ddl");
+
+  EZ_LOG_BLOCK("LoadShortcutAssignment", sFile.GetData());
+
+  ezFileReader file;
+  if (file.Open(sFile).Failed())
+  {
+    ezLog::Dev("No shortcuts file '{0}' was found", sFile);
+    return;
+  }
+
+  ezOpenDdlReader reader;
+  if (reader.ParseDocument(file, 0, ezLog::GetThreadLocalLogSystem()).Failed())
+    return;
+
+  const auto obj = reader.GetRootElement();
+
+  ezStringBuilder sKey, sValue;
+
+  for (auto pElement = obj->GetFirstChild(); pElement != nullptr; pElement = pElement->GetSibling())
+  {
+    if (!pElement->HasName() || !pElement->HasPrimitives(ezOpenDdlPrimitiveType::String))
+      continue;
+
+    sKey = pElement->GetName();
+    sValue = pElement->GetPrimitivesString()[0];
+
+    if (sValue.FindSubString_NoCase("default") != nullptr)
+      continue;
+
+    s_ShortcutOverride[sKey] = sValue;
+  }
+
+  // apply overrides
+  for (auto it = GetActionIterator(); it.IsValid(); ++it)
+  {
+    auto pAction = it.Value();
+
+    if (pAction->m_Type != ezActionType::Action)
+      continue;
+
+    auto ovride = s_ShortcutOverride.Find(pAction->m_sActionName);
+    if (ovride.IsValid())
+      pAction->m_sShortcut = ovride.Value();
+  }
+}
 
 ////////////////////////////////////////////////////////////////////////
 // ezActionManager private functions

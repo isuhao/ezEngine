@@ -1,44 +1,38 @@
 #pragma once
 
-#include <RendererCore/Basics.h>
-#include <Foundation/Strings/String.h>
+#include <RendererCore/Declarations.h>
+#include <Foundation/Containers/HashSet.h>
+#include <Foundation/Containers/HybridArray.h>
 #include <Foundation/Containers/Map.h>
-#include <Foundation/Containers/Set.h>
-#include <Foundation/Containers/Deque.h>
+#include <Foundation/Strings/HashedString.h>
 
-struct lua_State;
-
+/// \brief A helper class to iterate over all possible permutations.
+///
+/// Just add all permutation variables and their possible values.
+/// Then the number of possible permutations and each permutation
+/// can be queried.
 class EZ_RENDERERCORE_DLL ezPermutationGenerator
 {
 public:
 
-  struct PermutationVar
-  {
-    ezString m_sVariable;
-    ezString m_sValue;
-  };
+  /// \brief Resets everything.
+  void Clear();
 
-  void Clear() { m_Permutations.Clear(); }
+  /// \brief Removes all permutations for the given variable
+  void RemovePermutations(const ezHashedString& sPermVarName);
 
-  void AddPermutation(const char* szVariable, const char* szValue);
+  /// \brief Adds the name and one of the possible values of a permutation variable.
+  void AddPermutation(const ezHashedString& sName, const ezHashedString& sValue);
+
+  /// \brief Returns how many permutations are possible.
   ezUInt32 GetPermutationCount() const;
-  void GetPermutation(ezUInt32 uiPerm, ezHybridArray<PermutationVar, 16>& out_PermVars) const;
-  void RemoveVariable(const char* szVariable) { m_Permutations.Remove(szVariable); }
 
-  static ezUInt32 GetHash(const ezHybridArray<PermutationVar, 16>& PermVars);
-
-  const ezMap<ezString, ezSet<ezString> >& GetPermutationSet() const { return m_Permutations; }
-
-  void RemoveUnusedPermutations(const ezString& sUsedPermutations);
-
-  ezResult ReadFromFile(const char* szFile, const char* szPlatform);
-
-  bool IsValueAllowed(const char* szVariable, const char* szValue) const;
+  /// \brief Returns the n-th permutation.
+  void GetPermutation(ezUInt32 uiPerm, ezHybridArray<ezPermutationVar, 16>& out_PermVars) const; 
 
 private:
-  static int LUAFUNC_add(lua_State* state);
 
-  ezMap<ezString, ezSet<ezString> > m_Permutations;
+  ezMap<ezHashedString, ezHashSet<ezHashedString> > m_Permutations;
 };
 
 

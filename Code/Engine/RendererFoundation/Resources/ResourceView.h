@@ -1,19 +1,22 @@
-
+﻿
 #pragma once
 
-#include <RendererFoundation/Basics.h>
+#include <RendererFoundation/Resources/Resource.h>
 #include <RendererFoundation/Descriptors/Descriptors.h>
 
-class EZ_RENDERERFOUNDATION_DLL ezGALResourceView : public ezGALObjectBase<ezGALResourceViewCreationDescription>
+class EZ_RENDERERFOUNDATION_DLL ezGALResourceView : public ezGALObject<ezGALResourceViewCreationDescription>
 {
 public:
-
+  EZ_ALWAYS_INLINE ezGALResourceBase* GetResource() const
+  {
+    return m_pResource;
+  }
 
 protected:
 
   friend class ezGALDevice;
 
-  ezGALResourceView(const ezGALResourceViewCreationDescription& Description);
+  ezGALResourceView(ezGALResourceBase* pResource, const ezGALResourceViewCreationDescription& description);
 
   virtual ~ezGALResourceView();
 
@@ -21,4 +24,5 @@ protected:
 
   virtual ezResult DeInitPlatform(ezGALDevice* pDevice) = 0;
 
+  ezGALResourceBase* m_pResource;
 };

@@ -15,7 +15,7 @@ class ezResource;
 
 // resource handle type
 template<typename ResourceType>
-class ezResourceHandle;
+class ezTypedResourceHandle;
 
 /// \brief The flags of an ezResourceBase instance.
 struct EZ_CORE_DLL ezResourceFlags
@@ -25,12 +25,15 @@ struct EZ_CORE_DLL ezResourceFlags
   /// \brief The flags of an ezResourceBase instance.
   enum Enum
   {
-    UpdateOnMainThread    = EZ_BIT(0),  ///< After loading the resource data on a thread, it must be uploaded on the main thread. Use this for GPU resources etc. which require a context that is only available on the main thread.
+    UpdateOnMainThread    = EZ_BIT(0),  ///< After loading the resource data on a thread, it must be uploaded on the main thread. Use this for resources which require a context that is only available on the main thread.
     NoFileAccessRequired  = EZ_BIT(1),  ///< The resource 'loading' does not require file accesses and can therefore be done on one or several non-file-loading threads. Use this for procedurally generated data.
     /// \todo implement NoFileAccessRequired
     ResourceHasFallback   = EZ_BIT(2),  ///< Specifies whether this resource has a valid fallback resource that could be used. Automatically updated in ezResource::SetFallbackResource.
     IsReloadable          = EZ_BIT(3),  ///< The resource was created, not loaded from file
     IsPreloading          = EZ_BIT(4),
+    IsMissingFallback     = EZ_BIT(5),  ///< This flag will be set on resources that are used as a 'missing resource' fallback. By querying IsMissingResource() one can detect that the desired resource was not available.
+    HasCustomDataLoader   = EZ_BIT(6),  ///< True if someone wants to update a resource with custom data and has created a resource loader to update this specific resource
+    PreventFileReload     = EZ_BIT(7),  ///< Once this flag is set, no reloading from file is done, until the flag is manually removed. Automatically set when a custom loader is used. To restore a file to the disk state, this flag must be removed and then the resource can be reloaded.
     Default               = 0,
   };
 
@@ -41,6 +44,8 @@ struct EZ_CORE_DLL ezResourceFlags
     StorageType ResourceHasFallback   : 1;
     StorageType IsReloadable          : 1;
     StorageType IsPreloading          : 1;
+    StorageType IsMissingFallback     : 1;
+    StorageType HasCustomDataLoader   : 1;
   };
 };
 

@@ -1,10 +1,12 @@
-#pragma once
+﻿#pragma once
 
 #include <RendererCore/Basics.h>
 #include <Core/ResourceManager/Resource.h>
 #include <RendererFoundation/Descriptors/Descriptors.h>
+#include <Foundation/Math/BoundingBoxSphere.h>
 
-typedef ezResourceHandle<class ezMeshBufferResource> ezMeshBufferResourceHandle;
+typedef ezTypedResourceHandle<class ezMeshBufferResource> ezMeshBufferResourceHandle;
+class ezGeometry;
 
 struct EZ_RENDERERCORE_DLL ezVertexStreamInfo : public ezHashableStruct<ezVertexStreamInfo>
 {
@@ -30,12 +32,19 @@ struct EZ_RENDERERCORE_DLL ezMeshBufferResourceDescriptor
 public:
 
   ezMeshBufferResourceDescriptor();
+  ~ezMeshBufferResourceDescriptor();
+
+  void Clear();
 
   /// \brief Use this function to add vertex streams to the mesh buffer. The return value is the index of the just added stream.
   ezUInt32 AddStream(ezGALVertexAttributeSemantic::Enum Semantic, ezGALResourceFormat::Enum Format);
 
-  /// \brief After all streams are added, call this to allocate the data for the streams. If uiNumTriangles is 0, the mesh buffer will not use indexed rendering.
-  void AllocateStreams(ezUInt32 uiNumVertices, ezUInt32 uiNumTriangles = 0);
+  /// \brief After all streams are added, call this to allocate the data for the streams. If uiNumPrimitives is 0, the mesh buffer will not use indexed rendering.
+  void AllocateStreams(ezUInt32 uiNumVertices, ezGALPrimitiveTopology::Enum topology = ezGALPrimitiveTopology::Triangles, ezUInt32 uiNumPrimitives = 0);
+
+  /// \brief Creates streams and fills them with data from the ezGeometry. Only the geometry matching the given topology is used.
+  ///  Streams that do not match any of the data inside the ezGeometry directly are skipped.
+  void AllocateStreamsFromGeometry(const ezGeometry& geom, ezGALPrimitiveTopology::Enum topology = ezGALPrimitiveTopology::Triangles);
 
   /// \brief Gives read access to the allocated vertex data
   const ezDynamicArray<ezUInt8>& GetVertexBufferData() const;
@@ -60,6 +69,12 @@ public:
     reinterpret_cast<TYPE&>(m_VertexStreamData[m_uiVertexSize * uiVertexIndex + m_VertexDeclaration.m_VertexStreams[uiStream].m_uiOffset]) = data;
   }
 
+  /// \brief Writes the vertex index for the given point into the index buffer.
+  void SetPointIndices(ezUInt32 uiPoint, ezUInt32 uiVertex0);
+
+  /// \brief Writes the two vertex indices for the given line into the index buffer.
+  void SetLineIndices(ezUInt32 uiLine, ezUInt32 uiVertex0, ezUInt32 uiVertex1);
+
   /// \brief Writes the three vertex indices for the given triangle into the index buffer.
   void SetTriangleIndices(ezUInt32 uiTriangle, ezUInt32 uiVertex0, ezUInt32 uiVertex1, ezUInt32 uiVertex2);
 
@@ -81,8 +96,15 @@ public:
   /// \brief Returns whether an index buffer is available.
   bool HasIndexBuffer() const { return !m_IndexBufferData.IsEmpty(); }
 
+  /// \brief Calculates the bounds using the data from the position stream
+  ezBoundingBoxSphere ComputeBounds() const;
+
+  /// \brief Returns the primitive topology
+  ezGALPrimitiveTopology::Enum GetTopology() const { return m_Topology; }
+
 private:
 
+  ezGALPrimitiveTopology::Enum m_Topology;
   ezUInt32 m_uiVertexSize;
   ezUInt32 m_uiVertexCount;
   ezVertexDeclarationInfo m_VertexDeclaration;
@@ -92,39 +114,49 @@ private:
 
 class EZ_RENDERERCORE_DLL ezMeshBufferResource : public ezResource<ezMeshBufferResource, ezMeshBufferResourceDescriptor>
 {
-  EZ_ADD_DYNAMIC_REFLECTION(ezMeshBufferResource);
+  EZ_ADD_DYNAMIC_REFLECTION(ezMeshBufferResource, ezResourceBase);
 
 public:
   ezMeshBufferResource();
   ~ezMeshBufferResource();
 
-  EZ_FORCE_INLINE ezUInt32 GetPrimitiveCount() const
+  EZ_ALWAYS_INLINE ezUInt32 GetPrimitiveCount() const
   {
     return m_uiPrimitiveCount;
   }
 
-  EZ_FORCE_INLINE ezGALBufferHandle GetVertexBuffer() const
+  EZ_ALWAYS_INLINE ezGALBufferHandle GetVertexBuffer() const
   {
     return m_hVertexBuffer;
   }
 
-  EZ_FORCE_INLINE ezGALBufferHandle GetIndexBuffer() const
+  EZ_ALWAYS_INLINE ezGALBufferHandle GetIndexBuffer() const
   {
     return m_hIndexBuffer;
+  }
+
+  EZ_ALWAYS_INLINE ezGALPrimitiveTopology::Enum GetTopology() const
+  {
+    return m_Topology;
   }
 
   /// \brief Returns the vertex declaration used by this mesh buffer.
   const ezVertexDeclarationInfo& GetVertexDeclaration() const { return m_VertexDeclaration; }
 
+  /// \brief Returns the bounds of the mesh
+  const ezBoundingBoxSphere& GetBounds() const { return m_Bounds; }
+
 private:
   virtual ezResourceLoadDesc UnloadData(Unload WhatToUnload) override;
-  virtual ezResourceLoadDesc UpdateContent(ezStreamReaderBase* Stream) override;
+  virtual ezResourceLoadDesc UpdateContent(ezStreamReader* Stream) override;
   virtual void UpdateMemoryUsage(MemoryUsage& out_NewMemoryUsage) override;
   virtual ezResourceLoadDesc CreateResource(const ezMeshBufferResourceDescriptor& descriptor) override;
 
+  ezBoundingBoxSphere m_Bounds;
   ezVertexDeclarationInfo m_VertexDeclaration;
   ezUInt32 m_uiPrimitiveCount;
   ezGALBufferHandle m_hVertexBuffer;
   ezGALBufferHandle m_hIndexBuffer;
+  ezGALPrimitiveTopology::Enum m_Topology;
 };
 

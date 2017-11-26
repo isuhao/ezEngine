@@ -1,7 +1,5 @@
-#include <Foundation/PCH.h>
-#include <Foundation/Strings/StringUtils.h>
+#include <PCH.h>
 #include <Foundation/Strings/StringView.h>
-#include <Foundation/Math/Math.h>
 
 #if EZ_ENABLED(EZ_COMPILE_FOR_DEVELOPMENT)
 #include <Foundation/Logging/Log.h>
@@ -23,13 +21,13 @@ void ezStringUtils::PrintStringLengthStatistics()
 {
   EZ_LOG_BLOCK("String Length Statistics");
 
-  ezLog::Info("Max String Length: %i", (ezInt32) g_MaxUsedStringLength);
+  ezLog::Info("Max String Length: {0}", (ezInt32) g_MaxUsedStringLength);
 
   ezUInt32 uiCopiedStrings = 0;
   for (ezUInt32 i = 0; i < 256; ++i)
     uiCopiedStrings += g_UsedStringLengths[i];
 
-  ezLog::Info("Number of String Copies: %i", uiCopiedStrings);
+  ezLog::Info("Number of String Copies: {0}", uiCopiedStrings);
   ezLog::Info("");
 
   ezUInt32 uiPercent = 0;
@@ -38,7 +36,7 @@ void ezStringUtils::PrintStringLengthStatistics()
   {
     if (100.0f * (uiStrings + g_UsedStringLengths[i]) / (float) uiCopiedStrings >= uiPercent)
     {
-      ezLog::Info("%3i%% of all Strings are shorter than %3i Elements.", uiPercent, i + 1);
+      ezLog::Info("{0}%% of all Strings are shorter than {1} Elements.", ezArgI(uiPercent, 3), ezArgI(i + 1, 3));
       uiPercent += 10;
     }
 
@@ -104,7 +102,7 @@ ezUInt32 ezStringUtils::ToUpperChar(ezUInt32 wc)
       wc = 0x0053; // 'S'
 
       // this one character means, that for case-insensitive comparisons we always need to use ToUpper
-      // and NOT ToLower, as ToLower will not convert this one character, such that two strings, one with 0x017f 
+      // and NOT ToLower, as ToLower will not convert this one character, such that two strings, one with 0x017f
       // and one with 0x0053, will not compare equal
     }
     else if (wc >= 0x0200 && wc <= 0x0217)
@@ -209,12 +207,12 @@ ezUInt32 ezStringUtils::ToLowerChar(ezUInt32 wc)
 }
 
 
-ezUInt32 ezStringUtils::ToUpperString(char* pString)
+ezUInt32 ezStringUtils::ToUpperString(char* pString, const char* pStringEnd)
 {
   char* pWriteStart = pString;
   const char* pReadStart = pString;
 
-  while (*pReadStart != '\0')
+  while (*pReadStart != '\0' && pReadStart < pStringEnd)
   {
     const ezUInt32 uiChar = ezUnicodeUtils::DecodeUtf8ToUtf32(pReadStart);
     const ezUInt32 uiCharUpper = ezStringUtils::ToUpperChar(uiChar);
@@ -227,12 +225,12 @@ ezUInt32 ezStringUtils::ToUpperString(char* pString)
   return uiNewStringLength;
 }
 
-ezUInt32 ezStringUtils::ToLowerString(char* pString)
+ezUInt32 ezStringUtils::ToLowerString(char* pString, const char* pStringEnd)
 {
   char* pWriteStart = pString;
   const char* pReadStart = pString;
 
-  while (*pReadStart != '\0')
+  while (*pReadStart != '\0' && pReadStart < pStringEnd)
   {
     const ezUInt32 uiChar = ezUnicodeUtils::DecodeUtf8ToUtf32(pReadStart);
     const ezUInt32 uiCharUpper = ezStringUtils::ToLowerChar(uiChar);
@@ -428,22 +426,25 @@ ezUInt32 ezStringUtils::Copy(char* szDest, ezUInt32 uiDstSize, const char* szSou
   // simply copy all bytes
   memcpy(szDest, szSource, uiBytesToCopy);
 
-  // We might have copied half of a UTF8 character so fix this now
   char* szLastCharacterPos = szDest + uiBytesToCopy;
-  const char* szLastByteNotCopied = szSource + uiBytesToCopy;
 
-  // did we cut of a UTF8 character?
-  if (ezUnicodeUtils::IsUtf8ContinuationByte(*szLastByteNotCopied))
+  // Check if we just copied half a UTF-8 character
+  #if EZ_ENABLED(EZ_COMPILE_FOR_DEBUG)
+  if (uiBytesToCopy > 0)
   {
-    // if so fix it
-    szLastByteNotCopied--; szLastCharacterPos--;
-    while (ezUnicodeUtils::IsUtf8ContinuationByte(*szLastByteNotCopied))
+    char* szUtf8StartByte = szLastCharacterPos - 1;
+    while (!ezUnicodeUtils::IsUtf8StartByte(*szUtf8StartByte) && szUtf8StartByte > szDest)
     {
-      szLastByteNotCopied--; szLastCharacterPos--;
+      szUtf8StartByte--;
     }
+    ptrdiff_t isLength = szLastCharacterPos - szUtf8StartByte;
+    ptrdiff_t expectedLength = ezUnicodeUtils::GetUtf8SequenceLength(*szUtf8StartByte);
+    EZ_ASSERT_DEBUG(isLength == expectedLength, "The destination buffer was too small, so a utf-8 byte sequence got cut off. This function is not designed to copy into buffers that are too small.");
   }
+  #endif
 
-  // this will actually overwrite the last byte that we wrote into the output buffer 
+
+  // make sure the buffer is always terminated
   *szLastCharacterPos = '\0';
 
   const ezUInt32 uiLength = (ezUInt32)(szLastCharacterPos - szDest);
@@ -826,7 +827,8 @@ void ezStringUtils::Trim(const char*& pString, const char*& pStringEnd, const ch
 
 bool ezStringUtils::IsWhiteSpace(ezUInt32 c)
 {
-  return (c == ' ' || c == '\t' || c == '\r' || c == '\n' || c == '\v');
+  // ASCII range of useless characters (32 is actually SPACE)
+  return (c >= 1 && c <= 32);
 }
 
 bool ezStringUtils::IsWordDelimiter_English(ezUInt32 uiChar)
@@ -860,3 +862,4 @@ bool ezStringUtils::IsIdentifierDelimiter_C_Code(ezUInt32 uiChar)
 }
 
 EZ_STATICLINK_FILE(Foundation, Foundation_Strings_Implementation_StringUtils);
+

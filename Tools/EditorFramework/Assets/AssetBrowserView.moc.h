@@ -3,15 +3,17 @@
 #include <EditorFramework/Plugin.h>
 #include <QListView>
 #include <QItemDelegate>
+#include <GuiFoundation/Widgets/ItemView.moc.h>
 
-class QtIconViewDelegate;
+class ezQtIconViewDelegate;
 
-class ezAssetBrowserView : public QListView
+class ezQtAssetBrowserView : public ezQtItemView<QListView>
 {
   Q_OBJECT
 
 public:
-  ezAssetBrowserView(QWidget* pParent);
+
+  ezQtAssetBrowserView(QWidget* pParent);
   void SetDialogMode(bool bDialogMode);
 
   void SetIconMode(bool bIconMode);
@@ -26,18 +28,25 @@ protected:
 
 private:
   bool m_bDialogMode;
-  QtIconViewDelegate* m_pDelegate;
+  ezQtIconViewDelegate* m_pDelegate;
   ezInt32 m_iIconSizePercentage;
 };
 
 
-class QtIconViewDelegate : public QItemDelegate
+class ezQtIconViewDelegate : public ezQtItemDelegate
 {
   Q_OBJECT
+
 public:
-  QtIconViewDelegate(ezAssetBrowserView* pParent = nullptr);
+
+  ezQtIconViewDelegate(ezQtAssetBrowserView* pParent = nullptr);
+
+  void SetDrawTransformState(bool b) { m_bDrawTransformState = b; }
 
   void SetIconScale(ezInt32 iIconSizePercentage);
+
+  virtual bool mousePressEvent(QMouseEvent* event, const QStyleOptionViewItem& option, const QModelIndex& index);
+  virtual bool mouseReleaseEvent(QMouseEvent* event, const QStyleOptionViewItem& option, const QModelIndex& index);
 
 public:
   virtual void paint(QPainter* painter, const QStyleOptionViewItem& opt, const QModelIndex& index) const override;
@@ -58,6 +67,7 @@ private:
     TextSpacing = 5
   };
 
+  bool m_bDrawTransformState;
   ezInt32 m_iIconSizePercentage;
-  ezAssetBrowserView* m_pView;
+  ezQtAssetBrowserView* m_pView;
 };

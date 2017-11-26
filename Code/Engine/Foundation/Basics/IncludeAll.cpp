@@ -1,4 +1,4 @@
-#include <Foundation/PCH.h>
+﻿#include <PCH.h>
 
 // This file includes everything from Foundation to ensure that all template code is looked at when building the Foundation library.
 // For non-template code this is not really necessary, but to be sure, just include everything.
@@ -15,6 +15,8 @@
 #include <Foundation/Types/Delegate.h>
 #include <Foundation/Types/Id.h>
 #include <Foundation/Types/RefCounted.h>
+#include <Foundation/Types/Status.h>
+#include <Foundation/Types/VarianceTypes.h>
 #include <Foundation/Types/Variant.h>
 #include <Foundation/Types/Uuid.h>
 
@@ -23,10 +25,11 @@
 #include <Foundation/Communication/Message.h>
 #include <Foundation/Communication/MessageQueue.h>
 
+#include <Foundation/Configuration/Plugin.h>
+#include <Foundation/Configuration/Singleton.h>
 #include <Foundation/Configuration/Startup.h>
 #include <Foundation/Configuration/StaticSubSystem.h>
 #include <Foundation/Configuration/SubSystem.h>
-#include <Foundation/Configuration/Plugin.h>
 
 #include <Foundation/Containers/ArrayBase.h>
 #include <Foundation/Containers/Bitfield.h>
@@ -48,6 +51,7 @@
 #include <Foundation/IO/SerializationContext.h>
 
 #include <Foundation/IO/FileSystem/DataDirTypeFolder.h>
+#include <Foundation/IO/FileSystem/DeferredFileWriter.h>
 #include <Foundation/IO/FileSystem/FileReader.h>
 #include <Foundation/IO/FileSystem/FileSystem.h>
 #include <Foundation/IO/FileSystem/FileWriter.h>
@@ -72,6 +76,7 @@
 #include <Foundation/Math/Math.h>
 #include <Foundation/Math/Plane.h>
 #include <Foundation/Math/Quat.h>
+#include <Foundation/Math/Random.h>
 #include <Foundation/Math/Rect.h>
 #include <Foundation/Math/Size.h>
 #include <Foundation/Math/Transform.h>
@@ -97,6 +102,19 @@
 
 #include <Foundation/Serialization/AbstractObjectGraph.h>
 
+#include <Foundation/SimdMath/SimdBBox.h>
+#include <Foundation/SimdMath/SimdBBoxSphere.h>
+#include <Foundation/SimdMath/SimdBSphere.h>
+#include <Foundation/SimdMath/SimdConversion.h>
+#include <Foundation/SimdMath/SimdFloat.h>
+#include <Foundation/SimdMath/SimdMat4f.h>
+#include <Foundation/SimdMath/SimdQuat.h>
+#include <Foundation/SimdMath/SimdTransform.h>
+#include <Foundation/SimdMath/SimdVec4b.h>
+#include <Foundation/SimdMath/SimdVec4f.h>
+#include <Foundation/SimdMath/SimdVec4i.h>
+
+#include <Foundation/Strings/FormatString.h>
 #include <Foundation/Strings/PathUtils.h>
 #include <Foundation/Strings/String.h>
 #include <Foundation/Strings/StringBuilder.h>

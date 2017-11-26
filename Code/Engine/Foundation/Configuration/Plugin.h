@@ -30,7 +30,7 @@ public:
   /// \brief Must be called to finish what BeginPluginChanges started.
   static void EndPluginChanges();
 
-  /// \brief Creates a new plugin object. 
+  /// \brief Creates a new plugin object.
   ///
   /// \param bIsReloadable
   ///   If set to true, 'ReloadPlugins' will reload this plugin (if it was modified).
@@ -40,7 +40,7 @@ public:
   ///   Will be called shortly before the DLL is finally unloaded. All other code has already been notified that the plugin is being unloaded.
   /// \param szPluginDependency1
   ///   Allows to specify other modules that this plugin depends on. These will be automatically loaded and unloaded together with this plugin.
-  ezPlugin(bool bIsReloadable, OnPluginLoadedFunction OnLoadPlugin = nullptr, OnPluginUnloadedFunction OnUnloadPlugin = nullptr, 
+  ezPlugin(bool bIsReloadable, OnPluginLoadedFunction OnLoadPlugin = nullptr, OnPluginUnloadedFunction OnUnloadPlugin = nullptr,
     const char* szPluginDependency1 = nullptr, const char* szPluginDependency2 = nullptr, const char* szPluginDependency3 = nullptr, const char* szPluginDependency4 = nullptr, const char* szPluginDependency5 = nullptr);
 
   /// \brief Returns the name that was used to load the plugin from disk.
@@ -53,20 +53,20 @@ public:
   ///
   /// For every time a plugin is loaded via 'LoadPlugin' it should also get unloaded via 'UnloadPlugin',
   /// as ezPlugin counts these and only unloads a plugin once its reference count reaches zero.
-  /// 
+  ///
   /// EZ_SUCCESS is returned when the DLL is either successfully loaded or has already been loaded before.
   /// EZ_FAILURE is returned if the DLL cannot be located or it could not be loaded properly.
-  static ezResult LoadPlugin(const char* szPluginFile); // [tested]
+  static ezResult LoadPlugin(const char* szPluginFile, bool bLoadCopy = false); // [tested]
 
   /// \brief Tries to unload a previously loaded plugin.
   ///
   /// For every time a plugin is loaded via 'LoadPlugin' it should also get unloaded via 'UnloadPlugin',
   /// as ezPlugin counts these and only unloads a plugin once its reference count reaches zero.
   /// If a plugin is not unloaded, because its refcount has not yet reached zero, 'UnloadPlugin' still returns EZ_SUCCESS.
-  /// 
+  ///
   /// EZ_SUCCESS is returned when the DLL is either successfully unloaded are has already been unloaded before (or has even never been loaded before).
   /// EZ_FAILURE is returned if the DLL cannot be unloaded (at this time).
-  static ezResult UnloadPlugin(const char* szPluginFile); // [tested]
+  static ezResult UnloadPlugin(const char* szPluginFile, ezInt32* out_pCurRefCount = nullptr); // [tested]
 
   /// \brief Hot-reloads all plugins that are marked as reloadable.
   ///
@@ -92,6 +92,8 @@ public:
       AfterLoadingBeforeInit, ///< Sent immediately after a new plugin has been loaded, even before it is initialized (which might trigger loading of other plugins)
       AfterLoading,           ///< Sent after a new plugin has been loaded and initialized
       BeforeUnloading,        ///< Sent before a plugin is going to be unloaded
+      StartupShutdown,        ///< Used by the startup system for automatic shutdown
+      AfterStartupShutdown,
       AfterUnloading,         ///< Sent after a plugin has been unloaded
       BeforePluginChanges,    ///< Sent (once) before any (group) plugin changes (load/unload) are done.
       AfterPluginChanges,     ///< Sent (once) after all (group) plugin changes (unload/load/reload) are finished.
@@ -150,22 +152,22 @@ private:
 ///
 /// This macro also ensures that a plugin DLL exports any symbols at all, which is necessary on Windows to have a .lib and .exp file generated,
 /// which is in turn required to statically link against the library.
-#define EZ_DYNAMIC_PLUGIN_DECLARATION(LINKAGE, Plugin)      \
-                                                            \
-LINKAGE void ezPluginHelper_##Plugin();                     \
-                                                            \
-class ezDynamicPluginHelper_##Plugin                        \
-{                                                           \
-public:                                                     \
-  ezDynamicPluginHelper_##Plugin()                          \
-  {                                                         \
-    ezPluginHelper_##Plugin();                              \
-  }                                                         \
-};                                                          \
-                                                            \
-static ezDynamicPluginHelper_##Plugin ezPluginHelperVar     \
+#define EZ_DYNAMIC_PLUGIN_DECLARATION(LINKAGE, Plugin)           \
+                                                                 \
+LINKAGE void ezPluginHelper_##Plugin();                          \
+                                                                 \
+class ezDynamicPluginHelper_##Plugin                             \
+{                                                                \
+public:                                                          \
+  ezDynamicPluginHelper_##Plugin()                               \
+  {                                                              \
+    ezPluginHelper_##Plugin();                                   \
+  }                                                              \
+};                                                               \
+                                                                 \
+static ezDynamicPluginHelper_##Plugin ezPluginHelperVar_##Plugin \
 
 /// \brief The counter part to EZ_DYNAMIC_PLUGIN_DECLARATION. Must be put into some cpp file of a plugin.
-#define EZ_DYNAMIC_PLUGIN_IMPLEMENTATION(Plugin)            \
-  void ezPluginHelper_##Plugin() { }
+#define EZ_DYNAMIC_PLUGIN_IMPLEMENTATION(LINKAGE, Plugin)   \
+  LINKAGE void ezPluginHelper_##Plugin() { }
 

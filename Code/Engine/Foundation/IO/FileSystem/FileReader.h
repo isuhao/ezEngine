@@ -4,7 +4,7 @@
 #include <Foundation/IO/FileSystem/Implementation/FileReaderWriterBase.h>
 #include <Foundation/Containers/DynamicArray.h>
 
-/// \brief The default class to use to read data from a file, implements the ezStreamReaderBase interface.
+/// \brief The default class to use to read data from a file, implements the ezStreamReader interface.
 ///
 /// This file reader buffers reads up to a certain amount of bytes (configurable).
 /// It closes the file automatically once it goes out of scope.
@@ -15,7 +15,7 @@ class EZ_FOUNDATION_DLL ezFileReader : public ezFileReaderBase
 public:
 
   /// \brief Constructor, does nothing.
-  ezFileReader() : m_bEOF(true) {}
+  ezFileReader() : m_uiBytesCached(0), m_uiCacheReadPosition(0), m_bEOF(true) {}
 
   /// \brief Destructor, closes the file, if it is still open (RAII).
   ~ezFileReader() { Close(); }
@@ -24,7 +24,7 @@ public:
   ///
   /// You should typically not disable bAllowFileEvents, unless you need to prevent recursive file events,
   /// which is only the case, if you are doing file accesses from within a File Event Handler.
-  ezResult Open(const char* szFile, ezUInt32 uiCacheSize = 1024 * 1024, bool bAllowFileEvents = true);
+  ezResult Open(const char* szFile, ezUInt32 uiCacheSize = 1024 * 64, bool bAllowFileEvents = true);
 
   /// \brief Closes the file, if it is open.
   void Close();

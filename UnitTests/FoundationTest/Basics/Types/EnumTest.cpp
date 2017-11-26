@@ -1,8 +1,8 @@
-#include <PCH.h>
+﻿#include <PCH.h>
 
 //////////////////////////////////////////////////////////////////////
 // Start of the definition of a example Enum
-// It takes quite some lines of code to define a enum, 
+// It takes quite some lines of code to define a enum,
 // but it could be encapsulated into an preprocessor macro if wanted
 struct ezTestEnumBase
 {
@@ -78,6 +78,14 @@ EZ_CREATE_SIMPLE_TEST(Basics, Enum)
 
     TakeEnum1(e1);
     TakeEnum2(e1);
+  }
+
+  EZ_TEST_BLOCK(ezTestBlock::Enabled, "GetValue and SetValue")
+  {
+    ezTestEnum e1;
+    EZ_TEST_INT(e1.GetValue(), 0);
+    e1.SetValue(17);
+    EZ_TEST_INT(e1.GetValue(), 17);
   }
 
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "Assignment of different values")

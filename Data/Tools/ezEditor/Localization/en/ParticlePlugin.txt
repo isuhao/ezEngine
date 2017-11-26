@@ -1,0 +1,67 @@
+PFX.Restart;Restart
+PFX.AutoRestart;Loop
+PFX.Pause;Pause
+PFX.Speed.Menu;Simulation Speed
+PFX.Speed.01;10%
+PFX.Speed.025;25%
+PFX.Speed.05;50%
+PFX.Speed.1;100%
+PFX.Speed.15;150%
+PFX.Speed.2;200%
+PFX.Speed.3;300%
+PFX.Speed.4;400%
+PFX.Speed.5;500%
+PFX.Speed.10;1000%
+Particle Systems;Particle Systems
+ezParticleSystemDescriptor;Particle System
+Emitters;Emitters
+Initializers;Initializers
+Behaviors;Behaviors
+ParticleSystems;Particle Systems
+ezParticleTypeSpriteFactory;Sprites
+ezParticleTypeTrailFactory;Trails
+ezParticleBehaviorFactory_Age;Age
+ezParticleBehaviorFactory_ColorGradient;Color Gradient
+ezParticleBehaviorFactory_Velocity;Velocity
+ezParticleBehaviorFactory_Gravity;Gravity
+ezParticleBehaviorFactory_Raycast;Raycast
+ezParticleBehaviorFactory_FadeOut;Fade Out
+ezParticleEmitterFactory_Continuous;Continuous
+ezParticleEmitterFactory_OnEvent;On Event
+ezParticleEmitterFactory_Burst;Burst
+
+ezParticleInitializerFactory_Life;Life
+ezParticleInitializerFactory_VelocityCone;Velocity Cone
+ezParticleComponent;Particle
+ezParticleInitializerFactory_BoxPosition;Box Position
+ezParticleInitializerFactory_CylinderPosition;Cylinder Position
+ezParticleInitializerFactory_RandomColor;Random Color
+ezParticleInitializerFactory_RandomSize;Random Size
+ezParticleInitializerFactory_RandomRotationSpeed;Rotation Speed
+ezParticleInitializerFactory_SpherePosition;Sphere Position
+ezParticleBehaviorFactory_PullAlong;Pull Along
+ezParticleBehaviorFactory_SizeCurve;Size Curve
+ezParticleTypeBillboardFactory;Billboards
+ezParticleTypeLightFactory;Lights
+ezParticleTypeEffectFactory;Effects
+ezParticleTypeFragmentFactory;Fragments
+ezParticleTypePointFactory;Points
+Types;Types
+ezParticleRaycastHitReaction::Bounce;Bounce
+ezParticleRaycastHitReaction::Die;Die
+ezFragmentAxis::OrthogonalEmitterDirection;Orthogonal to Emitter
+ezFragmentAxis::EmitterDirection;Emitter Direction
+ezParticleTypeRenderMode::Additive;Additive
+ezParticleTypeRenderMode::Blended;Blended
+ezParticleTypeRenderMode::Opaque;Opaque
+ezSpriteAxis::EmitterDirection;Emitter Direction
+ezSpriteAxis::WorldUp;World Up
+ezSpriteAxis::Random;Random
+ezEffectInvisibleUpdateRate::FullUpdate;Full Update
+ezEffectInvisibleUpdateRate::Max20fps;Max 20 FPS
+ezEffectInvisibleUpdateRate::Max10fps;Max 10 FPS
+ezEffectInvisibleUpdateRate::Max5fps;Max 5 FPS
+ezEffectInvisibleUpdateRate::Pause;Pause
+ezEffectInvisibleUpdateRate::Discard;Discard
+FloatParameters;Number Parameters
+ColorParameters;Color Parameters

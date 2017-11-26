@@ -1,0 +1,145 @@
+﻿#pragma once
+
+#include <GameEngine/Basics.h>
+#include <Foundation/Reflection/Reflection.h>
+#include <Foundation/Strings/HashedString.h>
+#include <Core/World/Declarations.h>
+
+class ezVisualScriptInstance;
+struct ezCollisionMessage;
+
+class EZ_GAMEENGINE_DLL ezVisualScriptNode : public ezReflectedClass
+{
+  EZ_ADD_DYNAMIC_REFLECTION(ezVisualScriptNode, ezReflectedClass);
+
+public:
+  ezVisualScriptNode();
+  ~ezVisualScriptNode();
+
+  virtual void Execute(ezVisualScriptInstance* pInstance, ezUInt8 uiExecPin) = 0;
+  virtual void* GetInputPinDataPointer(ezUInt8 uiPin) = 0;
+
+  /// \brief Whether the node has an execution pin (input or output) and thus must be stepped manually. Otherwise it will be implicitly executed on demand.
+  bool IsManuallyStepped() const;
+
+protected:
+
+  /// When this is set to true (e.g. in a message handler, the node will be stepped during the next script update)
+  bool m_bStepNode = false;
+  /// Set to true whenever the input values have been modified before 'Execute' is called. Automatically set to false afterwards.
+  bool m_bInputValuesChanged = true;
+
+private:
+  friend class ezVisualScriptInstance;
+
+  ezUInt16 m_uiNodeID;
+};
+
+
+#define EZ_INPUT_EXECUTION_PIN(name, slot) EZ_CONSTANT_PROPERTY(name, 0)->AddAttributes(new ezVisScriptExecPinInAttribute(slot))
+#define EZ_OUTPUT_EXECUTION_PIN(name, slot) EZ_CONSTANT_PROPERTY(name, 0)->AddAttributes(new ezVisScriptExecPinOutAttribute(slot))
+#define EZ_INPUT_DATA_PIN(name, slot, type) EZ_CONSTANT_PROPERTY(name, 0)->AddAttributes(new ezVisScriptDataPinInAttribute(slot, type))
+#define EZ_OUTPUT_DATA_PIN(name, slot, type) EZ_CONSTANT_PROPERTY(name, 0)->AddAttributes(new ezVisScriptDataPinOutAttribute(slot, type))
+#define EZ_INPUT_DATA_PIN_AND_PROPERTY(name, slot, type, member) EZ_MEMBER_PROPERTY(name, member)->AddAttributes(new ezVisScriptDataPinInAttribute(slot, type))
+
+//////////////////////////////////////////////////////////////////////////
+
+class EZ_GAMEENGINE_DLL ezVisualScriptNode_MessageSender : public ezVisualScriptNode
+{
+  EZ_ADD_DYNAMIC_REFLECTION(ezVisualScriptNode_MessageSender, ezVisualScriptNode);
+public:
+  ezVisualScriptNode_MessageSender();
+  ~ezVisualScriptNode_MessageSender();
+
+  virtual void Execute(ezVisualScriptInstance* pInstance, ezUInt8 uiExecPin) override;
+  virtual void* GetInputPinDataPointer(ezUInt8 uiPin) override;
+
+  ezGameObjectHandle m_hObject;
+  ezComponentHandle m_hComponent;
+  ezTime m_Delay;
+  ezMessage* m_pMessageToSend = nullptr;
+};
+
+
+//////////////////////////////////////////////////////////////////////////
+
+class EZ_GAMEENGINE_DLL ezVisScriptExecPinOutAttribute : public ezPropertyAttribute
+{
+  EZ_ADD_DYNAMIC_REFLECTION(ezVisScriptExecPinOutAttribute, ezPropertyAttribute);
+
+public:
+  explicit ezVisScriptExecPinOutAttribute(ezUInt8 uiSlot = 0xFF) { m_uiPinSlot = uiSlot; }
+
+  ezUInt8 m_uiPinSlot;
+};
+
+class EZ_GAMEENGINE_DLL ezVisScriptExecPinInAttribute : public ezPropertyAttribute
+{
+  EZ_ADD_DYNAMIC_REFLECTION(ezVisScriptExecPinInAttribute, ezPropertyAttribute);
+
+public:
+  explicit ezVisScriptExecPinInAttribute(ezUInt8 uiSlot = 0) { m_uiPinSlot = uiSlot; }
+
+  ezUInt8 m_uiPinSlot;
+};
+
+struct EZ_GAMEENGINE_DLL ezVisualScriptDataPinType
+{
+  typedef ezUInt8 StorageType;
+
+  enum Enum
+  {
+    None,
+    Number, ///< Numbers are represented as doubles
+    Boolean,
+    Vec3,
+    GameObjectHandle, ///< ezGameObjectHandle
+    ComponentHandle, ///< ezComponentHandle
+    //ResourceHandle, ///< ezTypelessResourceHandle ?
+    Default = None,
+  };
+};
+
+EZ_DECLARE_REFLECTABLE_TYPE(EZ_GAMEENGINE_DLL, ezVisualScriptDataPinType);
+
+class EZ_GAMEENGINE_DLL ezVisScriptDataPinInAttribute : public ezPropertyAttribute
+{
+  EZ_ADD_DYNAMIC_REFLECTION(ezVisScriptDataPinInAttribute, ezPropertyAttribute);
+
+public:
+  ezVisScriptDataPinInAttribute() { m_uiPinSlot = 0xff; m_DataType = ezVisualScriptDataPinType::None; }
+  ezVisScriptDataPinInAttribute(ezUInt8 uiSlot, ezVisualScriptDataPinType::Enum dataType) { m_uiPinSlot = uiSlot; m_DataType = dataType; }
+
+  ezUInt8 m_uiPinSlot;
+  ezEnum<ezVisualScriptDataPinType> m_DataType;
+};
+
+class EZ_GAMEENGINE_DLL ezVisScriptDataPinOutAttribute : public ezPropertyAttribute
+{
+  EZ_ADD_DYNAMIC_REFLECTION(ezVisScriptDataPinOutAttribute, ezPropertyAttribute);
+
+public:
+  ezVisScriptDataPinOutAttribute() { m_uiPinSlot = 0xff; m_DataType = ezVisualScriptDataPinType::None; }
+  ezVisScriptDataPinOutAttribute(ezUInt8 uiSlot, ezVisualScriptDataPinType::Enum dataType) { m_uiPinSlot = uiSlot; m_DataType = dataType; }
+
+  ezUInt8 m_uiPinSlot;
+  ezEnum<ezVisualScriptDataPinType> m_DataType;
+};
+
+//////////////////////////////////////////////////////////////////////////
+
+class EZ_GAMEENGINE_DLL ezVisualScriptNode_Log : public ezVisualScriptNode
+{
+  EZ_ADD_DYNAMIC_REFLECTION(ezVisualScriptNode_Log, ezVisualScriptNode);
+public:
+  ezVisualScriptNode_Log();
+  ~ezVisualScriptNode_Log();
+
+  virtual void Execute(ezVisualScriptInstance* pInstance, ezUInt8 uiExecPin) override;
+  virtual void* GetInputPinDataPointer(ezUInt8 uiPin) override;
+
+  ezString m_sLog;
+  double m_Value1 = 0;
+  double m_Value2 = 0;
+};
+

@@ -3,10 +3,11 @@
 #include <qlistwidget.h>
 #include <Foundation/Communication/Telemetry.h>
 #include <MainWindow.moc.h>
+#include <GuiFoundation/UIServices/UIServices.moc.h>
 
-ezGlobalEventsWidget* ezGlobalEventsWidget::s_pWidget = nullptr;
+ezQtGlobalEventsWidget* ezQtGlobalEventsWidget::s_pWidget = nullptr;
 
-ezGlobalEventsWidget::ezGlobalEventsWidget(QWidget* parent) : QDockWidget (parent)
+ezQtGlobalEventsWidget::ezQtGlobalEventsWidget(QWidget* parent) : QDockWidget (parent)
 {
   s_pWidget = this;
 
@@ -15,7 +16,7 @@ ezGlobalEventsWidget::ezGlobalEventsWidget(QWidget* parent) : QDockWidget (paren
   ResetStats();
 }
 
-void ezGlobalEventsWidget::ResetStats()
+void ezQtGlobalEventsWidget::ResetStats()
 {
   m_Events.Clear();
   TableEvents->clear();
@@ -34,7 +35,7 @@ void ezGlobalEventsWidget::ResetStats()
   }
 }
 
-void ezGlobalEventsWidget::ProcessTelemetry(void* pUnuseed)
+void ezQtGlobalEventsWidget::ProcessTelemetry(void* pUnuseed)
 {
   if (!s_pWidget)
     return;
@@ -46,7 +47,7 @@ void ezGlobalEventsWidget::ProcessTelemetry(void* pUnuseed)
 
   while (ezTelemetry::RetrieveMessage('EVNT', msg) == EZ_SUCCESS)
   {
-    if (msg.GetMessageID() == 'CLR')
+    if (msg.GetMessageID() == ' CLR')
     {
       s_pWidget->m_Events.Clear();
     }
@@ -77,7 +78,7 @@ void ezGlobalEventsWidget::ProcessTelemetry(void* pUnuseed)
 
 }
 
-void ezGlobalEventsWidget::UpdateTable(bool bRecreate)
+void ezQtGlobalEventsWidget::UpdateTable(bool bRecreate)
 {
   TableEvents->blockSignals(true);
 
@@ -106,20 +107,20 @@ void ezGlobalEventsWidget::UpdateTable(bool bRecreate)
       it.Value().m_iTableRow = iRow;
 
       QLabel* pIcon = new QLabel();
-      pIcon->setPixmap(QPixmap(":/Icons/Icons/GlobalEvent.png"));
+      pIcon->setPixmap(ezQtUiServices::GetCachedPixmapResource(":/Icons/Icons/GlobalEvent.png"));
       pIcon->setAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
       TableEvents->setCellWidget(iRow, 0, pIcon);
 
-      sTemp.Format("  %s  ", it.Key().GetData());
+      sTemp.Format("  {0}  ", it.Key());
       TableEvents->setCellWidget(iRow, 1, new QLabel(sTemp.GetData())); // Event
 
-      sTemp.Format("  %i  ", it.Value().m_uiTimesFired);
+      sTemp.Format("  {0}  ", it.Value().m_uiTimesFired);
       TableEvents->setCellWidget(iRow, 2, new QLabel(sTemp.GetData()));
 
-      sTemp.Format("  %i  ", it.Value().m_uiNumHandlers);
+      sTemp.Format("  {0}  ", it.Value().m_uiNumHandlers);
       TableEvents->setCellWidget(iRow, 3, new QLabel(sTemp.GetData()));
 
-      sTemp.Format("  %i  ", it.Value().m_uiNumHandlersOnce);
+      sTemp.Format("  {0}  ", it.Value().m_uiNumHandlersOnce);
       TableEvents->setCellWidget(iRow, 4, new QLabel(sTemp.GetData()));
 
       ++iRow;
@@ -134,13 +135,13 @@ void ezGlobalEventsWidget::UpdateTable(bool bRecreate)
     ezInt32 iRow = 0;
     for (ezMap<ezString, GlobalEventsData>::Iterator it = m_Events.GetIterator(); it.IsValid(); ++it)
     {
-      sTemp.Format("  %i  ", it.Value().m_uiTimesFired);
+      sTemp.Format("  {0}  ", it.Value().m_uiTimesFired);
       ((QLabel*) TableEvents->cellWidget(iRow, 2))->setText(sTemp.GetData());
 
-      sTemp.Format("  %i  ", it.Value().m_uiNumHandlers);
+      sTemp.Format("  {0}  ", it.Value().m_uiNumHandlers);
       ((QLabel*) TableEvents->cellWidget(iRow, 3))->setText(sTemp.GetData());
 
-      sTemp.Format("  %i  ", it.Value().m_uiNumHandlersOnce);
+      sTemp.Format("  {0}  ", it.Value().m_uiNumHandlersOnce);
       ((QLabel*) TableEvents->cellWidget(iRow, 4))->setText(sTemp.GetData());
 
       ++iRow;

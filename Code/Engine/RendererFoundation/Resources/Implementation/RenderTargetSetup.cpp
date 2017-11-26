@@ -1,6 +1,7 @@
 
-#include <RendererFoundation/PCH.h>
+#include <PCH.h>
 #include <RendererFoundation/Resources/RenderTargetSetup.h>
+#include <RendererFoundation/Device/Device.h>
 
 ezGALRenderTagetSetup::ezGALRenderTagetSetup()
   : m_uiMaxRTIndex( 0xFFu )
@@ -40,7 +41,7 @@ bool ezGALRenderTagetSetup::operator == (const ezGALRenderTagetSetup& Other) con
   if ( m_uiMaxRTIndex != Other.m_uiMaxRTIndex )
     return false;
 
-  for ( ezUInt8 uiRTIndex = 0; uiRTIndex < m_uiMaxRTIndex; ++uiRTIndex )
+  for ( ezUInt8 uiRTIndex = 0; uiRTIndex <= m_uiMaxRTIndex; ++uiRTIndex )
   {
     if ( m_hRTs[uiRTIndex] != Other.m_hRTs[uiRTIndex] )
       return false;
@@ -49,4 +50,27 @@ bool ezGALRenderTagetSetup::operator == (const ezGALRenderTagetSetup& Other) con
   return true;
 }
 
-EZ_STATICLINK_FILE( RendererFoundation, RendererFoundation_Resources_Implementation_RenderTargetSetup );
+void ezGALRenderTagetSetup::DestroyAllAttachedViews()
+{
+  ezGALDevice* pDevice = ezGALDevice::GetDefaultDevice();
+
+  ezArrayPtr<ezGALRenderTargetViewHandle> colorViews(m_hRTs);
+  for (ezGALRenderTargetViewHandle& hView : colorViews)
+  {
+    if (!hView.IsInvalidated())
+    {
+      pDevice->DestroyRenderTargetView(hView);
+      hView.Invalidate();
+    }
+  }
+
+  if (!m_hDSTarget.IsInvalidated())
+  {
+    pDevice->DestroyRenderTargetView(m_hDSTarget);
+    m_hDSTarget.Invalidate();
+  }
+  m_uiMaxRTIndex = 0xFFu;
+}
+
+EZ_STATICLINK_FILE(RendererFoundation, RendererFoundation_Resources_Implementation_RenderTargetSetup);
+

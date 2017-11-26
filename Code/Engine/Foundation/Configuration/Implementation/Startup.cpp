@@ -1,16 +1,32 @@
-#include <Foundation/PCH.h>
+#include <PCH.h>
 #include <Foundation/Configuration/Startup.h>
 #include <Foundation/Containers/Set.h>
-#include <Foundation/Strings/String.h>
 #include <Foundation/Logging/Log.h>
 #include <Foundation/Communication/GlobalEvent.h>
 #include <Foundation/Threading/ThreadUtils.h>
-#include <Foundation/Configuration/Plugin.h>
 
 EZ_ENUMERABLE_CLASS_IMPLEMENTATION(ezSubSystem);
 
 bool ezStartup::s_bPrintAllSubSystems = true;
 ezStartupStage::Enum ezStartup::s_CurrentState = ezStartupStage::None;
+ezDynamicArray<const char*> ezStartup::s_ApplicationTags;
+
+
+void ezStartup::AddApplicationTag(const char* szTag)
+{
+  s_ApplicationTags.PushBack(szTag);
+}
+
+bool ezStartup::HasApplicationTag(const char* szTag)
+{
+  for (ezUInt32 i = 0; i < s_ApplicationTags.GetCount(); ++i)
+  {
+    if (ezStringUtils::IsEqual_NoCase(s_ApplicationTags[i], szTag))
+      return true;
+  }
+
+  return false;
+}
 
 void ezStartup::PrintAllSubsystems()
 {
@@ -20,14 +36,14 @@ void ezStartup::PrintAllSubsystems()
 
   while (pSub)
   {
-    ezLog::Info("Subsystem: '%s::%s'", pSub->GetGroupName(), pSub->GetSubSystemName());
+    ezLog::Info("Subsystem: '{0}::{1}'", pSub->GetGroupName(), pSub->GetSubSystemName());
 
     if (pSub->GetDependency(0) == nullptr)
       ezLog::Info("  <no dependencies>");
     else
     {
       for (ezInt32 i = 0; pSub->GetDependency(i) != nullptr; ++i)
-        ezLog::Info("  -> '%s'", pSub->GetDependency(i));
+        ezLog::Info("  -> '{0}'", pSub->GetDependency(i));
     }
 
     ezLog::Info("");
@@ -71,7 +87,7 @@ void ezStartup::PluginEventHandler(const ezPlugin::PluginEvent& EventData)
     }
     break;
 
-  case ezPlugin::PluginEvent::BeforeUnloading:
+  case ezPlugin::PluginEvent::StartupShutdown:
     {
       if (EventData.m_pPluginObject)
       {
@@ -85,7 +101,7 @@ void ezStartup::PluginEventHandler(const ezPlugin::PluginEvent& EventData)
       ezStartup::ReinitToCurrentState();
     }
     break;
-      
+
   default:
     break;
   }
@@ -109,7 +125,7 @@ static bool IsGroupName(const char* szName)
     pSub = pSub->GetNextInstance();
   }
 
-  EZ_ASSERT_ALWAYS(!bGroup || !bSubSystem, "There cannot be a SubSystem AND a Group called '%s'.", szName);
+  EZ_ASSERT_ALWAYS(!bGroup || !bSubSystem, "There cannot be a SubSystem AND a Group called '{0}'.", szName);
 
   return bGroup;
 }
@@ -235,7 +251,7 @@ void ezStartup::Startup(ezStartupStage::Enum stage)
   {
     if (!Order[i]->m_bStartupDone[stage])
     {
-      ezLog::Info("Starting Sub-System '%s' from Group '%s'", Order[i]->GetSubSystemName(), Order[i]->GetGroupName());
+      ezLog::Dev("Starting Sub-System '{0}' from Group '{1}'", Order[i]->GetSubSystemName(), Order[i]->GetGroupName());
 
       switch (stage)
       {
@@ -248,7 +264,7 @@ void ezStartup::Startup(ezStartupStage::Enum stage)
       case ezStartupStage::Engine:
         Order[i]->OnEngineStartup();
         break;
-          
+
       default:
         break;
       }
@@ -286,11 +302,11 @@ void ezStartup::Startup(ezStartupStage::Enum stage)
         {
           if (!sSystemsFound.Find(pSub->GetDependency(iDep)).IsValid())
           {
-            ezLog::Error("SubSystem '%s::%s' could not be started because dependency '%s' is unknown.", pSub->GetGroupName(), pSub->GetSubSystemName(), pSub->GetDependency(iDep));
+            ezLog::Error("SubSystem '{0}::{1}' could not be started because dependency '{2}' is unknown.", pSub->GetGroupName(), pSub->GetSubSystemName(), pSub->GetDependency(iDep));
           }
           else
           {
-            ezLog::Error("SubSystem '%s::%s' could not be started because dependency '%s' has not been initialized.", pSub->GetGroupName(), pSub->GetSubSystemName(), pSub->GetDependency(iDep));
+            ezLog::Error("SubSystem '{0}::{1}' could not be started because dependency '{2}' has not been initialized.", pSub->GetGroupName(), pSub->GetSubSystemName(), pSub->GetDependency(iDep));
           }
 
           ++iDep;
@@ -311,7 +327,7 @@ void ezStartup::Startup(ezStartupStage::Enum stage)
   case ezStartupStage::Engine:
     ezGlobalEvent::Broadcast(EZ_GLOBALEVENT_STARTUP_ENGINE_END);
     break;
-      
+
   default:
     break;
   }
@@ -359,18 +375,18 @@ void ezStartup::Shutdown(ezStartupStage::Enum stage)
     {
       if (Order[i]->m_bStartupDone[stage])
       {
-        ezLog::Info("Shutting down Sub-System '%s::%s'", Order[i]->GetGroupName(), Order[i]->GetSubSystemName());
+        ezLog::Info("Shutting down Sub-System '{0}::{1}'", Order[i]->GetGroupName(), Order[i]->GetSubSystemName());
 
         switch (stage)
         {
         case ezStartupStage::Core:
           Order[i]->OnCoreShutdown();
           break;
-            
+
         case ezStartupStage::Engine:
           Order[i]->OnEngineShutdown();
           break;
-            
+
         default:
           break;
         }
@@ -385,11 +401,11 @@ void ezStartup::Shutdown(ezStartupStage::Enum stage)
   case ezStartupStage::Core:
     ezGlobalEvent::Broadcast(EZ_GLOBALEVENT_SHUTDOWN_CORE_END);
     break;
-      
+
   case ezStartupStage::Engine:
     ezGlobalEvent::Broadcast(EZ_GLOBALEVENT_SHUTDOWN_ENGINE_END);
     break;
-      
+
   default:
     break;
   }
@@ -433,7 +449,7 @@ bool ezStartup::HasDependencyOnPlugin(ezSubSystem* pSubSystem, const char* szMod
 void ezStartup::UnloadPluginSubSystems(const char* szPluginName)
 {
   EZ_LOG_BLOCK("Unloading Plugin SubSystems", szPluginName);
-  ezLog::Dev("Plugin to unload: '%s'", szPluginName);
+  ezLog::Dev("Plugin to unload: '{0}'", szPluginName);
 
   ezGlobalEvent::Broadcast(EZ_GLOBALEVENT_UNLOAD_PLUGIN_BEGIN, ezVariant(szPluginName));
 
@@ -444,7 +460,7 @@ void ezStartup::UnloadPluginSubSystems(const char* szPluginName)
   {
     if (Order[i]->m_bStartupDone[ezStartupStage::Engine] && HasDependencyOnPlugin(Order[i], szPluginName))
     {
-      ezLog::Info("Engine shutdown of SubSystem '%s::%s', because it depends on Plugin '%s'.", Order[i]->GetGroupName(), Order[i]->GetSubSystemName(), szPluginName);
+      ezLog::Info("Engine shutdown of SubSystem '{0}::{1}', because it depends on Plugin '{2}'.", Order[i]->GetGroupName(), Order[i]->GetSubSystemName(), szPluginName);
       Order[i]->OnEngineShutdown();
       Order[i]->m_bStartupDone[ezStartupStage::Engine] = false;
     }
@@ -454,7 +470,7 @@ void ezStartup::UnloadPluginSubSystems(const char* szPluginName)
   {
     if (Order[i]->m_bStartupDone[ezStartupStage::Core] && HasDependencyOnPlugin(Order[i], szPluginName))
     {
-      ezLog::Info("Core shutdown of SubSystem '%s::%s', because it depends on Plugin '%s'.", Order[i]->GetGroupName(), Order[i]->GetSubSystemName(), szPluginName);
+      ezLog::Info("Core shutdown of SubSystem '{0}::{1}', because it depends on Plugin '{2}'.", Order[i]->GetGroupName(), Order[i]->GetSubSystemName(), szPluginName);
       Order[i]->OnCoreShutdown();
       Order[i]->m_bStartupDone[ezStartupStage::Core] = false;
     }

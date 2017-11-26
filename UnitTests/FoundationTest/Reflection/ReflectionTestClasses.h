@@ -39,12 +39,14 @@ struct ezExampleBitflags
   };
 };
 
+EZ_DECLARE_FLAGS_OPERATORS(ezExampleBitflags);
+
 EZ_DECLARE_REFLECTABLE_TYPE(EZ_NO_LINKAGE, ezExampleBitflags);
 
 
 class ezAbstractTestClass : public ezReflectedClass
 {
-  EZ_ADD_DYNAMIC_REFLECTION(ezAbstractTestClass);
+  EZ_ADD_DYNAMIC_REFLECTION(ezAbstractTestClass, ezReflectedClass);
 
   virtual void AbstractFunction() = 0;
 };
@@ -70,6 +72,11 @@ public:
     m_vProperty3.Set(3, 4, 5);
     m_UInt8 = 6;
     m_variant = "Test";
+    m_Angle = ezAngle::Degree(0.5);
+    m_DataBuffer.PushBack(255);
+    m_DataBuffer.PushBack(0);
+    m_DataBuffer.PushBack(127);
+    m_vVec3I = ezVec3I32(1, 2, 3);
   }
 
   bool operator==(const ezTestStruct& rhs) const
@@ -78,12 +85,18 @@ public:
       m_UInt8 == rhs.m_UInt8 &&
       m_variant == rhs.m_variant &&
       m_iInt2 == rhs.m_iInt2 &&
-      m_vProperty3 == rhs.m_vProperty3;
+      m_vProperty3 == rhs.m_vProperty3 &&
+      m_Angle == rhs.m_Angle &&
+      m_DataBuffer == rhs.m_DataBuffer &&
+      m_vVec3I == rhs.m_vVec3I;
   }
 
   float m_fFloat1;
   ezUInt8 m_UInt8;
   ezVariant m_variant;
+  ezAngle m_Angle;
+  ezDataBuffer m_DataBuffer;
+  ezVec3I32 m_vVec3I;
 
 private:
   void SetInt(ezInt32 i) { m_iInt2 = i; }
@@ -104,13 +117,19 @@ public:
   ezTestStruct3()
   {
     m_fFloat1 = 1.1f;
-    m_iInt2 = 2;
     m_UInt8 = 6;
+    m_iInt32 = 2;
+  }
+  ezTestStruct3(double a, ezInt16 b)
+  {
+    m_fFloat1 = a;
+    m_UInt8 = b;
+    m_iInt32 = 32;
   }
 
   bool operator==(const ezTestStruct3& rhs) const
   {
-    return m_fFloat1 == rhs.m_fFloat1 && m_iInt2 == rhs.m_iInt2 && m_UInt8 == rhs.m_UInt8;
+    return m_fFloat1 == rhs.m_fFloat1 && m_iInt32 == rhs.m_iInt32 && m_UInt8 == rhs.m_UInt8;
   }
 
   bool operator!=(const ezTestStruct3& rhs) const
@@ -121,11 +140,12 @@ public:
   double m_fFloat1;
   ezInt16 m_UInt8;
 
+  ezUInt32 GetIntPublic() const { return m_iInt32; }
 private:
-  void SetInt(ezUInt32 i) { m_iInt2 = i; }
-  ezUInt32 GetInt() const { return m_iInt2; }
+  void SetInt(ezUInt32 i) { m_iInt32 = i; }
+  ezUInt32 GetInt() const { return m_iInt32; }
 
-  ezInt32 m_iInt2;
+  ezInt32 m_iInt32;
 };
 
 EZ_DECLARE_REFLECTABLE_TYPE(EZ_NO_LINKAGE, ezTestStruct3);
@@ -133,7 +153,7 @@ EZ_DECLARE_REFLECTABLE_TYPE(EZ_NO_LINKAGE, ezTestStruct3);
 
 class ezTestClass1 : public ezReflectedClass
 {
-  EZ_ADD_DYNAMIC_REFLECTION(ezTestClass1);
+  EZ_ADD_DYNAMIC_REFLECTION(ezTestClass1, ezReflectedClass);
 
 public:
   ezTestClass1()
@@ -143,6 +163,13 @@ public:
     m_Struct.m_fFloat1 = 33.3f;
 
     m_Color = ezColor::CornflowerBlue; // The Original!
+  }
+
+  ezTestClass1(const ezColor& c, const ezTestStruct& s)
+  {
+    m_Color = c;
+    m_Struct = s;
+    m_MyVector.Set(1, 2, 3);
   }
 
   bool operator==(const ezTestClass1& rhs) const
@@ -162,7 +189,7 @@ public:
 
 class ezTestClass2 : public ezTestClass1
 {
-  EZ_ADD_DYNAMIC_REFLECTION(ezTestClass2);
+  EZ_ADD_DYNAMIC_REFLECTION(ezTestClass2, ezTestClass1);
 
 public:
   ezTestClass2()
@@ -218,7 +245,7 @@ struct ezTestClass2Allocator : public ezRTTIAllocator
 
 class ezTestClass2b : ezReflectedClass
 {
-  EZ_ADD_DYNAMIC_REFLECTION(ezTestClass2b);
+  EZ_ADD_DYNAMIC_REFLECTION(ezTestClass2b, ezReflectedClass);
 
 public:
   ezTestClass2b()
@@ -239,7 +266,7 @@ private:
 
 class ezTestArrays : public ezReflectedClass
 {
-  EZ_ADD_DYNAMIC_REFLECTION(ezTestArrays);
+  EZ_ADD_DYNAMIC_REFLECTION(ezTestArrays, ezReflectedClass);
 
 public:
   ezTestArrays()
@@ -248,7 +275,7 @@ public:
 
   bool operator==(const ezTestArrays& rhs) const
   {
-    return m_Hybrid == rhs.m_Hybrid && m_Dynamic == rhs.m_Dynamic && m_Deque == rhs.m_Deque;
+    return m_Hybrid == rhs.m_Hybrid && m_Dynamic == rhs.m_Dynamic && m_Deque == rhs.m_Deque && m_HybridChar == rhs.m_HybridChar;
   }
 
   bool operator!=(const ezTestArrays& rhs) const
@@ -261,6 +288,12 @@ public:
   void SetValue(ezUInt32 uiIndex, double value);
   void Insert(ezUInt32 uiIndex, double value);
   void Remove(ezUInt32 uiIndex);
+
+  ezUInt32 GetCountChar() const;
+  const char* GetValueChar(ezUInt32 uiIndex) const;
+  void SetValueChar(ezUInt32 uiIndex, const char* value);
+  void InsertChar(ezUInt32 uiIndex, const char* value);
+  void RemoveChar(ezUInt32 uiIndex);
 
   ezUInt32 GetCountDyn() const;
   const ezTestStruct3& GetValueDyn(ezUInt32 uiIndex) const;
@@ -275,6 +308,7 @@ public:
   void RemoveDeq(ezUInt32 uiIndex);
 
   ezHybridArray<double, 5> m_Hybrid;
+  ezHybridArray<ezString, 2> m_HybridChar;
   ezDynamicArray<ezTestStruct3> m_Dynamic;
   ezDeque<ezTestArrays> m_Deque;
 };
@@ -282,7 +316,7 @@ public:
 
 class ezTestSets : public ezReflectedClass
 {
-  EZ_ADD_DYNAMIC_REFLECTION(ezTestSets);
+  EZ_ADD_DYNAMIC_REFLECTION(ezTestSets, ezReflectedClass);
 
 public:
   ezTestSets()
@@ -304,6 +338,10 @@ public:
   void Insert(double value);
   void Remove(double value);
 
+  const ezHashSet<ezInt64>& GetHashSet() const;
+  void HashInsert(ezInt64 value);
+  void HashRemove(ezInt64 value);
+
   const ezDeque<int>& GetPseudoSet() const;
   void PseudoInsert(int value);
   void PseudoRemove(int value);
@@ -317,15 +355,46 @@ public:
 
   ezSet<ezInt8> m_SetMember;
   ezSet<double> m_SetAccessor;
-  
+
+  ezHashSet<ezInt32> m_HashSetMember;
+  ezHashSet<ezInt64> m_HashSetAccessor;
+
   ezDeque<int> m_Deque;
   ezDynamicArray<ezString> m_Array;
 };
 
+class ezTestMaps : public ezReflectedClass
+{
+  EZ_ADD_DYNAMIC_REFLECTION(ezTestMaps, ezReflectedClass);
+
+public:
+  ezTestMaps()
+  {
+  }
+
+  bool operator==(const ezTestMaps& rhs) const
+  {
+    return true;
+  }
+
+  const ezMap<ezString, ezInt64>& GetContainer() const;
+  void Insert(const char* szKey, ezInt64 value);
+  void Remove(const char* szKey);
+
+  const ezHashTable<ezString, ezString>& GetContainer2() const;
+  void Insert2(const char* szKey, const ezString& value);
+  void Remove2(const char* szKey);
+
+  ezMap<ezString, int> m_MapMember;
+  ezMap<ezString, ezInt64> m_MapAccessor;
+
+  ezHashTable<ezString, double> m_HashTableMember;
+  ezHashTable<ezString, ezString> m_HashTableAccessor;
+};
 
 class ezTestPtr : public ezReflectedClass
 {
-  EZ_ADD_DYNAMIC_REFLECTION(ezTestPtr);
+  EZ_ADD_DYNAMIC_REFLECTION(ezTestPtr, ezReflectedClass);
 
 public:
   ezTestPtr()
@@ -352,15 +421,40 @@ public:
 
   bool operator==(const ezTestPtr& rhs) const
   {
-    return m_sString == rhs.m_sString &&
-      (m_pArrays == rhs.m_pArrays ||
-      *m_pArrays == *rhs.m_pArrays);
+    if (m_sString != rhs.m_sString ||
+      (m_pArrays != rhs.m_pArrays &&
+      *m_pArrays != *rhs.m_pArrays))
+      return false;
+
+    if (m_ArrayPtr.GetCount() != rhs.m_ArrayPtr.GetCount())
+      return false;
+
+    for (ezUInt32 i = 0; i < m_ArrayPtr.GetCount(); i++)
+    {
+      if (!(*m_ArrayPtr[i] == *rhs.m_ArrayPtr[i]))
+        return false;
+    }
+
+    // only works for the test data if the test.
+    if (m_SetPtr.IsEmpty() && rhs.m_SetPtr.IsEmpty())
+      return true;
+
+    if (m_SetPtr.GetCount() != 1 || rhs.m_SetPtr.GetCount() != 1)
+      return true;
+
+    return  *m_SetPtr.GetIterator().Key() == *rhs.m_SetPtr.GetIterator().Key();
   }
 
-  void SetString(const char* pzValue) { m_sString = pzValue; }
+  void SetString(const char* pzValue)
+  {
+    m_sString = pzValue;
+  }
   const char* GetString() const { return m_sString; }
 
-  void SetArrays(ezTestArrays* pValue) { m_pArrays = pValue; }
+  void SetArrays(ezTestArrays* pValue)
+  {
+    m_pArrays = pValue;
+  }
   ezTestArrays* GetArrays() const { return m_pArrays; }
 
 

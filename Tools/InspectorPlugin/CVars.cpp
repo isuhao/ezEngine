@@ -1,4 +1,4 @@
-#include <PCH.h>
+﻿#include <PCH.h>
 #include <Foundation/Communication/Telemetry.h>
 #include <Foundation/Configuration/CVar.h>
 
@@ -8,7 +8,7 @@ static void TelemetryMessage(void* pPassThrough)
 
   while (ezTelemetry::RetrieveMessage('SVAR', Msg) == EZ_SUCCESS)
   {
-    if (Msg.GetMessageID() == 'SET')
+    if (Msg.GetMessageID() == ' SET')
     {
       ezString sCVar;
       ezUInt8 uiType;
@@ -72,7 +72,7 @@ static void SendCVarTelemetry(ezCVar* pCVar)
   msg.SetMessageID('CVAR', 'DATA');
   msg.GetWriter() << pCVar->GetName();
   msg.GetWriter() << pCVar->GetPluginName();
-  msg.GetWriter() << (ezUInt8) pCVar->GetFlags().GetValue();
+  //msg.GetWriter() << (ezUInt8) pCVar->GetFlags().GetValue(); // currently not used
   msg.GetWriter() << (ezUInt8) pCVar->GetType();
   msg.GetWriter() << pCVar->GetDescription();
 
@@ -102,6 +102,10 @@ static void SendCVarTelemetry(ezCVar* pCVar)
       msg.GetWriter() << val;
     }
     break;
+
+  case ezCVarType::ENUM_COUNT:
+    EZ_ASSERT_NOT_IMPLEMENTED;
+    break;
   }
 
   ezTelemetry::Broadcast(ezTelemetry::Reliable, msg);
@@ -115,7 +119,7 @@ static void SendAllCVarTelemetry()
   // clear
   {
     ezTelemetryMessage msg;
-    ezTelemetry::Broadcast(ezTelemetry::Reliable, 'CVAR', 'CLR', nullptr, 0);
+    ezTelemetry::Broadcast(ezTelemetry::Reliable, 'CVAR', ' CLR', nullptr, 0);
   }
 
   ezCVar* pCVar = ezCVar::GetFirstInstance();
@@ -133,55 +137,68 @@ static void SendAllCVarTelemetry()
   }
 }
 
-
-static void TelemetryEventsHandler(const ezTelemetry::TelemetryEventData& e)
+namespace CVarsDetail
 {
-  switch (e.m_EventType)
-  {
-  case ezTelemetry::TelemetryEventData::ConnectedToClient:
-    SendAllCVarTelemetry();
-    break;
-  }
-}
 
-static void CVarEventHandler(const ezCVar::CVarEvent& e)
-{
-  if (!ezTelemetry::IsConnectedToClient())
-    return;
-
-  switch (e.m_EventType)
+  static void TelemetryEventsHandler(const ezTelemetry::TelemetryEventData& e)
   {
-  case ezCVar::CVarEvent::ValueChanged:
-    SendCVarTelemetry(e.m_pCVar);
-    break;
-  }
-}
+    switch (e.m_EventType)
+    {
+    case ezTelemetry::TelemetryEventData::ConnectedToClient:
+      SendAllCVarTelemetry();
+      break;
 
-static void PluginEventHandler(const ezPlugin::PluginEvent& e)
-{
-  switch (e.m_EventType)
-  {
-  case ezPlugin::PluginEvent::AfterPluginChanges:
-    SendAllCVarTelemetry();
-    break;
+    default:
+      break;
+    }
   }
+
+  static void CVarEventHandler(const ezCVar::CVarEvent& e)
+  {
+    if (!ezTelemetry::IsConnectedToClient())
+      return;
+
+    switch (e.m_EventType)
+    {
+    case ezCVar::CVarEvent::ValueChanged:
+      SendCVarTelemetry(e.m_pCVar);
+      break;
+
+    default:
+      break;
+    }
+  }
+
+  static void PluginEventHandler(const ezPlugin::PluginEvent& e)
+  {
+    switch (e.m_EventType)
+    {
+    case ezPlugin::PluginEvent::AfterPluginChanges:
+      SendAllCVarTelemetry();
+      break;
+
+    default:
+      break;
+    }
+  }
+
 }
 
 void AddCVarEventHandler()
 {
-  ezTelemetry::AddEventHandler(TelemetryEventsHandler);
+  ezTelemetry::AddEventHandler(CVarsDetail::TelemetryEventsHandler);
   ezTelemetry::AcceptMessagesForSystem('SVAR', true, TelemetryMessage, nullptr);
 
-  ezCVar::s_AllCVarEvents.AddEventHandler(CVarEventHandler);
-  ezPlugin::s_PluginEvents.AddEventHandler(PluginEventHandler);
+  ezCVar::s_AllCVarEvents.AddEventHandler(CVarsDetail::CVarEventHandler);
+  ezPlugin::s_PluginEvents.AddEventHandler(CVarsDetail::PluginEventHandler);
 }
 
 void RemoveCVarEventHandler()
 {
-  ezPlugin::s_PluginEvents.RemoveEventHandler(PluginEventHandler);
-  ezCVar::s_AllCVarEvents.RemoveEventHandler(CVarEventHandler);
+  ezPlugin::s_PluginEvents.RemoveEventHandler(CVarsDetail::PluginEventHandler);
+  ezCVar::s_AllCVarEvents.RemoveEventHandler(CVarsDetail::CVarEventHandler);
 
-  ezTelemetry::RemoveEventHandler(TelemetryEventsHandler);
+  ezTelemetry::RemoveEventHandler(CVarsDetail::TelemetryEventsHandler);
   ezTelemetry::AcceptMessagesForSystem('SVAR', false);
 }
 

@@ -7,8 +7,7 @@ struct ezDirectoryWatcherImpl
 };
 
 ezDirectoryWatcher::ezDirectoryWatcher()
-  : m_bDirectoryOpen(false)
-  , m_pImpl(nullptr)
+  : m_pImpl(nullptr)
 {
 }
 
@@ -27,7 +26,8 @@ ezDirectoryWatcher::~ezDirectoryWatcher()
 {
 }
 
-void ezDirectoryWatcher::EnumerateChanges(ezDelegate<void(const char* filename, Action action)> func)
+void ezDirectoryWatcher::EnumerateChanges(ezDelegate<void(const char* filename, ezDirectoryWatcherAction action)> func)
 {
   EZ_ASSERT_NOT_IMPLEMENTED
 }
+

@@ -1,7 +1,8 @@
-#include <Foundation/PCH.h>
-#include <Foundation/IO/Archive.h>
+#include <PCH.h>
 
-ezArchiveWriter::ezArchiveWriter(ezStreamWriterBase& stream) : ezChunkStreamWriter(m_WriterTemp),
+#ifdef EZ_SUPPORT_EZARCHIVE
+
+ezArchiveWriter::ezArchiveWriter(ezStreamWriter& stream) : ezChunkStreamWriter(m_WriterTemp),
   m_OutputStream(stream),
   m_WriterTemp(&m_StorageTemp)
 {
@@ -167,7 +168,7 @@ void ezArchiveWriter::BeginStream()
 void ezArchiveWriter::EndStream()
 {
   EZ_ASSERT_DEV(m_bWritingFile, "This function must be called after BeginStream()");
-  EZ_ASSERT_DEV(m_Temp.GetCount() == 0, "BeginTypedObject / EndTypedObject has not been called in tandem (%i)", m_Temp.GetCount());
+  EZ_ASSERT_DEV(m_Temp.GetCount() == 0, "BeginTypedObject / EndTypedObject has not been called in tandem ({0})", m_Temp.GetCount());
 
   m_bWritingFile = false;
 
@@ -202,7 +203,7 @@ void ezArchiveWriter::EndStream()
   }
 }
 
-
+#endif
 
 EZ_STATICLINK_FILE(Foundation, Foundation_IO_Implementation_ArchiveWriter);
 

@@ -1,4 +1,8 @@
-#pragma once
+﻿#pragma once
+
+#include <Foundation/Logging/Log.h>
+#include <Foundation/Threading/ThreadUtils.h>
+#include <Foundation/Strings/StringConversion.h>
 
 // Defined in Timestamp_win.h
 ezInt64 FileTimeToEpoch(FILETIME fileTime);
@@ -13,29 +17,69 @@ static ezUInt64 HighLowToUInt64(ezUInt32 uiHigh32, ezUInt32 uiLow32)
 
 #if EZ_DISABLED(EZ_USE_POSIX_FILE_API)
 
+#include <Shlobj.h>
+
 ezResult ezOSFile::InternalOpen(const char* szFile, ezFileMode::Enum OpenMode)
 {
-  ezStringWChar s = szFile;
+  ezTime sleepTime = ezTime::Milliseconds(10);
 
-  switch (OpenMode)
+  while (true)
   {
-  case ezFileMode::Read:
-    m_FileData.m_pFileHandle = CreateFileW(s.GetData(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING,  FILE_ATTRIBUTE_NORMAL, nullptr); 
-    break;
-  case ezFileMode::Write:
-    m_FileData.m_pFileHandle = CreateFileW(s.GetData(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS,  FILE_ATTRIBUTE_NORMAL, nullptr); 
-    break;
-  case ezFileMode::Append:
-    m_FileData.m_pFileHandle = CreateFileW(s.GetData(), FILE_APPEND_DATA, 0, nullptr, OPEN_ALWAYS,  FILE_ATTRIBUTE_NORMAL, nullptr); 
+    GetLastError();
 
-    // in append mode we need to set the file pointer to the end explicitly, otherwise GetFilePosition might return 0 the first time
-    if ((m_FileData.m_pFileHandle != nullptr) && (m_FileData.m_pFileHandle != INVALID_HANDLE_VALUE))
-      InternalSetFilePosition(0, ezFilePos::FromEnd);
+    ezStringWChar s = szFile;
 
-    break;
+    switch (OpenMode)
+    {
+    case ezFileMode::Read:
+      m_FileData.m_pFileHandle = CreateFileW(s.GetData(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+      break;
+    case ezFileMode::Write:
+      m_FileData.m_pFileHandle = CreateFileW(s.GetData(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+      break;
+    case ezFileMode::Append:
+      m_FileData.m_pFileHandle = CreateFileW(s.GetData(), FILE_APPEND_DATA, 0, nullptr, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+
+      // in append mode we need to set the file pointer to the end explicitly, otherwise GetFilePosition might return 0 the first time
+      if ((m_FileData.m_pFileHandle != nullptr) && (m_FileData.m_pFileHandle != INVALID_HANDLE_VALUE))
+        InternalSetFilePosition(0, ezFilePos::FromEnd);
+
+      break;
+    }
+
+    const ezResult res = ((m_FileData.m_pFileHandle != nullptr) && (m_FileData.m_pFileHandle != INVALID_HANDLE_VALUE)) ? EZ_SUCCESS : EZ_FAILURE;
+
+    if (res.Failed())
+    {
+      DWORD error = GetLastError();
+
+      // file does not exist
+      if (error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND)
+        return res;
+      // badly formed path, happens when two absolute paths are concatenated
+      if (error == ERROR_INVALID_NAME)
+        return res;
+
+      if (error == ERROR_SHARING_VIOLATION)
+      {
+        if (m_bRetryOnSharingViolation)
+        {
+          ezThreadUtils::Sleep(sleepTime);
+          sleepTime = ezMath::Min<ezTime>(sleepTime + ezTime::Milliseconds(20), ezTime::Milliseconds(300));
+          continue; // try again
+        }
+        else
+        {
+          return res;
+        }
+      }
+
+      // anything else, print an error (for now)
+      ezLog::Error("CreateFile failed with error {0}", ezArgErrorCode(error));
+    }
+
+    return res;
   }
-
-  return ((m_FileData.m_pFileHandle != nullptr) && (m_FileData.m_pFileHandle != INVALID_HANDLE_VALUE)) ? EZ_SUCCESS : EZ_FAILURE;
 }
 
 void ezOSFile::InternalClose()
@@ -151,8 +195,6 @@ bool ezOSFile::InternalExistsDirectory(const char* szDirectory)
   return ((dwAttrib != INVALID_FILE_ATTRIBUTES) && ((dwAttrib & FILE_ATTRIBUTE_DIRECTORY) != 0));
 }
 
-#endif // not EZ_USE_POSIX_FILE_API
-
 ezResult ezOSFile::InternalDeleteFile(const char* szFile)
 {
   ezStringWChar s = szFile;
@@ -177,7 +219,7 @@ ezResult ezOSFile::InternalCreateDirectory(const char* szDirectory)
   if (CreateDirectoryW(s.GetData(), nullptr) == FALSE)
   {
     DWORD uiError = GetLastError();
-    if (uiError == ERROR_ALREADY_EXISTS) 
+    if (uiError == ERROR_ALREADY_EXISTS)
       return EZ_SUCCESS;
 
     return EZ_FAILURE;
@@ -185,6 +227,8 @@ ezResult ezOSFile::InternalCreateDirectory(const char* szDirectory)
 
   return EZ_SUCCESS;
 }
+
+#endif // not EZ_USE_POSIX_FILE_API
 
 ezResult ezOSFile::InternalGetFileStats(const char* szFileOrFolder, ezFileStats& out_Stats)
 {
@@ -220,6 +264,8 @@ ezResult ezOSFile::InternalGetFileStats(const char* szFileOrFolder, ezFileStats&
   return EZ_SUCCESS;
 }
 
+#if EZ_ENABLED(EZ_SUPPORTS_FILE_ITERATORS)
+
 ezFileSystemIterator::ezFileSystemIterator()
 {
 }
@@ -242,7 +288,7 @@ ezResult ezFileSystemIterator::StartSearch(const char* szSearchStart, bool bRecu
 
   m_sCurPath = sSearch.GetFileDirectory();
 
-  EZ_ASSERT_DEV(sSearch.IsAbsolutePath(), "The path '%s' is not absolute.", m_sCurPath.GetData());
+  EZ_ASSERT_DEV(sSearch.IsAbsolutePath(), "The path '{0}' is not absolute.", m_sCurPath);
 
   m_bRecursive = bRecursive;
   m_bReportFolders = bReportFolders;
@@ -348,6 +394,8 @@ ezResult ezFileSystemIterator::SkipFolder()
   return bRet;
 }
 
+#endif
+
 const char* ezOSFile::GetApplicationDirectory()
 {
   if (s_ApplicationPath.IsEmpty())
@@ -362,4 +410,45 @@ const char* ezOSFile::GetApplicationDirectory()
   return s_ApplicationPath.GetData();
 }
 
+#if EZ_ENABLED(EZ_PLATFORM_WINDOWS_UWP)
+  #include <Foundation/Basics/Platform/uwp/UWPUtils.h>
+  #include <windows.storage.h>
+#endif
+
+ezString ezOSFile::GetUserDataFolder(const char* szSubFolder)
+{
+  if (s_UserDataPath.IsEmpty())
+  {
+#if EZ_ENABLED(EZ_PLATFORM_WINDOWS_UWP)
+    ComPtr<ABI::Windows::Storage::IApplicationDataStatics> appDataStatics;
+    if (SUCCEEDED(ABI::Windows::Foundation::GetActivationFactory(HStringReference(RuntimeClass_Windows_Storage_ApplicationData).Get(), &appDataStatics)))
+    {
+      ComPtr<ABI::Windows::Storage::IApplicationData> applicationData;
+      if (SUCCEEDED(appDataStatics->get_Current(&applicationData)))
+      {
+        ComPtr<ABI::Windows::Storage::IStorageFolder> applicationDataLocal;
+        if (SUCCEEDED(applicationData->get_LocalFolder(&applicationDataLocal)))
+        {
+          ComPtr<ABI::Windows::Storage::IStorageItem> localFolderItem;
+          if (SUCCEEDED(applicationDataLocal.As(&localFolderItem)))
+          {
+            HSTRING path;
+            localFolderItem->get_Path(&path);
+            s_UserDataPath = ezStringUtf8(path).GetData();
+          }
+        }
+      }
+    }
+#else
+    WCHAR szPath[MAX_PATH];
+    SHGetFolderPathW(NULL, CSIDL_APPDATA, NULL, SHGFP_TYPE_CURRENT, szPath);
+    s_UserDataPath = ezStringWChar(szPath).GetData();
+#endif
+  }
+
+  ezStringBuilder s = s_UserDataPath;
+  s.AppendPath(szSubFolder);
+  s.MakeCleanPath();
+  return s;
+}
 

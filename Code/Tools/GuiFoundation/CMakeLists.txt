@@ -22,7 +22,7 @@ SET (LINK_LIBRARIES
 )
 
 # Enables the use of Qt in this library and sets up the required modules.
-if (BUILDSYSTEM_PLATFORM_WINDOWS)
+if (BUILDSYSTEM_PLATFORM_WINDOWS_DESKTOP)
   QT_MODULES(Core Gui Widgets WinExtras)
 else()
   QT_MODULES(Core Gui Widgets)
@@ -30,6 +30,7 @@ endif()
 
 # Call this in case this library does not function without Qt.
 BUILD_REQUIRES_QT()
+SET (EZ_COPY_QT_DLLS ON)
 
 # Set all headers, that shall be MOC'ed that do not end with moc.h and thus will be MOC'ed automatically.
 #SET (EZ_MOC_HEADERS

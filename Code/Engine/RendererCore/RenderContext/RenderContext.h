@@ -1,7 +1,8 @@
-#pragma once
+﻿#pragma once
 
 #include <RendererCore/Declarations.h>
-#include <Foundation/Strings/HashedString.h>
+#include <RendererCore/Shader/ConstantBufferStorage.h>
+#include <RendererCore/Shader/ShaderStageBinary.h>
 #include <RendererCore/ShaderCompiler/PermutationGenerator.h>
 #include <Foundation/Strings/String.h>
 #include <Foundation/Containers/Map.h>
@@ -9,10 +10,12 @@
 #include <RendererFoundation/Device/Device.h>
 #include <RendererFoundation/Context/Context.h>
 #include <Core/ResourceManager/Resource.h>
-#include <RendererCore/../../../Shared/Data/Shaders/Common/ConstantBufferMacros.h>
-#include <RendererCore/../../../Shared/Data/Shaders/Common/GlobalConstants.h>
-#include <RendererCore/Shader/ShaderStageBinary.h>
+#include <RendererCore/../../../Data/Base/Shaders/Common/GlobalConstants.h>
+#include <RendererCore/RenderContext/Implementation/RenderContextStructs.h>
 
+//////////////////////////////////////////////////////////////////////////
+// ezRenderContext
+//////////////////////////////////////////////////////////////////////////
 
 class EZ_RENDERERCORE_DLL ezRenderContext
 {
@@ -41,90 +44,130 @@ public:
     ezUInt32 m_uiFailedDrawcalls;
   };
 
-
-  // Member Functions
-  void SetShaderPermutationVariable(const char* szVariable, const char* szValue);
-  void BindTexture(const ezTempHashedString& sSlotName, const ezTextureResourceHandle& hTexture);
-  void SetMaterialState(const ezMaterialResourceHandle& hMaterial);
-  void BindConstantBuffer(const ezTempHashedString& sSlotName, const ezConstantBufferResourceHandle& hConstantBuffer);
-  void BindMeshBuffer(const ezMeshBufferResourceHandle& hMeshBuffer);
-  void DrawMeshBuffer(ezUInt32 uiPrimitiveCount = 0xFFFFFFFF, ezUInt32 uiFirstPrimitive = 0, ezUInt32 uiInstanceCount = 1);
-  ezResult ApplyContextStates(bool bForce = false);
   Statistics GetAndResetStatistics();
 
-  /// \brief Sets the currently active shader on the given render context. If pContext is null, the state is set for the primary context.
+
+  // Member Functions
+  void SetShaderPermutationVariable(const char* szName, const ezTempHashedString& sValue);
+  void SetShaderPermutationVariable(const ezHashedString& sName, const ezHashedString& sValue);
+
+  void BindMaterial(const ezMaterialResourceHandle& hMaterial);
+
+  void BindTexture2D(ezGALShaderStage::Enum stage, const ezTempHashedString& sSlotName, const ezTexture2DResourceHandle& hTexture,
+                     ezResourceAcquireMode acquireMode = ezResourceAcquireMode::AllowFallback);
+  void BindTextureCube(ezGALShaderStage::Enum stage, const ezTempHashedString& sSlotName, const ezTextureCubeResourceHandle& hTexture,
+                     ezResourceAcquireMode acquireMode = ezResourceAcquireMode::AllowFallback);
+
+  void BindTexture2D(ezGALShaderStage::Enum stage, const ezTempHashedString& sSlotName, ezGALResourceViewHandle hResourceView);
+  void BindTextureCube(ezGALShaderStage::Enum stage, const ezTempHashedString& sSlotName, ezGALResourceViewHandle hResourceView);
+
+  /// Binds a read+write texture or buffer
+  void BindUAV(const ezTempHashedString& sSlotName, ezGALUnorderedAccessViewHandle hUnorderedAccessViewHandle);
+
+  void BindSamplerState(ezGALShaderStage::Enum stage, const ezTempHashedString& sSlotName, ezGALSamplerStateHandle hSamplerSate);
+
+  void BindBuffer(ezGALShaderStage::Enum stage, const ezTempHashedString& sSlotName, ezGALResourceViewHandle hResourceView);
+
+  void BindConstantBuffer(const ezTempHashedString& sSlotName, ezGALBufferHandle hConstantBuffer);
+  void BindConstantBuffer(const ezTempHashedString& sSlotName, ezConstantBufferStorageHandle hConstantBufferStorage);
+
+  /// \brief Sets the currently active shader on the given render context.
   ///
-  /// This function has no effect until the next drawcall on the context.
-  void BindShader(ezShaderResourceHandle hShader, ezBitflags<ezShaderBindFlags> flags = ezShaderBindFlags::Default);
+  /// This function has no effect until the next draw or dispatch call on the context.
+  void BindShader(const ezShaderResourceHandle& hShader, ezBitflags<ezShaderBindFlags> flags = ezShaderBindFlags::Default);
 
-  /// \brief Evaluates the currently active shader program and then returns that.
-  /// Can be used to determine the shader that needs to be used to create a vertex declaration.
-  ezGALShaderHandle GetActiveGALShader();
+  void BindMeshBuffer(const ezMeshBufferResourceHandle& hMeshBuffer);
+  void BindMeshBuffer(ezGALBufferHandle hVertexBuffer, ezGALBufferHandle hIndexBuffer, const ezVertexDeclarationInfo* pVertexDeclarationInfo,
+    ezGALPrimitiveTopology::Enum topology, ezUInt32 uiPrimitiveCount);
+  ezResult DrawMeshBuffer(ezUInt32 uiPrimitiveCount = 0xFFFFFFFF, ezUInt32 uiFirstPrimitive = 0, ezUInt32 uiInstanceCount = 1);
 
-  template<typename STRUCT>
-  STRUCT* BeginModifyConstantBuffer(ezConstantBufferResourceHandle hConstantBuffer)
-  {
-    return reinterpret_cast<STRUCT*>(InternalBeginModifyConstantBuffer(hConstantBuffer));
-  }
+  ezResult Dispatch(ezUInt32 uiThreadGroupCountX, ezUInt32 uiThreadGroupCountY = 1, ezUInt32 uiThreadGroupCountZ = 1);
 
-  void EndModifyConstantBuffer();
+  ezResult ApplyContextStates(bool bForce = false);
+  void ResetContextState();
+
+  ezGlobalConstants& WriteGlobalConstants();
+  const ezGlobalConstants& ReadGlobalConstants() const;
+
+  void SetViewportAndRenderTargetSetup(const ezRectFloat& viewport, const ezGALRenderTagetSetup& renderTargetSetup);
+
+  /// \brief Sets the texture filter mode that is used by default for texture resources.
+  ///
+  /// The built in default is Anisotropic 4x.
+  /// If the default setting is changed, already loaded textures might not adjust.
+  /// Nearest filtering is not allowed as a default filter.
+  void SetDefaultTextureFilter(ezTextureFilterSetting::Enum filter);
+
+  /// \brief Returns the texture filter mode that is used by default for textures.
+  ezTextureFilterSetting::Enum GetDefaultTextureFilter() const { return m_DefaultTextureFilter; }
+
+  /// \brief Returns the 'fixed' texture filter setting that the combination of default texture filter and given \a configuration defines.
+  ///
+  /// If \a configuration is set to a fixed filter, that setting is returned.
+  /// If it is one of LowestQuality to HighestQuality, the adjusted default filter is returned.
+  /// When the default filter is used (with adjustments), the allowed range is Bilinear to Aniso16x, the Nearest filter is never used.
+  ezTextureFilterSetting::Enum GetSpecificTextureFilter(ezTextureFilterSetting::Enum configuration) const;
 
   // Static Functions
-  static void ConfigureShaderSystem(const char* szActivePlatform, bool bEnableRuntimeCompilation, const char* szShaderCacheDirectory = "ShaderCache", const char* szPermVarSubDirectory = "Shaders/PermutationVars");
-  static const ezString& GetPermutationVarSubDirectory() { return s_sPermVarSubDir; }
-  static const ezString& GetActiveShaderPlatform() { return s_sPlatform; }
-  static const ezString& GetShaderCacheDirectory() { return s_ShaderCacheDirectory; }
-  static bool IsRuntimeShaderCompilationEnabled() { return s_bEnableRuntimeCompilation; }
-
 public:
 
-  static void LoadShaderPermutationVarConfig(const char* szVariable);
-  static const ezPermutationGenerator* GetGeneratorForShaderPermutation(ezUInt32 uiPermutationHash);
-  static void PreloadShaderPermutations(ezShaderResourceHandle hShader, const ezPermutationGenerator& Generator, ezTime tShouldBeAvailableIn);
-  static ezShaderPermutationResourceHandle PreloadSingleShaderPermutation(ezShaderResourceHandle hShader, const ezHybridArray<ezPermutationGenerator::PermutationVar, 16>& UsedPermVars, ezTime tShouldBeAvailableIn);
-
-  static GlobalConstants& WriteGlobalConstants()
+  // Constant buffer storage handling
+  template <typename T>
+  EZ_ALWAYS_INLINE static ezConstantBufferStorageHandle CreateConstantBufferStorage()
   {
-    s_bGlobalConstantsModified = true;
-    return s_GlobalConstants;
+    return CreateConstantBufferStorage(sizeof(T));
   }
 
-  static const GlobalConstants& ReadGlobalConstants()
+  template <typename T>
+  EZ_FORCE_INLINE static ezConstantBufferStorageHandle CreateConstantBufferStorage(ezConstantBufferStorage<T>*& out_pStorage)
   {
-    return s_GlobalConstants;
+    ezConstantBufferStorageBase* pStorage;
+    ezConstantBufferStorageHandle hStorage = CreateConstantBufferStorage(sizeof(T), pStorage);
+    out_pStorage = static_cast<ezConstantBufferStorage<T>*>(pStorage);
+    return hStorage;
   }
 
-  struct MaterialParam
+  EZ_FORCE_INLINE static ezConstantBufferStorageHandle CreateConstantBufferStorage(ezUInt32 uiSizeInBytes)
   {
-    ezUInt64 m_LastModification;
-    ezShaderMaterialParamCB::MaterialParameter::Type m_Type;
-    ezUInt8 m_uiArrayElements;
-    ezUInt16 m_uiDataSize;
-  };
+    ezConstantBufferStorageBase* pStorage;
+    return CreateConstantBufferStorage(uiSizeInBytes, pStorage);
+  }
 
-  static void SetMaterialParameter(const ezTempHashedString& sName, const float& value);
-  static void SetMaterialParameter(const ezTempHashedString& sName, const ezVec2& value);
-  static void SetMaterialParameter(const ezTempHashedString& sName, const ezVec3& value);
-  static void SetMaterialParameter(const ezTempHashedString& sName, const ezVec4& value);
-  static void SetMaterialParameter(const ezTempHashedString& sName, const ezColor& value);
-  static void SetMaterialParameter(const ezTempHashedString& sName, const ezInt32& value);
-  static void SetMaterialParameter(const ezTempHashedString& sName, const ezVec2I32& value);
-  static void SetMaterialParameter(const ezTempHashedString& sName, const ezVec3I32& value);
-  static void SetMaterialParameter(const ezTempHashedString& sName, const ezVec4I32& value);
-  //static void SetMaterialParameter(const ezTempHashedString& sName, const ezMat3& value); /// \todo ezMat3 does not work right, ezTransform maybe neither
-  static void SetMaterialParameter(const ezTempHashedString& sName, const ezMat4& value);
-  static void SetMaterialParameter(const ezTempHashedString& sName, const ezTransform& value);
-  static void SetMaterialParameter(const ezTempHashedString& sName, const ezVariant& value);
-  /// \todo Array versions of material parameters
+  static ezConstantBufferStorageHandle CreateConstantBufferStorage(ezUInt32 uiSizeInBytes, ezConstantBufferStorageBase*& out_pStorage);
+  static void DeleteConstantBufferStorage(ezConstantBufferStorageHandle hStorage);
 
+  template <typename T>
+  EZ_FORCE_INLINE static bool TryGetConstantBufferStorage(ezConstantBufferStorageHandle hStorage, ezConstantBufferStorage<T>*& out_pStorage)
+  {
+    ezConstantBufferStorageBase* pStorage = nullptr;
+    bool bResult = TryGetConstantBufferStorage(hStorage, pStorage);
+    out_pStorage = static_cast<ezConstantBufferStorage<T>*>(pStorage);
+    return bResult;
+  }
 
-  static const MaterialParam* GetMaterialParameterPointer(ezUInt32 uiNameHash);
+  static bool TryGetConstantBufferStorage(ezConstantBufferStorageHandle hStorage, ezConstantBufferStorageBase*& out_pStorage);
+
+  template <typename T>
+  EZ_FORCE_INLINE static T* GetConstantBufferData(ezConstantBufferStorageHandle hStorage)
+  {
+    ezConstantBufferStorage<T>* pStorage = nullptr;
+    if (TryGetConstantBufferStorage(hStorage, pStorage))
+    {
+      return &(pStorage->GetDataForWriting());
+    }
+
+    return nullptr;
+  }
+
+  // Default sampler state
+  static ezGALSamplerStateHandle GetDefaultSamplerState(ezBitflags<ezDefaultSamplerFlags> flags);
 
 private:
-  EZ_MAKE_SUBSYSTEM_STARTUP_FRIEND(Graphics, RendererContext);
+  EZ_MAKE_SUBSYSTEM_STARTUP_FRIEND(RendererCore, RendererContext);
 
   static void OnEngineShutdown();
-  static void OnCoreShutdown();
+
+  void OnEndFrame(ezUInt64);
 
 private:
 
@@ -132,16 +175,45 @@ private:
   ezBitflags<ezRenderContextFlags> m_StateFlags;
   ezShaderResourceHandle m_hActiveShader;
   ezGALShaderHandle m_hActiveGALShader;
-  ezMap<ezString, ezString> m_PermutationVariables;
-  ezPermutationGenerator m_PermGenerator;
-  ezShaderPermutationResourceHandle m_hActiveShaderPermutation;
-  ezConstantBufferResource* m_pCurrentlyModifyingBuffer;
-  ezBitflags<ezShaderBindFlags> m_ShaderBindFlags;
-  ezMeshBufferResourceHandle m_hMeshBuffer;
-  ezUInt32 m_uiMeshBufferPrimitiveCount;
 
-  ezHashTable<ezUInt32, ezTextureResourceHandle> m_BoundTextures;
-  ezHashTable<ezUInt32, ezConstantBufferResourceHandle> m_BoundConstantBuffers;
+  ezHashTable<ezHashedString, ezHashedString> m_PermutationVariables;
+  ezMaterialResourceHandle m_hNewMaterial;
+  ezMaterialResourceHandle m_hMaterial;
+
+  ezShaderPermutationResourceHandle m_hActiveShaderPermutation;
+
+  ezBitflags<ezShaderBindFlags> m_ShaderBindFlags;
+
+  ezGALBufferHandle m_hVertexBuffer;
+  ezGALBufferHandle m_hIndexBuffer;
+  const ezVertexDeclarationInfo* m_pVertexDeclarationInfo;
+  ezGALPrimitiveTopology::Enum m_Topology;
+  ezUInt32 m_uiMeshBufferPrimitiveCount;
+  ezEnum<ezTextureFilterSetting> m_DefaultTextureFilter;
+
+  ezHashTable<ezUInt32, ezGALResourceViewHandle> m_BoundTextures2D[ezGALShaderStage::ENUM_COUNT];
+  ezHashTable<ezUInt32, ezGALResourceViewHandle> m_BoundTexturesCube[ezGALShaderStage::ENUM_COUNT];
+  ezHashTable<ezUInt32, ezGALUnorderedAccessViewHandle> m_BoundUAVs;
+  ezHashTable<ezUInt32, ezGALSamplerStateHandle> m_BoundSamplers[ezGALShaderStage::ENUM_COUNT];
+  ezHashTable<ezUInt32, ezGALResourceViewHandle> m_BoundBuffer[ezGALShaderStage::ENUM_COUNT];
+
+  struct BoundConstantBuffer
+  {
+    EZ_DECLARE_POD_TYPE();
+
+    BoundConstantBuffer() {}
+    BoundConstantBuffer(ezGALBufferHandle hConstantBuffer)
+      : m_hConstantBuffer(hConstantBuffer) {}
+    BoundConstantBuffer(ezConstantBufferStorageHandle hConstantBufferStorage)
+      : m_hConstantBufferStorage(hConstantBufferStorage) {}
+
+    ezGALBufferHandle m_hConstantBuffer;
+    ezConstantBufferStorageHandle m_hConstantBufferStorage;
+  };
+
+  ezHashTable<ezUInt32, BoundConstantBuffer> m_BoundConstantBuffers;
+
+  ezConstantBufferStorageHandle m_hGlobalConstantBufferStorage;
 
   struct ShaderVertexDecl
   {
@@ -164,29 +236,28 @@ private:
   };
 
   static ezResult BuildVertexDeclaration(ezGALShaderHandle hShader, const ezVertexDeclarationInfo& decl, ezGALVertexDeclarationHandle& out_Declaration);
-  ezUInt8* InternalBeginModifyConstantBuffer(ezConstantBufferResourceHandle hConstantBuffer);
 
-  static MaterialParam* InternalSetMaterialParameter(const ezTempHashedString& sName, ezShaderMaterialParamCB::MaterialParameter::Type type, ezUInt32 uiMaxArrayElements);
-
-  static ezPermutationGenerator s_AllowedPermutations;
-  static bool s_bEnableRuntimeCompilation;
-  static ezString s_sPlatform;
-  static ezString s_sPermVarSubDir;
-  static ezString s_ShaderCacheDirectory;
-  static ezMap<ezUInt32, ezPermutationGenerator> s_PermutationHashCache;
   static ezMap<ShaderVertexDecl, ezGALVertexDeclarationHandle> s_GALVertexDeclarations;
-  static ezUInt64 s_LastMaterialParamModification;
 
-  static bool s_bGlobalConstantsModified;
-  static GlobalConstants s_GlobalConstants;
-  static ezConstantBufferResourceHandle s_hGlobalConstantBuffer;
+  static ezMutex s_ConstantBufferStorageMutex;
+  static ezIdTable<ezConstantBufferStorageId, ezConstantBufferStorageBase*> s_ConstantBufferStorageTable;
+  static ezMap<ezUInt32, ezDynamicArray<ezConstantBufferStorageBase*>> s_FreeConstantBufferStorage;
+
+  static ezGALSamplerStateHandle s_hDefaultSamplerStates[4];
 
 private: // Per Renderer States
   ezGALContext* m_pGALContext;
 
   // Member Functions
-  void UploadGlobalConstants();
-  void ApplyTextureBindings(ezGALShaderStage::Enum stage, const ezShaderStageBinary* pBinary);
+  void UploadConstants();
+
+  void BindShaderInternal(const ezShaderResourceHandle& hShader, ezBitflags<ezShaderBindFlags> flags);
+  ezShaderPermutationResource* ApplyShaderState();
+  ezMaterialResource* ApplyMaterialState();
   void ApplyConstantBufferBindings(const ezShaderStageBinary* pBinary);
+  void ApplyTextureBindings(ezGALShaderStage::Enum stage, const ezShaderStageBinary* pBinary);
+  void ApplyUAVBindings(const ezShaderStageBinary* pBinary);
+  void ApplySamplerBindings(ezGALShaderStage::Enum stage, const ezShaderStageBinary* pBinary);
+  void ApplyBufferBindings(ezGALShaderStage::Enum stage, const ezShaderStageBinary* pBinary);
 };
 

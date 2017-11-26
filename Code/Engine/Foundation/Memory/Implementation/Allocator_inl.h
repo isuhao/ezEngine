@@ -1,4 +1,4 @@
-namespace ezInternal
+﻿namespace ezInternal
 {
   template <typename AllocationPolicy, ezUInt32 TrackingFlags>
   class ezAllocatorImpl : public ezAllocatorBase
@@ -70,10 +70,10 @@ void* ezInternal::ezAllocatorImpl<A, TrackingFlags>::Allocate(size_t uiSize, siz
   if (uiSize == 0)
     return nullptr;
 
-  EZ_ASSERT_DEV(ezMath::IsPowerOf2((ezUInt32)uiAlign), "Alignment must be power of two");
+  EZ_ASSERT_DEBUG(ezMath::IsPowerOf2((ezUInt32)uiAlign), "Alignment must be power of two");
 
   void* ptr = m_allocator.Allocate(uiSize, uiAlign);
-  EZ_ASSERT_DEBUG(ptr != nullptr, "Could not allocate %d bytes. Out of memory?", uiSize);
+  EZ_ASSERT_DEBUG(ptr != nullptr, "Could not allocate {0} bytes. Out of memory?", uiSize);
 
   if ((TrackingFlags & ezMemoryTrackingFlags::EnableTracking) != 0)
   {
@@ -117,7 +117,7 @@ ezAllocatorBase::Stats ezInternal::ezAllocatorImpl<A, TrackingFlags>::GetStats()
 }
 
 template <typename A, ezUInt32 TrackingFlags>
-EZ_FORCE_INLINE ezAllocatorBase* ezInternal::ezAllocatorImpl<A, TrackingFlags>::GetParent() const
+EZ_ALWAYS_INLINE ezAllocatorBase* ezInternal::ezAllocatorImpl<A, TrackingFlags>::GetParent() const
 {
   return m_allocator.GetParent();
 }
@@ -152,3 +152,4 @@ void* ezInternal::ezAllocatorMixinReallocate<A, TrackingFlags, true>::Reallocate
   }
   return pNewMem;
 }
+

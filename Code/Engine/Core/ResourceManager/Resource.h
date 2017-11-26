@@ -21,16 +21,32 @@ class ezResource : public ezResourceBase
 public:
   typedef SELF_DESCRIPTOR DescriptorType;
 
+  /// \brief Unfortunately this has to be called manually from within dynamic plugins during core engine shutdown.
+  ///
+  /// Without this, the dynamic plugin might still be referenced by the core engine during later shutdown phases and will crash, because memory
+  /// and code is still referenced, that is already unloaded.
+  static void CleanupDynamicPluginReferences()
+  {
+    s_TypeFallbackResource.Invalidate();
+    s_TypeMissingResource.Invalidate();
+
+    if (s_bAddedManagerEventHandler)
+    {
+      s_bAddedManagerEventHandler = false;
+      ezResourceManager::s_ManagerEvents.RemoveEventHandler(ManagerEventHandler);
+    }
+  }
+
   /// \brief Sets the fallback resource that can be used while this resource is not yet loaded.
   ///
   /// By default there is no fallback resource, so all resource will block the application when requested for the first time.
-  void SetFallbackResource(const ezResourceHandle<SELF>& hResource)
+  void SetFallbackResource(const ezTypedResourceHandle<SELF>& hResource)
   {
     m_hFallback = hResource;
     m_Flags.AddOrRemove(ezResourceFlags::ResourceHasFallback, m_hFallback.IsValid());
   }
 
-  static void SetTypeFallbackResource(const ezResourceHandle<SELF>& hResource)
+  static void SetTypeFallbackResource(const ezTypedResourceHandle<SELF>& hResource)
   {
     if (!s_bAddedManagerEventHandler && !s_TypeFallbackResource.IsValid() && !s_TypeMissingResource.IsValid() && hResource.IsValid())
     {
@@ -41,7 +57,7 @@ public:
     s_TypeFallbackResource = hResource;
   }
 
-  static void SetTypeMissingResource(const ezResourceHandle<SELF>& hResource)
+  static void SetTypeMissingResource(const ezTypedResourceHandle<SELF>& hResource)
   {
     if (!s_bAddedManagerEventHandler && !s_TypeFallbackResource.IsValid() && !s_TypeMissingResource.IsValid() && hResource.IsValid())
     {
@@ -49,11 +65,26 @@ public:
       ezResourceManager::s_ManagerEvents.AddEventHandler(ManagerEventHandler);
     }
 
+#if EZ_ENABLED(EZ_COMPILE_FOR_DEVELOPMENT)
+    if (hResource.IsValid())
+    {
+      ezResourceLock<SELF> lock(hResource, ezResourceAcquireMode::NoFallback);
+      // if this fails, the 'missing resource' is missing itself
+    }
+#endif
+
+    if (hResource.IsValid())
+    {
+      // this is not thread safe (though we are only setting one flag), but this function should only be called during startup, where it is single-threaded anyway
+      ezResourceLock<SELF> pFallback(hResource, ezResourceAcquireMode::PointerOnly);
+      pFallback->m_Flags.Add(ezResourceFlags::IsMissingFallback);
+    }
+
     s_TypeMissingResource = hResource;
   }
 
-  static const ezResourceHandle<SELF>& GetTypeFallbackResource() { return s_TypeFallbackResource; }
-  static const ezResourceHandle<SELF>& GetTypeMissingResource() { return s_TypeMissingResource; }
+  static const ezTypedResourceHandle<SELF>& GetTypeFallbackResource() { return s_TypeFallbackResource; }
+  static const ezTypedResourceHandle<SELF>& GetTypeMissingResource() { return s_TypeMissingResource; }
 
 protected:
 
@@ -66,9 +97,15 @@ protected:
   ~ezResource() { }
 
 private:
-  static void ManagerEventHandler(const ezResourceManager::ManagerEvent& e)
+
+  static void ManagerEventHandler(const ezResourceManagerEvent& e)
   {
-    if (e.m_EventType == ezResourceManager::ManagerEventType::ManagerShuttingDown)
+    if (e.m_EventType == ezResourceManagerEventType::ManagerShuttingDown)
+    {
+      CleanupDynamicPluginReferences();
+    }
+
+    if (e.m_EventType == ezResourceManagerEventType::ClearResourceFallbacks)
     {
       s_TypeFallbackResource.Invalidate();
       s_TypeMissingResource.Invalidate();
@@ -76,8 +113,8 @@ private:
   }
 
   static bool s_bAddedManagerEventHandler;
-  static ezResourceHandle<SELF> s_TypeFallbackResource;
-  static ezResourceHandle<SELF> s_TypeMissingResource;
+  static ezTypedResourceHandle<SELF> s_TypeFallbackResource;
+  static ezTypedResourceHandle<SELF> s_TypeMissingResource;
 
   void CallCreateResource(const SELF_DESCRIPTOR& descriptor)
   {
@@ -86,6 +123,8 @@ private:
     EZ_ASSERT_DEV(ld.m_State != ezResourceState::Invalid, "CreateResource() did not return a valid resource load state");
     EZ_ASSERT_DEV(ld.m_uiQualityLevelsDiscardable != 0xFF, "CreateResource() did not fill out m_uiQualityLevelsDiscardable correctly");
     EZ_ASSERT_DEV(ld.m_uiQualityLevelsLoadable != 0xFF, "CreateResource() did not fill out m_uiQualityLevelsLoadable correctly");
+
+    IncResourceChangeCounter();
 
     m_LoadingState = ld.m_State;
     m_uiQualityLevelsDiscardable = ld.m_uiQualityLevelsDiscardable;
@@ -98,16 +137,18 @@ private:
       MemUsage.m_uiMemoryGPU = 0xFFFFFFFF;
       UpdateMemoryUsage(MemUsage);
 
-      EZ_ASSERT_DEV(MemUsage.m_uiMemoryCPU != 0xFFFFFFFF, "Resource '%s' did not properly update its CPU memory usage", GetResourceID().GetData());
-      EZ_ASSERT_DEV(MemUsage.m_uiMemoryGPU != 0xFFFFFFFF, "Resource '%s' did not properly update its GPU memory usage", GetResourceID().GetData());
+      EZ_ASSERT_DEV(MemUsage.m_uiMemoryCPU != 0xFFFFFFFF, "Resource '{0}' did not properly update its CPU memory usage", GetResourceID());
+      EZ_ASSERT_DEV(MemUsage.m_uiMemoryGPU != 0xFFFFFFFF, "Resource '{0}' did not properly update its GPU memory usage", GetResourceID());
 
       m_MemoryUsage = MemUsage;
     }
 
-    ezResourceManager::ResourceEvent e;
+    ezResourceEvent e;
     e.m_pResource = this;
-    e.m_EventType = ezResourceManager::ResourceEventType::ResourceContentUpdated;
+    e.m_EventType = ezResourceEventType::ResourceContentUpdated;
     ezResourceManager::BroadcastResourceEvent(e);
+
+    ezLog::Debug("Created {0} - '{1}' ", GetDynamicRTTI()->GetTypeName(), GetResourceDescription());
   }
 
   /// \brief Override this function to implement resource creation. This is called by ezResourceManager::CreateResource.
@@ -124,21 +165,21 @@ private:
   /// However, since this might be a valid use case for some resource types, it is not enforced by the resource manager.
   virtual ezResourceLoadDesc CreateResource(const SELF_DESCRIPTOR& descriptor)
   {
-    EZ_REPORT_FAILURE("The resource type '%s' does not support resource creation", GetDynamicRTTI()->GetTypeName());
+    EZ_REPORT_FAILURE("The resource type '{0}' does not support resource creation", GetDynamicRTTI()->GetTypeName());
 
     return ezResourceLoadDesc();
   }
 
-  ezResourceHandle<SELF> m_hFallback;
+  ezTypedResourceHandle<SELF> m_hFallback;
 };
 
 template<typename SELF, typename SELF_DESCRIPTOR>
 bool ezResource<SELF, SELF_DESCRIPTOR>::s_bAddedManagerEventHandler = false;
 
 template<typename SELF, typename SELF_DESCRIPTOR>
-ezResourceHandle<SELF> ezResource<SELF, SELF_DESCRIPTOR>::s_TypeFallbackResource;
+ezTypedResourceHandle<SELF> ezResource<SELF, SELF_DESCRIPTOR>::s_TypeFallbackResource;
 
 template<typename SELF, typename SELF_DESCRIPTOR>
-ezResourceHandle<SELF> ezResource<SELF, SELF_DESCRIPTOR>::s_TypeMissingResource;
+ezTypedResourceHandle<SELF> ezResource<SELF, SELF_DESCRIPTOR>::s_TypeMissingResource;
 
 

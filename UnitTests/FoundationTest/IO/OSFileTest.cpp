@@ -1,4 +1,4 @@
-#include <PCH.h>
+﻿#include <PCH.h>
 #include <Foundation/IO/OSFile.h>
 
 EZ_CREATE_SIMPLE_TEST(IO, OSFile)
@@ -15,12 +15,12 @@ Only concrete and clocks.\n\
 
   const ezUInt32 uiTextLen = sFileContent.GetElementCount();
 
-  ezStringBuilder sOutputFile = BUILDSYSTEM_OUTPUT_FOLDER;
-  sOutputFile.AppendPath("FoundationTest", "IO", "SubFolder");
+  ezStringBuilder sOutputFile = ezTestFramework::GetInstance()->GetAbsOutputPath();
+  sOutputFile.AppendPath("IO", "SubFolder");
   sOutputFile.AppendPath("OSFile_TestFile.txt");
 
-  ezStringBuilder sOutputFile2 = BUILDSYSTEM_OUTPUT_FOLDER;
-  sOutputFile2.AppendPath("FoundationTest", "IO", "SubFolder2");
+  ezStringBuilder sOutputFile2 = ezTestFramework::GetInstance()->GetAbsOutputPath();
+  sOutputFile2.AppendPath("IO", "SubFolder2");
   sOutputFile2.AppendPath("OSFile_TestFileCopy.txt");
 
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "Write File")
@@ -95,28 +95,36 @@ Only concrete and clocks.\n\
     f.Close();
   }
 
+  EZ_TEST_BLOCK(ezTestBlock::Enabled, "ReadAll")
+  {
+    ezOSFile f;
+    EZ_TEST_BOOL(f.Open(sOutputFile, ezFileMode::Read) == EZ_SUCCESS);
+
+    ezDynamicArray<ezUInt8> fileContent;
+    const ezUInt64 bytes = f.ReadAll(fileContent);
+
+    EZ_TEST_INT(bytes, uiTextLen * 2);
+
+    EZ_TEST_BOOL(ezMemoryUtils::IsEqual(fileContent.GetData(), (const ezUInt8*)sFileContent.GetData(), uiTextLen));
+
+    f.Close();
+  }
+
 #if EZ_ENABLED(EZ_SUPPORTS_FILE_STATS)
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "File Stats")
   {
     ezFileStats s;
 
     ezStringBuilder dir = sOutputFile2.GetFileDirectory();
-    dir.ToLower();
 
     EZ_TEST_BOOL(ezOSFile::GetFileStats(sOutputFile2.GetData(), s) == EZ_SUCCESS);
     //printf("%s Name: '%s' (%lli Bytes), Modified Time: %lli\n", s.m_bIsDirectory ? "Directory" : "File", s.m_sFileName.GetData(), s.m_uiFileSize, s.m_LastModificationTime.GetInt64(ezSIUnitOfTime::Microsecond));
 
     EZ_TEST_BOOL(ezOSFile::GetFileStats(dir.GetData(), s) == EZ_SUCCESS);
     //printf("%s Name: '%s' (%lli Bytes), Modified Time: %lli\n", s.m_bIsDirectory ? "Directory" : "File", s.m_sFileName.GetData(), s.m_uiFileSize, s.m_LastModificationTime.GetInt64(ezSIUnitOfTime::Microsecond));
-
-    ezStringBuilder sOutputFile3 = BUILDSYSTEM_OUTPUT_FOLDER;
-    sOutputFile3.AppendPath("FoundationTest", "IO", "SubFolder2");
-    sOutputFile3.AppendPath("*.txt");
-
-    EZ_TEST_BOOL(ezOSFile::GetFileStats(sOutputFile3.GetData(), s) == EZ_SUCCESS);
-    //printf("%s Name: '%s' (%lli Bytes), Modified Time: %lli\n", s.m_bIsDirectory ? "Directory" : "File", s.m_sFileName.GetData(), s.m_uiFileSize, s.m_LastModificationTime.GetInt64(ezSIUnitOfTime::Microsecond));
   }
 
+#if (EZ_ENABLED(EZ_SUPPORTS_CASE_INSENSITIVE_PATHS) && EZ_ENABLED(EZ_SUPPORTS_UNRESTRICTED_FILE_ACCESS))
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "GetFileCasing")
   {
     ezStringBuilder dir = sOutputFile2;
@@ -128,8 +136,9 @@ Only concrete and clocks.\n\
     // On Windows the drive letter will always be made to upper case
     EZ_TEST_STRING(sCorrected.GetData(), sOutputFile2.GetData());
   }
+#endif // EZ_SUPPORTS_CASE_INSENSITIVE_PATHS && EZ_SUPPORTS_UNRESTRICTED_FILE_ACCESS
 
-#endif
+#endif // EZ_SUPPORTS_FILE_STATS
 
 #if EZ_ENABLED(EZ_SUPPORTS_FILE_ITERATORS)
 
@@ -139,10 +148,13 @@ Only concrete and clocks.\n\
     // a test data folder with deterministic content
     // Therefore I tested it manually, and leave the code in, such that it is at least a 'does it compile and link' test.
 
-    ezStringBuilder sOutputFolder = BUILDSYSTEM_OUTPUT_FOLDER;
-    sOutputFolder.AppendPath("Debug*");
+    ezStringBuilder sOutputFolder = ezOSFile::GetApplicationDirectory();
+    sOutputFolder.AppendPath("*");
 
     ezStringBuilder sFullPath;
+
+    ezUInt32 uiFolders = 0;
+    ezUInt32 uiFiles = 0;
 
     ezFileSystemIterator it;
     if (it.StartSearch(sOutputFolder.GetData(), true, true) == EZ_SUCCESS)
@@ -159,16 +171,25 @@ Only concrete and clocks.\n\
 
         if (it.GetStats().m_bIsDirectory)
         {
+          ++uiFolders;
+
           SkipFolder++;
 
           if ((SkipFolder % 2 == 0) && (it.SkipFolder() == EZ_FAILURE))
             break;
+        }
+        else
+        {
+          ++uiFiles;
         }
 
         //printf("%s: '%s'\n", it.GetStats().m_bIsDirectory ? "[Dir] " : "[File]", sFullPath.GetData());
       }
       while (it.Next() == EZ_SUCCESS);
     }
+
+    EZ_TEST_BOOL(uiFolders > 0);
+    EZ_TEST_BOOL(uiFiles > 0);
   }
 
 #endif
@@ -220,16 +241,16 @@ Only concrete and clocks.\n\
     EZ_TEST_BOOL(ezOSFile::ExistsDirectory(sOutputFile.GetData()) == false);
     EZ_TEST_BOOL(ezOSFile::ExistsDirectory(sOutputFile2.GetData()) == false);
 
-    ezStringBuilder sOutputFolder = BUILDSYSTEM_OUTPUT_FOLDER;
+    ezStringBuilder sOutputFolder = ezTestFramework::GetInstance()->GetAbsOutputPath();
     EZ_TEST_BOOL(ezOSFile::ExistsDirectory(sOutputFolder) == true);
 
-    sOutputFile.AppendPath("FoundationTest", "IO");
+    sOutputFile.AppendPath("IO");
     EZ_TEST_BOOL(ezOSFile::ExistsDirectory(sOutputFolder) == true);
 
     sOutputFile.AppendPath("SubFolder");
     EZ_TEST_BOOL(ezOSFile::ExistsDirectory(sOutputFolder) == true);
   }
-  
+
   EZ_TEST_BLOCK(ezTestBlock::Enabled, "GetApplicationDirectory")
   {
     const char* szAppDir = ezOSFile::GetApplicationDirectory();

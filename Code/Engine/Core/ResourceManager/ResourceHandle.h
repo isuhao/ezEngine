@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Core/Basics.h>
+#include <Foundation/Strings/String.h>
 
 class ezResourceBase;
 
@@ -8,112 +9,216 @@ class ezResourceBase;
 EZ_CORE_DLL void IncreaseResourceRefCount(ezResourceBase* pResource);
 EZ_CORE_DLL void DecreaseResourceRefCount(ezResourceBase* pResource);
 
-/// \brief The ezResourceHandle controls access to an ezResource.
+/// \brief The typeless implementation of resource handles. A typed interface is provided by ezTypedResourceHandle.
+class EZ_CORE_DLL ezTypelessResourceHandle
+{
+public:
+  EZ_ALWAYS_INLINE ezTypelessResourceHandle()
+  {
+    m_pResource = nullptr;
+  }
+
+  /// \brief [internal] Increases the refcount of the given resource.
+  ezTypelessResourceHandle(ezResourceBase* pResource);
+
+  /// \brief Increases the refcount of the given resource
+  ezTypelessResourceHandle(const ezTypelessResourceHandle& rhs)
+  {
+    m_pResource = rhs.m_pResource;
+
+    if (m_pResource)
+      IncreaseResourceRefCount(m_pResource);
+  }
+
+  /// \brief Move constructor, no refcount change is necessary.
+  ezTypelessResourceHandle(ezTypelessResourceHandle&& rhs)
+  {
+    m_pResource = rhs.m_pResource;
+    rhs.m_pResource = nullptr;
+  }
+
+  /// \brief Releases any referenced resource.
+  EZ_ALWAYS_INLINE ~ezTypelessResourceHandle()
+  {
+    Invalidate();
+  }
+
+  /// \brief Returns whether the handle stores a valid pointer to a resource.
+  EZ_ALWAYS_INLINE bool IsValid() const
+  {
+    return m_pResource != nullptr;
+  }
+
+  /// \brief Clears any reference to a resource and reduces its refcount.
+  void Invalidate();
+
+  /// \brief Returns the Resource ID hash of the exact resource that this handle points to, without acquiring the resource.
+  /// The handle must be valid.
+  ezUInt32 GetResourceIDHash() const;
+
+  /// \brief Returns the Resource ID of the exact resource that this handle points to, without acquiring the resource.
+  /// The handle must be valid.
+  const ezString& GetResourceID() const;
+
+  /// \brief Releases the current reference and increases the refcount of the given resource.
+  void operator=(const ezTypelessResourceHandle& rhs);
+
+  /// \brief Move operator, no refcount change is necessary.
+  void operator=(ezTypelessResourceHandle&& rhs);
+
+  /// \brief Checks whether the two handles point to the same resource.
+  EZ_ALWAYS_INLINE bool operator==(const ezTypelessResourceHandle& rhs) const
+  {
+    return m_pResource == rhs.m_pResource;
+  }
+
+  /// \brief Checks whether the two handles point to the same resource.
+  EZ_ALWAYS_INLINE bool operator!=(const ezTypelessResourceHandle& rhs) const
+  {
+    return m_pResource != rhs.m_pResource;
+  }
+
+  /// \brief Checks whether the handle points to the given resource.
+  EZ_ALWAYS_INLINE bool operator==(const ezResourceBase* rhs) const
+  {
+    return m_pResource == rhs;
+  }
+
+  /// \brief Checks whether the handle points to the given resource.
+  EZ_ALWAYS_INLINE bool operator!=(const ezResourceBase* rhs) const
+  {
+    return m_pResource != rhs;
+  }
+
+protected:
+
+  ezResourceBase* m_pResource;
+
+private:
+  // you must go through the resource manager to get access to the resource pointer
+  friend class ezResourceManager;
+  friend class ezResourceHandleWriteContext;
+  friend class ezResourceHandleReadContext;
+};
+
+/// \brief The ezTypedResourceHandle controls access to an ezResource.
 ///
-/// All resources must be referenced using ezResourceHandle instances (instantiated with the proper resource type as the template argument).
+/// All resources must be referenced using ezTypedResourceHandle instances (instantiated with the proper resource type as the template argument).
 /// You must not store a direct pointer to a resource anywhere. Instead always store resource handles. To actually access a resource,
 /// use ezResourceManager::BeginAcquireResource and ezResourceManager::EndAcquireResource after you have finished using it.
 ///
-/// ezResourceHandle implements reference counting on resources. It also allows to redirect resources to fallback resources when they
+/// ezTypedResourceHandle implements reference counting on resources. It also allows to redirect resources to fallback resources when they
 /// are not yet loaded (if possible).
 ///
 /// As long as there is one resource handle that references a resource, it is considered 'in use' and thus might not get unloaded.
 /// So be careful where you store resource handles.
 /// If necessary you can call Invalidate() to clear a resource handle and thus also remove the reference to the resource.
 template<typename ResourceType>
-class ezResourceHandle
+class ezTypedResourceHandle
 {
 public:
 
   /// \brief A default constructed handle is invalid and does not reference any resource.
-  ezResourceHandle()
+  ezTypedResourceHandle() {}
+
+  /// \brief Increases the refcount of the given resource.
+  ezTypedResourceHandle(ResourceType* pResource) : m_Typeless(pResource)
   {
-    m_pResource = NULL;
   }
 
   /// \brief Increases the refcount of the given resource.
-  ezResourceHandle(ResourceType* pResource)
+  ezTypedResourceHandle(const ezTypedResourceHandle<ResourceType>& rhs) : m_Typeless(rhs.m_Typeless)
   {
-    m_pResource = pResource;
-
-    if (m_pResource)
-      IncreaseResourceRefCount(reinterpret_cast<ezResourceBase*>(m_pResource));
-  }
-
-  /// \brief Increases the refcount of the given resource.
-  ezResourceHandle(const ezResourceHandle<ResourceType>& rhs)
-  {
-    m_pResource = rhs.m_pResource;
-
-    if (m_pResource)
-      IncreaseResourceRefCount(reinterpret_cast<ezResourceBase*>(m_pResource));
   }
 
   /// \brief Move constructor, no refcount change is necessary.
-  ezResourceHandle(ezResourceHandle<ResourceType>&& rhs)
+  ezTypedResourceHandle(ezTypedResourceHandle<ResourceType>&& rhs)
+    : m_Typeless(std::move(rhs.m_Typeless))
   {
-    m_pResource = rhs.m_pResource;
-    rhs.m_pResource = NULL;
   }
 
   /// \brief Releases the current reference and increases the refcount of the given resource.
-  void operator=(const ezResourceHandle<ResourceType>& rhs)
+  void operator=(const ezTypedResourceHandle<ResourceType>& rhs)
   {
-    Invalidate();
-
-    m_pResource = rhs.m_pResource;
-
-    if (m_pResource)
-      IncreaseResourceRefCount(reinterpret_cast<ezResourceBase*>(m_pResource));
+    m_Typeless = rhs.m_Typeless;
   }
 
   /// \brief Move operator, no refcount change is necessary.
-  void operator=(ezResourceHandle<ResourceType>&& rhs)
+  void operator=(ezTypedResourceHandle<ResourceType>&& rhs)
   {
-    Invalidate();
-
-    m_pResource = rhs.m_pResource;
-    rhs.m_pResource = NULL;
+    m_Typeless = std::move(rhs.m_Typeless);
   }
 
-  /// \brief Releases any referenced resource.
-  ~ezResourceHandle()
+  /// \brief Checks whether the two handles point to the same resource.
+  EZ_ALWAYS_INLINE bool operator==(const ezTypedResourceHandle<ResourceType>& rhs) const
   {
-    Invalidate();
+    return m_Typeless == rhs.m_Typeless;
+  }
+
+  /// \brief Checks whether the two handles point to the same resource.
+  EZ_ALWAYS_INLINE bool operator!=(const ezTypedResourceHandle<ResourceType>& rhs) const
+  {
+    return m_Typeless != rhs.m_Typeless;
+  }
+
+  /// \brief Checks whether the handle points to the given resource.
+  EZ_ALWAYS_INLINE bool operator==(const ezResourceBase* rhs) const
+  {
+    return m_Typeless == rhs;
+  }
+
+  /// \brief Checks whether the handle points to the given resource.
+  EZ_ALWAYS_INLINE bool operator!=(const ezResourceBase* rhs) const
+  {
+    return m_Typeless != rhs;
+  }
+
+  /// \brief Returns the corresponding typeless resource handle.
+  EZ_ALWAYS_INLINE operator const ezTypelessResourceHandle() const
+  {
+    return m_Typeless;
+  }
+
+  /// \brief Returns the corresponding typeless resource handle.
+  EZ_ALWAYS_INLINE operator ezTypelessResourceHandle()
+  {
+    return m_Typeless;
   }
 
   /// \brief Returns whether the handle stores a valid pointer to a resource.
-  bool IsValid() const
+  EZ_ALWAYS_INLINE bool IsValid() const
   {
-    return m_pResource != NULL;
+    return m_Typeless.IsValid();
   }
 
   /// \brief Clears any reference to a resource and reduces its refcount.
-  void Invalidate()
+  EZ_ALWAYS_INLINE void Invalidate()
   {
-    if (m_pResource)
-      DecreaseResourceRefCount(reinterpret_cast<ezResourceBase*>(m_pResource));
-
-    m_pResource = NULL;
+    m_Typeless.Invalidate();
   }
 
-  /// \brief Checks whether the two handles point to the same resource.
-  EZ_FORCE_INLINE bool operator==(const ezResourceHandle<ResourceType>& rhs) const
+  /// \brief Returns the Resource ID hash of the exact resource that this handle points to, without acquiring the resource.
+  /// The handle must be valid.
+  EZ_ALWAYS_INLINE ezUInt32 GetResourceIDHash() const
   {
-    return m_pResource == rhs.m_pResource;
+    return m_Typeless.GetResourceIDHash();
   }
 
-  /// \brief Checks whether the two handles point to the same resource.
-  EZ_FORCE_INLINE bool operator!=(const ezResourceHandle<ResourceType>& rhs) const
+  /// \brief Returns the Resource ID of the exact resource that this handle points to, without acquiring the resource.
+  /// The handle must be valid.
+  EZ_ALWAYS_INLINE const ezString& GetResourceID() const
   {
-    return m_pResource != rhs.m_pResource;
+    return m_Typeless.GetResourceID();
   }
+
+private:
+  ezTypelessResourceHandle m_Typeless;
 
 private:
   // you must go through the resource manager to get access to the resource pointer
   friend class ezResourceManager;
-
-  ResourceType* m_pResource;
+  friend class ezResourceHandleWriteContext;
+  friend class ezResourceHandleReadContext;
 };
 
 

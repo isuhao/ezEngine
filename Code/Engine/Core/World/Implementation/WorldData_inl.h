@@ -1,10 +1,15 @@
-
+﻿
 namespace ezInternal
 {
+  //static
+  EZ_ALWAYS_INLINE WorldData::HierarchyType::Enum WorldData::GetHierarchyType(bool bIsDynamic)
+  {
+    return bIsDynamic ? HierarchyType::Dynamic : HierarchyType::Static;
+  }
 
   // static
   template <typename VISITOR>
-  EZ_FORCE_INLINE bool WorldData::TraverseHierarchyLevel(Hierarchy::DataBlockArray& blocks, void* pUserData /* = nullptr*/)
+  EZ_FORCE_INLINE ezVisitorExecution::Enum WorldData::TraverseHierarchyLevel(Hierarchy::DataBlockArray& blocks, void* pUserData /* = nullptr*/)
   {
     for (ezUInt32 uiBlockIndex = 0; uiBlockIndex < blocks.GetCount(); ++uiBlockIndex)
     {
@@ -14,55 +19,77 @@ namespace ezInternal
 
       while (pCurrentData < pEndData)
       {
-        if (!VISITOR::Visit(pCurrentData, pUserData))
-          return false;
+        ezVisitorExecution::Enum execution = VISITOR::Visit(pCurrentData, pUserData);
+        if (execution != ezVisitorExecution::Continue)
+          return execution;
 
         ++pCurrentData;
       }
     }
 
-    return true;
+    return ezVisitorExecution::Continue;
   }
 
   // static
-  EZ_FORCE_INLINE void WorldData::UpdateGlobalTransform(ezGameObject::TransformationData* pData, float fInvDeltaSeconds)
+  EZ_FORCE_INLINE void WorldData::UpdateGlobalTransform(ezGameObject::TransformationData* pData, const ezSimdFloat& fInvDeltaSeconds)
   {
-    const ezVec3 vOldWorldPos = pData->m_globalTransform.m_vPosition;
     pData->UpdateGlobalTransform();
     pData->UpdateGlobalBounds();
-    pData->m_velocity = ((pData->m_globalTransform.m_vPosition - vOldWorldPos) * fInvDeltaSeconds).GetAsDirectionVec4();
+    pData->UpdateVelocity(fInvDeltaSeconds);
   }
 
   // static
-  EZ_FORCE_INLINE void WorldData::UpdateGlobalTransformWithParent(ezGameObject::TransformationData* pData, float fInvDeltaSeconds)
+  EZ_FORCE_INLINE void WorldData::UpdateGlobalTransformWithParent(ezGameObject::TransformationData* pData, const ezSimdFloat& fInvDeltaSeconds)
   {
-    const ezVec3 vOldWorldPos = pData->m_globalTransform.m_vPosition;
     pData->UpdateGlobalTransformWithParent();
     pData->UpdateGlobalBounds();
-    pData->m_velocity = ((pData->m_globalTransform.m_vPosition - vOldWorldPos) * fInvDeltaSeconds).GetAsDirectionVec4();
+    pData->UpdateVelocity(fInvDeltaSeconds);
   }
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-  EZ_FORCE_INLINE WorldData::ReadMarker::ReadMarker(const WorldData& data) : m_Data(data)
+  EZ_FORCE_INLINE void WorldData::RegisteredUpdateFunction::FillFromDesc(const ezWorldModule::UpdateFunctionDesc& desc)
+  {
+    m_Function = desc.m_Function;
+    m_sFunctionName = desc.m_sFunctionName;
+    m_fPriority = desc.m_fPriority;
+    m_uiGranularity = desc.m_uiGranularity;
+    m_bOnlyUpdateWhenSimulating = desc.m_bOnlyUpdateWhenSimulating;
+  }
+
+  EZ_FORCE_INLINE bool WorldData::RegisteredUpdateFunction::operator<(const RegisteredUpdateFunction& other) const
+  {
+    // higher priority comes first
+    if (m_fPriority != other.m_fPriority)
+      return m_fPriority > other.m_fPriority;
+
+    // sort by function name to ensure determinism
+    ezInt32 iNameComp = ezStringUtils::Compare(m_sFunctionName, other.m_sFunctionName);
+    EZ_ASSERT_DEV(iNameComp != 0, "An update function with the same name and same priority is already registered. This breaks determinism.");
+    return iNameComp < 0;
+  }
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////
+
+  EZ_ALWAYS_INLINE WorldData::ReadMarker::ReadMarker(const WorldData& data) : m_Data(data)
   {
   }
 
   EZ_FORCE_INLINE void WorldData::ReadMarker::Acquire()
   {
     EZ_ASSERT_DEV(m_Data.m_WriteThreadID == (ezThreadID)0 || m_Data.m_WriteThreadID == ezThreadUtils::GetCurrentThreadID(),
-      "World '%s' cannot be marked for reading because it is already marked for writing by another thread.", m_Data.m_sName.GetData());
+      "World '{0}' cannot be marked for reading because it is already marked for writing by another thread.", m_Data.m_sName);
     m_Data.m_iReadCounter.Increment();
   }
 
-  EZ_FORCE_INLINE void WorldData::ReadMarker::Release()
+  EZ_ALWAYS_INLINE void WorldData::ReadMarker::Release()
   {
     m_Data.m_iReadCounter.Decrement();
   }
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-  EZ_FORCE_INLINE WorldData::WriteMarker::WriteMarker(WorldData& data) : m_Data(data)
+  EZ_ALWAYS_INLINE WorldData::WriteMarker::WriteMarker(WorldData& data) : m_Data(data)
   {
   }
 
@@ -71,8 +98,8 @@ namespace ezInternal
     // already locked by this thread?
     if (m_Data.m_WriteThreadID != ezThreadUtils::GetCurrentThreadID())
     {
-      EZ_ASSERT_DEV(m_Data.m_iReadCounter == 0, "World '%s' cannot be marked for writing because it is already marked for reading.", m_Data.m_sName.GetData());
-      EZ_ASSERT_DEV(m_Data.m_WriteThreadID == (ezThreadID)0, "World '%s' cannot be marked for writing because it is already marked for writing by another thread.", m_Data.m_sName.GetData());
+      EZ_ASSERT_DEV(m_Data.m_iReadCounter == 0, "World '{0}' cannot be marked for writing because it is already marked for reading.", m_Data.m_sName);
+      EZ_ASSERT_DEV(m_Data.m_WriteThreadID == (ezThreadID)0, "World '{0}' cannot be marked for writing because it is already marked for writing by another thread.", m_Data.m_sName);
 
       m_Data.m_WriteThreadID = ezThreadUtils::GetCurrentThreadID();
       m_Data.m_iReadCounter.Increment(); // allow reading as well
@@ -88,7 +115,7 @@ namespace ezInternal
     if (m_Data.m_iWriteCounter == 0)
     {
       m_Data.m_iReadCounter.Decrement();
-      m_Data.m_WriteThreadID = (ezThreadID)0;      
+      m_Data.m_WriteThreadID = (ezThreadID)0;
     }
   }
 

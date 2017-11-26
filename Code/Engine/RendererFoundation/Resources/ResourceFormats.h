@@ -1,10 +1,13 @@
-
+﻿
 #pragma once
 
 #include <RendererFoundation/Basics.h>
+#include <Foundation/Reflection/Reflection.h>
 
-struct ezGALResourceFormat
+struct EZ_RENDERERFOUNDATION_DLL ezGALResourceFormat
 {
+  typedef ezUInt32 StorageType;
+
   enum Enum
   {
     Invalid = 0,
@@ -60,7 +63,7 @@ struct ezGALResourceFormat
     RGByteNormalized,
 
     DFloat,
-    
+
     RFloat,
     RUInt,
     RInt,
@@ -76,6 +79,7 @@ struct ezGALResourceFormat
 
     AUByteNormalized,
 
+    D16,
     D24S8,
 
     BC1,
@@ -93,48 +97,57 @@ struct ezGALResourceFormat
     BC7UNormalized,
     BC7UNormalizedsRGB,
 
-    ENUM_COUNT
+    ENUM_COUNT,
+
+    Default = RGBAUByteNormalizedsRGB
   };
 
 
   // General format Meta-Informations:
 
   /// \brief The size in bits per element (usually pixels, except for mesh stream elements) of a single element of the given resource format.
-  EZ_RENDERERFOUNDATION_DLL static ezUInt32 GetBitsPerElement(ezGALResourceFormat::Enum format)          { return BitsPerElement[format]; }
+  static ezUInt32 GetBitsPerElement(ezGALResourceFormat::Enum format);
 
   /// \brief The number of color channels this format contains.
-  EZ_RENDERERFOUNDATION_DLL static ezUInt8 GetChannelCount(ezGALResourceFormat::Enum format)  { return ChannelCount[format]; }
+  static ezUInt8 GetChannelCount(ezGALResourceFormat::Enum format);
 
   /// \todo A combination of propertyflags, something like srgb, normalized, ...
   // Would be very useful for some GL stuff and Testing.
 
-private:
-  
-  static const ezUInt8 BitsPerElement[ezGALResourceFormat::ENUM_COUNT];
+  /// \brief Returns whether the given resource format is a depth format
+  static bool IsDepthFormat(ezGALResourceFormat::Enum format);
 
-  static const ezUInt8 ChannelCount[ezGALResourceFormat::ENUM_COUNT];
+  static bool IsSrgb(ezGALResourceFormat::Enum format);
+
+private:
+
+  static const ezUInt8 s_BitsPerElement[ezGALResourceFormat::ENUM_COUNT];
+
+  static const ezUInt8 s_ChannelCount[ezGALResourceFormat::ENUM_COUNT];
 };
+
+EZ_DECLARE_REFLECTABLE_TYPE(EZ_RENDERERFOUNDATION_DLL, ezGALResourceFormat);
 
 
 template<typename NativeFormatType, NativeFormatType InvalidFormat> class ezGALFormatLookupEntry
 {
 public:
 
-  EZ_FORCE_INLINE ezGALFormatLookupEntry();
+  inline ezGALFormatLookupEntry();
 
-  EZ_FORCE_INLINE ezGALFormatLookupEntry(NativeFormatType Storage);
+  inline ezGALFormatLookupEntry(NativeFormatType Storage);
 
-  EZ_FORCE_INLINE ezGALFormatLookupEntry<NativeFormatType, InvalidFormat>& RT(NativeFormatType RenderTargetType);
+  inline ezGALFormatLookupEntry<NativeFormatType, InvalidFormat>& RT(NativeFormatType RenderTargetType);
 
-  EZ_FORCE_INLINE ezGALFormatLookupEntry<NativeFormatType, InvalidFormat>& D(NativeFormatType DepthOnlyType);
+  inline ezGALFormatLookupEntry<NativeFormatType, InvalidFormat>& D(NativeFormatType DepthOnlyType);
 
-  EZ_FORCE_INLINE ezGALFormatLookupEntry<NativeFormatType, InvalidFormat>& S(NativeFormatType StencilOnlyType);
+  inline ezGALFormatLookupEntry<NativeFormatType, InvalidFormat>& S(NativeFormatType StencilOnlyType);
 
-  EZ_FORCE_INLINE ezGALFormatLookupEntry<NativeFormatType, InvalidFormat>& DS(NativeFormatType DepthStencilType);
+  inline ezGALFormatLookupEntry<NativeFormatType, InvalidFormat>& DS(NativeFormatType DepthStencilType);
 
-  EZ_FORCE_INLINE ezGALFormatLookupEntry<NativeFormatType, InvalidFormat>& VA(NativeFormatType VertexAttributeType);
+  inline ezGALFormatLookupEntry<NativeFormatType, InvalidFormat>& VA(NativeFormatType VertexAttributeType);
 
-  EZ_FORCE_INLINE ezGALFormatLookupEntry<NativeFormatType, InvalidFormat>& RV(NativeFormatType ResourceViewType);
+  inline ezGALFormatLookupEntry<NativeFormatType, InvalidFormat>& RV(NativeFormatType ResourceViewType);
 
   NativeFormatType m_eStorage;
   NativeFormatType m_eRenderTarget;
@@ -153,9 +166,9 @@ public:
 
   ezGALFormatLookupTable();
 
-  EZ_FORCE_INLINE const FormatClass& GetFormatInfo(ezGALResourceFormat::Enum eFormat) const;
+  EZ_ALWAYS_INLINE const FormatClass& GetFormatInfo(ezGALResourceFormat::Enum eFormat) const;
 
-  EZ_FORCE_INLINE void SetFormatInfo(ezGALResourceFormat::Enum eFormat, const FormatClass& NewFormatInfo);
+  EZ_ALWAYS_INLINE void SetFormatInfo(ezGALResourceFormat::Enum eFormat, const FormatClass& NewFormatInfo);
 
 private:
 
