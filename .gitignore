@@ -1,1 +1,4 @@
 Output/
+Data/Base/AssetCache/
+Data/FreeContent/AssetCache/
+Data/EditorSamples/SampleGamePlugin/AssetCache/
