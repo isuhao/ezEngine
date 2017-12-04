@@ -2,6 +2,14 @@
 #include <Foundation/Math/Curve1D.h>
 #include <Foundation/IO/Stream.h>
 
+ezCurve1D::ControlPoint::ControlPoint()
+{
+  m_Position.SetZero();
+  m_LeftTangent.SetZero();
+  m_RightTangent.SetZero();
+  m_uiOriginalIndex = 0;
+}
+
 ezCurve1D::ezCurve1D()
 {
   Clear();
@@ -225,17 +233,14 @@ void ezCurve1D::Load(ezStreamReader& stream)
   }
 }
 
-void ezCurve1D::CreateLinearApproximation(double fMaxError /*= 0.01f*/)
+void ezCurve1D::CreateLinearApproximation(double fMaxError /*= 0.01f*/, ezUInt8 uiMaxSubDivs /*= 8*/)
 {
+  m_LinearApproximation.Clear();
+
   /// \todo Since we do this, we actually don't need the linear approximation anymore and could just evaluate the full curve
   ApplyTangentModes();
 
   ClampTangents();
-
-  const double rangeY = ezMath::Max(0.1, m_fMaxY - m_fMinY);
-  fMaxError = fMaxError * rangeY;
-
-  m_LinearApproximation.Clear();
 
   if (m_ControlPoints.IsEmpty())
   {
@@ -245,18 +250,26 @@ void ezCurve1D::CreateLinearApproximation(double fMaxError /*= 0.01f*/)
 
   for (ezUInt32 i = 1; i < m_ControlPoints.GetCount(); ++i)
   {
+    double fMinY, fMaxY;
+    ApproximateMinMaxValues(m_ControlPoints[i - 1], m_ControlPoints[i], fMinY, fMaxY);
+
+    const double rangeY = ezMath::Max(0.1, fMaxY - fMinY);
+    const double fMaxErrorY = fMaxError * rangeY;
+    const double fMaxErrorX = (m_ControlPoints[i].m_Position.x - m_ControlPoints[i - 1].m_Position.x) * fMaxError;
+
+
     m_LinearApproximation.PushBack(m_ControlPoints[i - 1].m_Position);
 
     ApproximateCurve(m_ControlPoints[i - 1].m_Position,
       m_ControlPoints[i - 1].m_Position + ezVec2d(m_ControlPoints[i - 1].m_RightTangent.x, m_ControlPoints[i - 1].m_RightTangent.y),
       m_ControlPoints[i].m_Position + ezVec2d(m_ControlPoints[i].m_LeftTangent.x, m_ControlPoints[i].m_LeftTangent.y),
       m_ControlPoints[i].m_Position,
-      fMaxError);
+      fMaxErrorX, fMaxErrorY, uiMaxSubDivs);
   }
 
   m_LinearApproximation.PushBack(m_ControlPoints.PeekBack().m_Position);
 
-  RecomputeExtremes();
+  RecomputeLinearApproxExtremes();
 }
 
 void ezCurve1D::RecomputeExtents()
@@ -281,7 +294,7 @@ void ezCurve1D::RecomputeExtents()
 }
 
 
-void ezCurve1D::RecomputeExtremes()
+void ezCurve1D::RecomputeLinearApproxExtremes()
 {
   m_fMinY = ezMath::BasicType<float>::MaxValue();
   m_fMaxY = -ezMath::BasicType<float>::MaxValue();
@@ -293,23 +306,38 @@ void ezCurve1D::RecomputeExtremes()
   }
 }
 
-void ezCurve1D::ApproximateCurve(const ezVec2d& p0, const ezVec2d& p1, const ezVec2d& p2, const ezVec2d& p3, double fMaxError)
+void ezCurve1D::ApproximateMinMaxValues(const ControlPoint& lhs, const ControlPoint& rhs, double& fMinY, double& fMaxY)
+{
+  fMinY = ezMath::Min(lhs.m_Position.y, rhs.m_Position.y);
+  fMaxY = ezMath::Max(lhs.m_Position.y, rhs.m_Position.y);
+
+  fMinY = ezMath::Min(fMinY, lhs.m_Position.y + lhs.m_RightTangent.y);
+  fMaxY = ezMath::Max(fMaxY, lhs.m_Position.y + lhs.m_RightTangent.y);
+
+  fMinY = ezMath::Min(fMinY, rhs.m_Position.y + rhs.m_LeftTangent.y);
+  fMaxY = ezMath::Max(fMaxY, rhs.m_Position.y + rhs.m_LeftTangent.y);
+}
+
+void ezCurve1D::ApproximateCurve(const ezVec2d& p0, const ezVec2d& p1, const ezVec2d& p2, const ezVec2d& p3, double fMaxErrorX, double fMaxErrorY, ezInt32 iSubDivLeft)
 {
   const ezVec2d cubicCenter = ezMath::EvaluateBezierCurve(0.5, p0, p1, p2, p3);
-  //const ezVec2 linearCenter = ezMath::Lerp(p0, p3, 0.5);
 
-  ApproximateCurvePiece(p0, p1, p2, p3, 0.0f, p0, 0.5, cubicCenter, fMaxError);
+  ApproximateCurvePiece(p0, p1, p2, p3, 0.0f, p0, 0.5, cubicCenter, fMaxErrorX, fMaxErrorY, iSubDivLeft);
 
   // always insert the center point
   // with an S curve the cubicCenter and the linearCenter can be identical even though the rest of the curve is absolutely not linear
   m_LinearApproximation.PushBack(cubicCenter);
 
-  ApproximateCurvePiece(p0, p1, p2, p3, 0.5, cubicCenter, 1.0, p3, fMaxError);
+  ApproximateCurvePiece(p0, p1, p2, p3, 0.5, cubicCenter, 1.0, p3, fMaxErrorX, fMaxErrorY, iSubDivLeft);
 
 }
 
-void ezCurve1D::ApproximateCurvePiece(const ezVec2d& p0, const ezVec2d& p1, const ezVec2d& p2, const ezVec2d& p3, double tLeft, const ezVec2d& pLeft, double tRight, const ezVec2d& pRight, double fMaxError)
+void ezCurve1D::ApproximateCurvePiece(const ezVec2d& p0, const ezVec2d& p1, const ezVec2d& p2, const ezVec2d& p3, double tLeft, const ezVec2d& pLeft, double tRight, const ezVec2d& pRight, double fMaxErrorX, double fMaxErrorY, ezInt32 iSubDivLeft)
 {
+  // this is a safe guard
+  if (iSubDivLeft <= 0)
+    return;
+
   const double tCenter = ezMath::Lerp(tLeft, tRight, 0.5);
 
   const ezVec2d cubicCenter = ezMath::EvaluateBezierCurve(tCenter, p0, p1, p2, p3);
@@ -318,14 +346,17 @@ void ezCurve1D::ApproximateCurvePiece(const ezVec2d& p0, const ezVec2d& p1, cons
   // check whether the linear interpolation between pLeft and pRight would already result in a good enough approximation
   // if not, subdivide the curve further
 
-  if (ezMath::Abs(cubicCenter.y - linearCenter.y) < fMaxError)
+  const double fThisErrorX = ezMath::Abs(cubicCenter.x - linearCenter.x);
+  const double fThisErrorY = ezMath::Abs(cubicCenter.y - linearCenter.y);
+
+  if (fThisErrorX < fMaxErrorX && fThisErrorY < fMaxErrorY)
     return;
 
-  ApproximateCurvePiece(p0, p1, p2, p3, tLeft, pLeft, tCenter, cubicCenter, fMaxError);
+  ApproximateCurvePiece(p0, p1, p2, p3, tLeft, pLeft, tCenter, cubicCenter, fMaxErrorX, fMaxErrorY, iSubDivLeft - 1);
 
   m_LinearApproximation.PushBack(cubicCenter);
 
-  ApproximateCurvePiece(p0, p1, p2, p3, tCenter, cubicCenter, tRight, pRight, fMaxError);
+  ApproximateCurvePiece(p0, p1, p2, p3, tCenter, cubicCenter, tRight, pRight, fMaxErrorX, fMaxErrorY, iSubDivLeft - 1);
 }
 
 void ezCurve1D::ClampTangents()
@@ -411,7 +442,7 @@ void ezCurve1D::ApplyTangentModes()
     else if (cp.m_TangentModeRight == ezCurveTangentMode::Linear)
       MakeLinearTangentRight(i);
     else if (cp.m_TangentModeRight == ezCurveTangentMode::Auto)
-      MakeLinearTangentRight(i);
+      MakeLinearTangentRight(i); // note: first point will always be linear in auto mode
   }
 
   // last CP
@@ -424,7 +455,7 @@ void ezCurve1D::ApplyTangentModes()
     else if (cp.m_TangentModeLeft == ezCurveTangentMode::Linear)
       MakeLinearTangentLeft(i);
     else if (cp.m_TangentModeLeft == ezCurveTangentMode::Auto)
-      MakeLinearTangentLeft(i);
+      MakeLinearTangentLeft(i); // note: last point will always be linear in auto mode
   }
 }
 

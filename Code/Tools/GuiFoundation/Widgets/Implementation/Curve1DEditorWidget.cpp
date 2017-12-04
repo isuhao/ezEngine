@@ -35,14 +35,15 @@ ezQtCurve1DEditorWidget::~ezQtCurve1DEditorWidget()
 {
 }
 
-void ezQtCurve1DEditorWidget::SetCurves(ezCurveGroupData& curves, double fMinCurveLength)
+void ezQtCurve1DEditorWidget::SetCurves(ezCurveGroupData& curves, double fMinCurveLength, bool bCurveLengthIsFixed)
 {
   ezQtScopedUpdatesDisabled ud(this);
   ezQtScopedBlockSignals bs(this);
 
   m_Curves.CloneFrom(curves);
 
-  CurveEdit->SetCurves(&curves, fMinCurveLength);
+  CurveEdit->SetCurves(&curves, fMinCurveLength, bCurveLengthIsFixed);
+  m_fCurveDuration = CurveEdit->GetMaxCurveExtent();
 
   UpdateSpinBoxes();
 }
@@ -100,17 +101,18 @@ void ezQtCurve1DEditorWidget::MakeRepeatable(bool bAdjustLastPoint)
     if (uiMinCp == uiMaxCp)
       continue;
 
-    const auto& cpLeft = curve.m_ControlPoints[uiMinCp];
-    const auto& cpRight = curve.m_ControlPoints[uiMaxCp];
+    // copy data, the first emit may change the backing store
+    const ezCurveControlPointData cpLeft = curve.m_ControlPoints[uiMinCp];
+    const ezCurveControlPointData cpRight = curve.m_ControlPoints[uiMaxCp];
 
     if (bAdjustLastPoint)
     {
-      emit CpMovedEvent(iCurveIdx, uiMaxCp, cpRight.m_iTick, cpLeft.m_fValue);
+      emit CpMovedEvent(iCurveIdx, uiMaxCp, (ezInt64)(m_fCurveDuration * 4800.0), cpLeft.m_fValue);
       emit TangentMovedEvent(iCurveIdx, uiMaxCp, -cpLeft.m_RightTangent.x, -cpLeft.m_RightTangent.y, false);
     }
     else
     {
-      emit CpMovedEvent(iCurveIdx, uiMinCp, cpLeft.m_iTick, cpRight.m_fValue);
+      emit CpMovedEvent(iCurveIdx, uiMinCp, 0, cpRight.m_fValue);
       emit TangentMovedEvent(iCurveIdx, uiMinCp, -cpRight.m_LeftTangent.x, -cpRight.m_LeftTangent.y, true);
 
     }
@@ -374,7 +376,7 @@ void ezQtCurve1DEditorWidget::onContextMenu(QPoint pos, QPointF scenePos)
   m_contextMenuScenePos = scenePos;
 
   QMenu m(this);
-  m.addAction("Add Point", this, SLOT(onAddPoint()));
+  m.setDefaultAction(m.addAction("Add Point", this, SLOT(onAddPoint())));
 
   const auto& selection = CurveEdit->GetSelection();
 
@@ -414,7 +416,7 @@ void ezQtCurve1DEditorWidget::onContextMenu(QPoint pos, QPointF scenePos)
   cm->addAction("Loop: Adjust Last Point", this, [this]() { MakeRepeatable(true); });
   cm->addAction("Loop: Adjust First Point", this, [this]() { MakeRepeatable(false); });
 
-  m.addAction("Frame", this, [this]() { FrameCurve(); }, QKeySequence(Qt::Key_F));
+  m.addAction("Frame", this, [this]() { FrameCurve(); }, QKeySequence(Qt::ControlModifier | Qt::Key_F));
 
   m.exec(pos);
 }
@@ -505,9 +507,6 @@ bool ezQtCurve1DEditorWidget::PickCurveAt(double x, double y, double fMaxDistanc
 
     double minVal, maxVal;
     CurveData.QueryExtents(minVal, maxVal);
-
-    if (x < minVal || x > maxVal)
-      continue;
 
     const double val = CurveData.Evaluate(x);
 

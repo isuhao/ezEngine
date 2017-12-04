@@ -33,6 +33,8 @@ public:
   {
     EZ_DECLARE_POD_TYPE();
 
+    ControlPoint();
+
     /// \brief The position (x,y) of the control point
     ezVec2d m_Position;
 
@@ -120,7 +122,9 @@ public:
   /// \brief Pre-computes sample points for linear interpolation that approximate the curve within the allowed error threshold.
   ///
   /// \note All control points must already be in sorted order, so call SortControlPoints() first if necessary.
-  void CreateLinearApproximation(double fMaxError = 0.01);
+  void CreateLinearApproximation(double fMaxError = 0.01, ezUInt8 uiMaxSubDivs = 8);
+
+  const ezHybridArray<ezVec2d, 24>& GetLinearApproximation() const { return m_LinearApproximation; }
 
   /// \brief Adjusts the tangents such that the curve cannot make loopings
   void ClampTangents();
@@ -143,9 +147,10 @@ public:
   void MakeAutoTangentRight(ezUInt32 uiCpIdx);
 
 private:
-  void RecomputeExtremes();
-  void ApproximateCurve(const ezVec2d& p0, const ezVec2d& p1, const ezVec2d& p2, const ezVec2d& p3, double fMaxError);
-  void ApproximateCurvePiece(const ezVec2d& p0, const ezVec2d& p1, const ezVec2d& p2, const ezVec2d& p3, double tLeft, const ezVec2d& pLeft, double tRight, const ezVec2d& pRight, double fMaxError);
+  void RecomputeLinearApproxExtremes();
+  void ApproximateMinMaxValues(const ControlPoint& lhs, const ControlPoint& rhs, double& fMinY, double& fMaxY);
+  void ApproximateCurve(const ezVec2d& p0, const ezVec2d& p1, const ezVec2d& p2, const ezVec2d& p3, double fMaxErrorX, double fMaxErrorY, ezInt32 iSubDivLeft);
+  void ApproximateCurvePiece(const ezVec2d& p0, const ezVec2d& p1, const ezVec2d& p2, const ezVec2d& p3, double tLeft, const ezVec2d& pLeft, double tRight, const ezVec2d& pRight, double fMaxErrorX, double fMaxErrorY, ezInt32 iSubDivLeft);
   ezInt32 FindApproxControlPoint(double x) const;
 
   double m_fMinX, m_fMaxX;

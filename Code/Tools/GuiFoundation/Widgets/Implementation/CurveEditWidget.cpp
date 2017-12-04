@@ -31,7 +31,7 @@ ezQtCurveEditWidget::ezQtCurveEditWidget(QWidget* parent)
   m_TangentHandleBrush.setStyle(Qt::BrushStyle::SolidPattern);
 }
 
-void ezQtCurveEditWidget::SetCurves(ezCurveGroupData* pCurveEditData, double fMinCurveLength)
+void ezQtCurveEditWidget::SetCurves(ezCurveGroupData* pCurveEditData, double fMinCurveLength, bool bCurveLengthIsFixed)
 {
   m_pCurveEditData = pCurveEditData;
 
@@ -77,7 +77,9 @@ void ezQtCurveEditWidget::SetCurves(ezCurveGroupData* pCurveEditData, double fMi
     double fMin, fMax;
     curve.QueryExtremeValues(fMin, fMax);
 
-    m_fMaxCurveExtent = ezMath::Max(m_fMaxCurveExtent, m_CurveExtents[i].y);
+    if (!bCurveLengthIsFixed)
+      m_fMaxCurveExtent = ezMath::Max(m_fMaxCurveExtent, m_CurveExtents[i].y);
+
     m_fMinValue = ezMath::Min(m_fMinValue, fMin);
     m_fMaxValue = ezMath::Max(m_fMaxValue, fMax);
   }
@@ -726,13 +728,13 @@ void ezQtCurveEditWidget::keyPressEvent(QKeyEvent* e)
 {
   QWidget::keyPressEvent(e);
 
+  if (e->modifiers() == Qt::ControlModifier && e->key() == Qt::Key_F)
+  {
+    FrameCurve();
+  }
+
   if (e->modifiers() == Qt::NoModifier)
   {
-    if (e->key() == Qt::Key_F)
-    {
-      FrameCurve();
-    }
-
     if (e->key() == Qt::Key_Escape)
     {
       ClearSelection();
@@ -757,6 +759,9 @@ void ezQtCurveEditWidget::PaintCurveSegments(QPainter* painter, float fOffsetX, 
   pen.setCosmetic(true);
   pen.setStyle(Qt::PenStyle::SolidLine);
 
+  const bool bRenderRealCurve = true;
+  const bool bRenderLinearCurve = false;
+
   for (ezUInt32 curveIdx = 0; curveIdx < m_CurvesSorted.GetCount(); ++curveIdx)
   {
     const ezCurve1D& curve = m_CurvesSorted[curveIdx];
@@ -768,38 +773,77 @@ void ezQtCurveEditWidget::PaintCurveSegments(QPainter* painter, float fOffsetX, 
     const ezColorGammaUB curveColor = m_pCurveEditData->m_Curves[curveIdx]->m_CurveColor;
 
     pen.setColor(QColor(curveColor.r, curveColor.g, curveColor.b, alpha));
-    painter->setPen(pen);
 
-    QPainterPath path;
-
+    if (bRenderRealCurve)
     {
-      const ezCurve1D::ControlPoint& cp = curve.GetControlPoint(0);
-      path.moveTo(MapFromScene(QPointF(fOffsetX, cp.m_Position.y)));
-      path.lineTo(MapFromScene(QPointF(fOffsetX + cp.m_Position.x, cp.m_Position.y)));
+      QPainterPath path;
+
+      pen.setStyle(Qt::PenStyle::SolidLine);
+      painter->setPen(pen);
+
+      // line from zero to first cp
+      {
+        const ezCurve1D::ControlPoint& cp = curve.GetControlPoint(0);
+        path.moveTo(MapFromScene(QPointF(fOffsetX, cp.m_Position.y)));
+
+        if (cp.m_Position.x > 0)
+        {
+          path.lineTo(MapFromScene(QPointF(fOffsetX + cp.m_Position.x, cp.m_Position.y)));
+        }
+      }
+
+      for (ezUInt32 cpIdx = 1; cpIdx < numCps; ++cpIdx)
+      {
+        const ezCurve1D::ControlPoint& cpPrev = curve.GetControlPoint(cpIdx - 1);
+        const ezCurve1D::ControlPoint& cpThis = curve.GetControlPoint(cpIdx);
+
+        const QPointF startPt = QPointF(fOffsetX + cpPrev.m_Position.x, cpPrev.m_Position.y);
+        const QPointF endPt = QPointF(fOffsetX + cpThis.m_Position.x, cpThis.m_Position.y);
+        const QPointF tangent1 = QPointF(cpPrev.m_RightTangent.x, cpPrev.m_RightTangent.y);
+        const QPointF tangent2 = QPointF(cpThis.m_LeftTangent.x, cpThis.m_LeftTangent.y);
+        const QPointF ctrlPt1 = startPt + tangent1;
+        const QPointF ctrlPt2 = endPt + tangent2;
+
+        path.moveTo(MapFromScene(startPt));
+        path.cubicTo(MapFromScene(ctrlPt1), MapFromScene(ctrlPt2), MapFromScene(endPt));
+      }
+
+      // line from last cp to end
+      {
+        const ezCurve1D::ControlPoint& cp = curve.GetControlPoint(numCps - 1);
+
+        if (cp.m_Position.x < m_fMaxCurveExtent)
+        {
+          path.lineTo(MapFromScene(QPointF(fOffsetX + m_fMaxCurveExtent, cp.m_Position.y)));
+        }
+      }
+
+      painter->drawPath(path);
     }
 
-    for (ezUInt32 cpIdx = 1; cpIdx < numCps; ++cpIdx)
+    if (bRenderLinearCurve)
     {
-      const ezCurve1D::ControlPoint& cpPrev = curve.GetControlPoint(cpIdx - 1);
-      const ezCurve1D::ControlPoint& cpThis = curve.GetControlPoint(cpIdx);
+      QPainterPath path;
 
-      const QPointF startPt = QPointF(fOffsetX + cpPrev.m_Position.x, cpPrev.m_Position.y);
-      const QPointF endPt = QPointF(fOffsetX + cpThis.m_Position.x, cpThis.m_Position.y);
-      const QPointF tangent1 = QPointF(cpPrev.m_RightTangent.x, cpPrev.m_RightTangent.y);
-      const QPointF tangent2 = QPointF(cpThis.m_LeftTangent.x, cpThis.m_LeftTangent.y);
-      const QPointF ctrlPt1 = startPt + tangent1;
-      const QPointF ctrlPt2 = endPt + tangent2;
+      pen.setStyle(Qt::PenStyle::DashLine);
+      painter->setPen(pen);
 
-      path.moveTo(MapFromScene(startPt));
-      path.cubicTo(MapFromScene(ctrlPt1), MapFromScene(ctrlPt2), MapFromScene(endPt));
+      ezCurve1D linearCurve;
+      m_pCurveEditData->m_Curves[curveIdx]->ConvertToRuntimeData(linearCurve);
+      linearCurve.SortControlPoints();
+      linearCurve.ApplyTangentModes();
+      linearCurve.CreateLinearApproximation();
+      const auto& linear = linearCurve.GetLinearApproximation();
+
+      path.moveTo(MapFromScene(QPointF(fOffsetX + linear[0].x, linear[0].y)));
+
+      for (ezUInt32 i = 1; i < linear.GetCount(); ++i)
+      {
+        path.lineTo(MapFromScene(QPointF(fOffsetX + linear[i].x, linear[i].y)));
+      }
+      
+      painter->drawPath(path);
     }
-
-    {
-      const ezCurve1D::ControlPoint& cp = curve.GetControlPoint(numCps - 1);
-      path.lineTo(MapFromScene(QPointF(fOffsetX + m_fMaxCurveExtent, cp.m_Position.y)));
-    }
-
-    painter->drawPath(path);
   }
 
   painter->restore();

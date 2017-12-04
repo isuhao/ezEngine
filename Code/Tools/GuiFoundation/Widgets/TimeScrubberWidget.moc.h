@@ -8,6 +8,7 @@
 
 class QMouseEvent;
 class QPushButton;
+class QLineEdit;
 
 class EZ_GUIFOUNDATION_DLL ezQtTimeScrubberWidget : public QWidget
 {
@@ -52,9 +53,13 @@ signals:
   void ScrubberPosChangedEvent(ezUInt64 uiNewScrubberTickPos);
   void PlayPauseEvent();
   void RepeatEvent();
+  void DurationChangedEvent(double duration);
+  void AdjustDurationEvent();
 
 private:
   ezQtTimeScrubberWidget* m_pScrubber = nullptr;
   QPushButton* m_pPlayButton = nullptr;
   QPushButton* m_pRepeatButton = nullptr;
+  QLineEdit* m_pDuration = nullptr;
+  QPushButton* m_pAdjustDurationButton = nullptr;
 };
