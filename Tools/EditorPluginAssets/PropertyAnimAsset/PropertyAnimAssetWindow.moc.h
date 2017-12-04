@@ -28,14 +28,25 @@ class ezQtPropertyAnimAssetTreeView : public QTreeView
 
 public:
   ezQtPropertyAnimAssetTreeView(QWidget* parent);
+  void initialize();
 
 signals:
   void DeleteSelectedItemsEvent();
   void FrameSelectedItemsEvent();
+  void RebindSelectedItemsEvent();
+
+protected slots:
+  void onBeforeModelReset();
+  void onAfterModelReset();
 
 protected:
   virtual void keyPressEvent(QKeyEvent* e) override;
   virtual void contextMenuEvent(QContextMenuEvent *event) override;
+  void storeExpandState(const QModelIndex& parent);
+  void restoreExpandState(const QModelIndex& parent, QModelIndexList& newSelection);
+
+  QSet<QString> m_notExpandedState;
+  QSet<QString> m_selectedItems;
 };
 
 class ezQtPropertyAnimAssetDocumentWindow : public ezQtGameObjectDocumentWindow, public ezGameObjectGizmoInterface
@@ -67,9 +78,12 @@ private slots:
   void onSelectionChanged(const QItemSelection& selected, const QItemSelection& deselected);
   void onScrubberPosChanged(ezUInt64 uiTick);
   void onDeleteSelectedItems();
+  void onRebindSelectedItems();
   void onPlaybackTick();
   void onPlayPauseClicked();
   void onRepeatClicked();
+  void onAdjustDurationClicked();
+  void onDurationChangedEvent(double duration);
   void onTreeItemDoubleClicked(const QModelIndex& index);
   void onFrameSelectedTracks();
 
@@ -118,6 +132,7 @@ private:
   void SelectionEventHandler(const ezSelectionManagerEvent& e);
   void UpdateCurveEditor();
   void UpdateGradientEditor();
+  void UpdateSelectionData();
 
   ezQtQuadViewWidget* m_pQuadViewWidget;
   ezCurveGroupData m_CurvesToDisplay;

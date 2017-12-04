@@ -36,6 +36,7 @@ public:
   ~ezPropertyAnimationTrackGroup();
 
   ezUInt32 m_uiFramesPerSecond = 60;
+  ezUInt64 m_uiCurveDuration = 480;
   ezEnum<ezPropertyAnimMode> m_Mode;
   ezDynamicArray<ezPropertyAnimationTrack*> m_Tracks;
 };
@@ -65,9 +66,10 @@ public:
   virtual const char* QueryAssetType() const override { return "PropertyAnim"; }
   virtual ezObjectAccessorBase* GetObjectAccessor() const override;
 
+  void SetAnimationDurationTicks(ezUInt64 uiNumTicks);
   ezUInt64 GetAnimationDurationTicks() const;
   ezTime GetAnimationDurationTime() const;
-  void ClearCachedAnimationDuration() { m_uiCachedAnimationDuration = 0; }
+  void AdjustDuration();
 
   bool SetScrubberPosition(ezUInt64 uiTick);
   ezUInt64 GetScrubberPosition() const { return m_uiScrubberTickPos; }
@@ -89,13 +91,21 @@ public:
   ezUuid FindCurveCp(const ezUuid& trackGuid, ezInt64 tickX);
   ezUuid InsertCurveCpAt(const ezUuid& trackGuid, ezInt64 tickX, double newPosY);
 
+  ezUuid FindGradientColorCp(const ezUuid& trackGuid, ezInt64 tickX);
+  ezUuid InsertGradientColorCpAt(const ezUuid& trackGuid, ezInt64 tickX, const ezColorGammaUB& color);
+
+  ezUuid FindGradientAlphaCp(const ezUuid& trackGuid, ezInt64 tickX);
+  ezUuid InsertGradientAlphaCpAt(const ezUuid& trackGuid, ezInt64 tickX, ezUInt8 alpha);
+
+  ezUuid FindGradientIntensityCp(const ezUuid& trackGuid, ezInt64 tickX);
+  ezUuid InsertGradientIntensityCpAt(const ezUuid& trackGuid, ezInt64 tickX, float intensity);
+
 protected:
   virtual ezStatus InternalTransformAsset(ezStreamWriter& stream, const char* szOutputTag, const char* szPlatform, const ezAssetFileHeader& AssetHeader, bool bTriggeredManually) override;
   virtual void InitializeAfterLoading() override;
 
 private:
   void GameObjectContextEventHandler(const ezGameObjectContextEvent& e);
-  void CommandHistoryEventHandler(const ezCommandHistoryEvent& e);
   void TreeStructureEventHandler(const ezDocumentObjectStructureEvent& e);
   void TreePropertyEventHandler(const ezDocumentObjectPropertyEvent& e);
 
@@ -139,8 +149,5 @@ private:
   bool m_bPlayAnimation = false;
   bool m_bRepeatAnimation = false;
   ezTime m_LastFrameTime;
-
   ezUInt64 m_uiScrubberTickPos = 0;
-  mutable ezUInt64 m_uiCachedAnimationDuration = 0;
-  mutable ezUInt64 m_uiLastAnimationDuration = 0;
 };

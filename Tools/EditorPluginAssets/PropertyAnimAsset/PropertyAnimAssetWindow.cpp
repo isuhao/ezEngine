@@ -28,6 +28,7 @@
 #include <QToolBar>
 #include <QPushButton>
 #include <qevent.h>
+#include <QInputDialog>
 
 ezQtPropertyAnimAssetDocumentWindow::ezQtPropertyAnimAssetDocumentWindow(ezPropertyAnimAssetDocument* pDocument) : ezQtGameObjectDocumentWindow(pDocument)
 {
@@ -106,6 +107,7 @@ ezQtPropertyAnimAssetDocumentWindow::ezQtPropertyAnimAssetDocumentWindow(ezPrope
     pPanel->setWidget(m_pPropertyTreeView);
 
     connect(m_pPropertyTreeView, &ezQtPropertyAnimAssetTreeView::DeleteSelectedItemsEvent, this, &ezQtPropertyAnimAssetDocumentWindow::onDeleteSelectedItems);
+    connect(m_pPropertyTreeView, &ezQtPropertyAnimAssetTreeView::RebindSelectedItemsEvent, this, &ezQtPropertyAnimAssetDocumentWindow::onRebindSelectedItems);
 
     connect(m_pPropertyTreeView, &QTreeView::doubleClicked, this, &ezQtPropertyAnimAssetDocumentWindow::onTreeItemDoubleClicked);
     connect(m_pPropertyTreeView, &ezQtPropertyAnimAssetTreeView::FrameSelectedItemsEvent, this, &ezQtPropertyAnimAssetDocumentWindow::onFrameSelectedTracks);
@@ -117,7 +119,8 @@ ezQtPropertyAnimAssetDocumentWindow::ezQtPropertyAnimAssetDocumentWindow(ezPrope
   {
     m_pPropertiesModel = new ezQtPropertyAnimModel(GetPropertyAnimDocument(), this);
     m_pPropertyTreeView->setModel(m_pPropertiesModel);
-    m_pPropertyTreeView->expandToDepth(1);
+    m_pPropertyTreeView->expandToDepth(2);
+    m_pPropertyTreeView->initialize();
   }
 
   // Selection Model
@@ -161,14 +164,15 @@ ezQtPropertyAnimAssetDocumentWindow::ezQtPropertyAnimAssetDocumentWindow(ezPrope
   {
     m_pScrubberToolbar = new ezQtTimeScrubberToolbar(this);
     connect(m_pScrubberToolbar, &ezQtTimeScrubberToolbar::ScrubberPosChangedEvent, this, &ezQtPropertyAnimAssetDocumentWindow::onScrubberPosChanged);
-
     connect(m_pScrubberToolbar, &ezQtTimeScrubberToolbar::PlayPauseEvent, this, &ezQtPropertyAnimAssetDocumentWindow::onPlayPauseClicked);
-
     connect(m_pScrubberToolbar, &ezQtTimeScrubberToolbar::RepeatEvent, this, &ezQtPropertyAnimAssetDocumentWindow::onRepeatClicked);
+    connect(m_pScrubberToolbar, &ezQtTimeScrubberToolbar::DurationChangedEvent, this, &ezQtPropertyAnimAssetDocumentWindow::onDurationChangedEvent);
+    connect(m_pScrubberToolbar, &ezQtTimeScrubberToolbar::AdjustDurationEvent, this, &ezQtPropertyAnimAssetDocumentWindow::onAdjustDurationClicked);
 
     addToolBar(Qt::ToolBarArea::BottomToolBarArea, m_pScrubberToolbar);
   }
 
+  // this would show the document properties
   pDocument->GetSelectionManager()->SetSelection(pDocument->GetObjectManager()->GetRootObject()->GetChildren()[0]);
 
   // Curve editor events
@@ -215,8 +219,11 @@ ezQtPropertyAnimAssetDocumentWindow::ezQtPropertyAnimAssetDocumentWindow(ezPrope
 
   FinishWindowCreation();
 
-  // trigger initial computation of the animation length
-  pDocument->GetAnimationDurationTicks();
+  {
+    const ezUInt64 uiDuration = GetPropertyAnimDocument()->GetAnimationDurationTicks();
+    m_pScrubberToolbar->SetDuration(uiDuration, GetPropertyAnimDocument()->GetProperties()->m_uiFramesPerSecond);
+    UpdateCurveEditor();
+  }
 }
 
 ezQtPropertyAnimAssetDocumentWindow::~ezQtPropertyAnimAssetDocumentWindow()
@@ -292,9 +299,9 @@ void ezQtPropertyAnimAssetDocumentWindow::PropertyAnimAssetEventHandler(const ez
 {
   if (e.m_Type == ezPropertyAnimAssetDocumentEvent::Type::AnimationLengthChanged)
   {
-    const ezInt64 iDuration = e.m_pDocument->GetAnimationDurationTicks();
+    const ezUInt64 uiDuration = e.m_pDocument->GetAnimationDurationTicks();
 
-    m_pScrubberToolbar->SetDuration(iDuration, e.m_pDocument->GetProperties()->m_uiFramesPerSecond);
+    m_pScrubberToolbar->SetDuration(uiDuration, e.m_pDocument->GetProperties()->m_uiFramesPerSecond);
     UpdateCurveEditor();
   }
   else if (e.m_Type == ezPropertyAnimAssetDocumentEvent::Type::ScrubberPositionChanged)
@@ -316,6 +323,11 @@ void ezQtPropertyAnimAssetDocumentWindow::PropertyAnimAssetEventHandler(const ez
 }
 
 void ezQtPropertyAnimAssetDocumentWindow::onSelectionChanged(const QItemSelection& selected, const QItemSelection& deselected)
+{
+  UpdateSelectionData();
+}
+
+void ezQtPropertyAnimAssetDocumentWindow::UpdateSelectionData()
 {
   ezPropertyAnimAssetDocument* pDoc = GetPropertyAnimDocument();
 
@@ -353,6 +365,10 @@ void ezQtPropertyAnimAssetDocumentWindow::onSelectionChanged(const QItemSelectio
   for (auto it = tracks.GetIterator(); it.IsValid(); ++it)
   {
     const ezInt32 iTrackIdx = it.Key();
+
+    // this can happen during undo/redo when the selection still names data that has just been removed
+    if (iTrackIdx >= (ezInt32)trackArray.GetCount())
+      continue;
 
     if (trackArray[iTrackIdx]->m_Target != ezPropertyAnimTarget::Color)
     {
@@ -397,28 +413,91 @@ void ezQtPropertyAnimAssetDocumentWindow::onDeleteSelectedItems()
   m_pGradientToDisplay = nullptr;
   m_CurvesToDisplay.Clear();
 
-  if (m_iMapGradientToTrack >= 0)
+  // delete the tracks with the highest index first, otherwise the lower indices become invalid
+  // do this before modifying anything, as m_MapSelectionToTrack will change once the remove commands are executed
+  ezHybridArray<ezInt32, 16> sortedTrackIDs;
   {
-    const ezVariant trackGuid = pDoc->GetPropertyObject()->GetTypeAccessor().GetValue("Tracks", m_iMapGradientToTrack);
-    m_iMapGradientToTrack = -1;
+    for (ezInt32 iTrack : m_MapSelectionToTrack)
+    {
+      sortedTrackIDs.PushBack(iTrack);
+    }
 
-    ezRemoveObjectCommand cmd;
-    cmd.m_Object = trackGuid.Get<ezUuid>();
+    if (m_iMapGradientToTrack >= 0)
+    {
+      sortedTrackIDs.PushBack(m_iMapGradientToTrack);
+    }
 
-    pHistory->AddCommand(cmd);
+    sortedTrackIDs.Sort();
   }
+
+  for (ezUInt32 i = sortedTrackIDs.GetCount(); i > 0; --i)
+  {
+    const ezInt32 iTrack = sortedTrackIDs[i - 1];
+
+    const ezVariant trackGuid = pDoc->GetPropertyObject()->GetTypeAccessor().GetValue("Tracks", iTrack);
+
+    if (trackGuid.IsValid())
+    {
+      ezRemoveObjectCommand cmd;
+      cmd.m_Object = trackGuid.Get<ezUuid>();
+
+      pHistory->AddCommand(cmd);
+    }
+  }
+
+  m_MapSelectionToTrack.Clear();
+  m_iMapGradientToTrack = -1;
+
+  pHistory->FinishTransaction();
+}
+
+void ezQtPropertyAnimAssetDocumentWindow::onRebindSelectedItems()
+{
+  auto pDoc = GetPropertyAnimDocument();
+  auto pHistory = pDoc->GetCommandHistory();
+
+  ezHybridArray<ezUuid, 16> rebindTracks;
 
   for (ezInt32 iTrack : m_MapSelectionToTrack)
   {
     const ezVariant trackGuid = pDoc->GetPropertyObject()->GetTypeAccessor().GetValue("Tracks", iTrack);
 
-    ezRemoveObjectCommand cmd;
-    cmd.m_Object = trackGuid.Get<ezUuid>();
-
-    pHistory->AddCommand(cmd);
+    if (trackGuid.IsValid())
+      rebindTracks.PushBack(trackGuid.Get<ezUuid>());
   }
 
-  m_MapSelectionToTrack.Clear();
+  if (m_iMapGradientToTrack >= 0)
+  {
+    const ezVariant trackGuid = pDoc->GetPropertyObject()->GetTypeAccessor().GetValue("Tracks", m_iMapGradientToTrack);
+
+    if (trackGuid.IsValid())
+      rebindTracks.PushBack(trackGuid.Get<ezUuid>());
+  }
+
+  bool ok = false;
+  QString result = QInputDialog::getText(this, "Change Animation Binding", "New Binding Path:", QLineEdit::Normal, "", &ok);
+
+  if (!ok)
+    return;
+
+  m_pSelectionModel->clear();
+
+  ezStringBuilder path = result.toUtf8().data();;
+  path.MakeCleanPath();
+  const ezVariant varRes = path.GetData();
+
+  pHistory->StartTransaction("Rebind Tracks");
+
+  for (const ezUuid guid : rebindTracks)
+  {
+    ezSetObjectPropertyCommand cmdSet;
+    cmdSet.m_Object = guid;
+
+    cmdSet.m_sProperty = "ObjectPath";
+    cmdSet.m_NewValue = varRes;
+    pDoc->GetCommandHistory()->AddCommand(cmdSet);
+  }
+
   pHistory->FinishTransaction();
 }
 
@@ -443,6 +522,16 @@ void ezQtPropertyAnimAssetDocumentWindow::onPlayPauseClicked()
 void ezQtPropertyAnimAssetDocumentWindow::onRepeatClicked()
 {
   GetPropertyAnimDocument()->SetRepeatAnimation(!GetPropertyAnimDocument()->GetRepeatAnimation());
+}
+
+void ezQtPropertyAnimAssetDocumentWindow::onAdjustDurationClicked()
+{
+  GetPropertyAnimDocument()->AdjustDuration();
+}
+
+void ezQtPropertyAnimAssetDocumentWindow::onDurationChangedEvent(double duration)
+{
+  GetPropertyAnimDocument()->SetAnimationDurationTicks((ezUInt64)(duration * 4800.0));
 }
 
 void ezQtPropertyAnimAssetDocumentWindow::onTreeItemDoubleClicked(const QModelIndex& index)
@@ -517,8 +606,7 @@ void ezQtPropertyAnimAssetDocumentWindow::StructureEventHandler(const ezDocument
   case ezDocumentObjectStructureEvent::Type::AfterObjectAdded:
   case ezDocumentObjectStructureEvent::Type::AfterObjectRemoved:
   case ezDocumentObjectStructureEvent::Type::AfterObjectMoved2:
-    UpdateCurveEditor();
-    UpdateGradientEditor();
+    UpdateSelectionData();
     break;
   }
 }
@@ -526,6 +614,7 @@ void ezQtPropertyAnimAssetDocumentWindow::StructureEventHandler(const ezDocument
 
 void ezQtPropertyAnimAssetDocumentWindow::SelectionEventHandler(const ezSelectionManagerEvent& e)
 {
+  // this would show the document properties
   if (GetDocument()->GetSelectionManager()->IsSelectionEmpty())
   {
     // delayed execution
@@ -539,7 +628,7 @@ void ezQtPropertyAnimAssetDocumentWindow::SelectionEventHandler(const ezSelectio
 void ezQtPropertyAnimAssetDocumentWindow::UpdateCurveEditor()
 {
   ezPropertyAnimAssetDocument* pDoc = GetPropertyAnimDocument();
-  m_pCurveEditor->SetCurves(m_CurvesToDisplay, pDoc->GetAnimationDurationTime().GetSeconds());
+  m_pCurveEditor->SetCurves(m_CurvesToDisplay, pDoc->GetAnimationDurationTime().GetSeconds(), true);
 }
 
 
@@ -631,8 +720,6 @@ void ezQtPropertyAnimAssetDocumentWindow::onCurveCpMoved(ezUInt32 uiCurveIdx, ez
   cmdSet.m_sProperty = "Value";
   cmdSet.m_NewValue = newPosY;
   pDoc->GetCommandHistory()->AddCommand(cmdSet);
-
-  pDoc->ClearCachedAnimationDuration();
 }
 
 void ezQtPropertyAnimAssetDocumentWindow::onCurveCpDeleted(ezUInt32 uiCurveIdx, ezUInt32 cpIdx)
@@ -658,8 +745,6 @@ void ezQtPropertyAnimAssetDocumentWindow::onCurveCpDeleted(ezUInt32 uiCurveIdx, 
   ezRemoveObjectCommand cmdSet;
   cmdSet.m_Object = cpGuid.Get<ezUuid>();
   pDoc->GetCommandHistory()->AddCommand(cmdSet);
-
-  pDoc->ClearCachedAnimationDuration();
 }
 
 void ezQtPropertyAnimAssetDocumentWindow::onCurveTangentMoved(ezUInt32 uiCurveIdx, ezUInt32 cpIdx, float newPosX, float newPosY, bool rightTangent)
@@ -763,43 +848,8 @@ void ezQtPropertyAnimAssetDocumentWindow::onGradientColorCpAdded(double posX, co
     return;
 
   const ezVariant trackGuid = pDoc->GetPropertyObject()->GetTypeAccessor().GetValue("Tracks", m_iMapGradientToTrack);
-  const ezDocumentObject* trackObject = pDoc->GetObjectManager()->GetObject(trackGuid.Get<ezUuid>());
-  const ezUuid gradientGuid = trackObject->GetTypeAccessor().GetValue("Gradient").Get<ezUuid>();
-
-  ezCommandHistory* history = GetDocument()->GetCommandHistory();
-  history->StartTransaction("Add Color Control Point");
-
-  ezAddObjectCommand cmdAdd;
-  cmdAdd.m_Parent = gradientGuid;
-  cmdAdd.m_NewObjectGuid.CreateNewUuid();
-  cmdAdd.m_sParentProperty = "ColorCPs";
-  cmdAdd.m_pType = ezGetStaticRTTI<ezColorControlPoint>();
-  cmdAdd.m_Index = -1;
-
-  history->AddCommand(cmdAdd);
-
-  ezSetObjectPropertyCommand cmdSet;
-  cmdSet.m_Object = cmdAdd.m_NewObjectGuid;
-
-  cmdSet.m_sProperty = "Tick";
-  cmdSet.m_NewValue = pDoc->GetProperties()->m_Tracks[m_iMapGradientToTrack]->m_ColorGradient.TickFromTime(posX);
-  history->AddCommand(cmdSet);
-
-  cmdSet.m_sProperty = "Red";
-  cmdSet.m_NewValue = color.r;
-  history->AddCommand(cmdSet);
-
-  cmdSet.m_sProperty = "Green";
-  cmdSet.m_NewValue = color.g;
-  history->AddCommand(cmdSet);
-
-  cmdSet.m_sProperty = "Blue";
-  cmdSet.m_NewValue = color.b;
-  history->AddCommand(cmdSet);
-
-  history->FinishTransaction();
-
-  pDoc->ClearCachedAnimationDuration();
+  ezInt64 tickX = ezColorGradientAssetData::TickFromTime(posX);
+  pDoc->InsertGradientColorCpAt(trackGuid.Get<ezUuid>(), tickX, color);
 }
 
 
@@ -811,35 +861,8 @@ void ezQtPropertyAnimAssetDocumentWindow::onGradientAlphaCpAdded(double posX, ez
     return;
 
   const ezVariant trackGuid = pDoc->GetPropertyObject()->GetTypeAccessor().GetValue("Tracks", m_iMapGradientToTrack);
-  const ezDocumentObject* trackObject = pDoc->GetObjectManager()->GetObject(trackGuid.Get<ezUuid>());
-  const ezUuid gradientGuid = trackObject->GetTypeAccessor().GetValue("Gradient").Get<ezUuid>();
-
-  ezCommandHistory* history = GetDocument()->GetCommandHistory();
-  history->StartTransaction("Add Alpha Control Point");
-
-  ezAddObjectCommand cmdAdd;
-  cmdAdd.m_Parent = gradientGuid;
-  cmdAdd.m_NewObjectGuid.CreateNewUuid();
-  cmdAdd.m_sParentProperty = "AlphaCPs";
-  cmdAdd.m_pType = ezGetStaticRTTI<ezAlphaControlPoint>();
-  cmdAdd.m_Index = -1;
-
-  history->AddCommand(cmdAdd);
-
-  ezSetObjectPropertyCommand cmdSet;
-  cmdSet.m_Object = cmdAdd.m_NewObjectGuid;
-
-  cmdSet.m_sProperty = "Tick";
-  cmdSet.m_NewValue = pDoc->GetProperties()->m_Tracks[m_iMapGradientToTrack]->m_ColorGradient.TickFromTime(posX);
-  history->AddCommand(cmdSet);
-
-  cmdSet.m_sProperty = "Alpha";
-  cmdSet.m_NewValue = alpha;
-  history->AddCommand(cmdSet);
-
-  history->FinishTransaction();
-
-  pDoc->ClearCachedAnimationDuration();
+  ezInt64 tickX = ezColorGradientAssetData::TickFromTime(posX);
+  pDoc->InsertGradientAlphaCpAt(trackGuid.Get<ezUuid>(), tickX, alpha);
 }
 
 
@@ -851,35 +874,8 @@ void ezQtPropertyAnimAssetDocumentWindow::onGradientIntensityCpAdded(double posX
     return;
 
   const ezVariant trackGuid = pDoc->GetPropertyObject()->GetTypeAccessor().GetValue("Tracks", m_iMapGradientToTrack);
-  const ezDocumentObject* trackObject = pDoc->GetObjectManager()->GetObject(trackGuid.Get<ezUuid>());
-  const ezUuid gradientGuid = trackObject->GetTypeAccessor().GetValue("Gradient").Get<ezUuid>();
-
-  ezCommandHistory* history = GetDocument()->GetCommandHistory();
-  history->StartTransaction("Add Intensity Control Point");
-
-  ezAddObjectCommand cmdAdd;
-  cmdAdd.m_Parent = gradientGuid;
-  cmdAdd.m_NewObjectGuid.CreateNewUuid();
-  cmdAdd.m_sParentProperty = "IntensityCPs";
-  cmdAdd.m_pType = ezGetStaticRTTI<ezIntensityControlPoint>();
-  cmdAdd.m_Index = -1;
-
-  history->AddCommand(cmdAdd);
-
-  ezSetObjectPropertyCommand cmdSet;
-  cmdSet.m_Object = cmdAdd.m_NewObjectGuid;
-
-  cmdSet.m_sProperty = "Tick";
-  cmdSet.m_NewValue = pDoc->GetProperties()->m_Tracks[m_iMapGradientToTrack]->m_ColorGradient.TickFromTime(posX);
-  history->AddCommand(cmdSet);
-
-  cmdSet.m_sProperty = "Intensity";
-  cmdSet.m_NewValue = intensity;
-  history->AddCommand(cmdSet);
-
-  history->FinishTransaction();
-
-  pDoc->ClearCachedAnimationDuration();
+  ezInt64 tickX = ezColorGradientAssetData::TickFromTime(posX);
+  pDoc->InsertGradientIntensityCpAt(trackGuid.Get<ezUuid>(), tickX, intensity);
 }
 
 void ezQtPropertyAnimAssetDocumentWindow::MoveGradientCP(ezInt32 idx, double newPosX, const char* szArrayName)
@@ -907,8 +903,6 @@ void ezQtPropertyAnimAssetDocumentWindow::MoveGradientCP(ezInt32 idx, double new
   history->AddCommand(cmdSet);
 
   history->FinishTransaction();
-
-  pDoc->ClearCachedAnimationDuration();
 }
 
 void ezQtPropertyAnimAssetDocumentWindow::onGradientColorCpMoved(ezInt32 idx, double newPosX)
@@ -949,8 +943,6 @@ void ezQtPropertyAnimAssetDocumentWindow::RemoveGradientCP(ezInt32 idx, const ch
   history->AddCommand(cmdSet);
 
   history->FinishTransaction();
-
-  pDoc->ClearCachedAnimationDuration();
 }
 
 void ezQtPropertyAnimAssetDocumentWindow::onGradientColorCpDeleted(ezInt32 idx)
@@ -1074,71 +1066,94 @@ void ezQtPropertyAnimAssetDocumentWindow::onGradientEndOperation(bool commit)
     history->CancelTemporaryCommands();
 }
 
-/*
-void ezQtPropertyAnimAssetDocumentWindow::onGradientNormalizeRange()
-{
-  if (ezQtUiServices::GetSingleton()->MessageBoxQuestion("This will adjust the positions of all control points, such that the minimum is at 0 and the maximum at 1.\n\nContinue?", QMessageBox::StandardButton::Yes | QMessageBox::StandardButton::No, QMessageBox::StandardButton::Yes) != QMessageBox::StandardButton::Yes)
-    return;
-
-  ezPropertyAnimAssetDocument* pDoc = GetPropertyAnimDocument();
-
-  ezColorGradient GradientData;
-  pDoc->GetProperties()->FillGradientData(GradientData);
-
-  float minX, maxX;
-  if (!GradientData.GetExtents(minX, maxX))
-    return;
-
-  if ((minX == 0 && maxX == 1) || (minX >= maxX))
-    return;
-
-  ezCommandHistory* history = GetDocument()->GetCommandHistory();
-
-  const float rangeNorm = 1.0f / (maxX - minX);
-
-  history->StartTransaction("Normalize Gradient Range");
-
-  ezUInt32 numRgb, numAlpha, numInt;
-  GradientData.GetNumControlPoints(numRgb, numAlpha, numInt);
-
-  for (ezUInt32 i = 0; i < numRgb; ++i)
-  {
-    float x = GradientData.GetColorControlPoint(i).m_PosX;
-    x -= minX;
-    x *= rangeNorm;
-
-    MoveGradientCP(i, x, "ColorCPs");
-  }
-
-  for (ezUInt32 i = 0; i < numAlpha; ++i)
-  {
-    float x = GradientData.GetAlphaControlPoint(i).m_PosX;
-    x -= minX;
-    x *= rangeNorm;
-
-    MoveGradientCP(i, x, "AlphaCPs");
-  }
-
-  for (ezUInt32 i = 0; i < numInt; ++i)
-  {
-    float x = GradientData.GetIntensityControlPoint(i).m_PosX;
-    x -= minX;
-    x *= rangeNorm;
-
-    MoveGradientCP(i, x, "IntensityCPs");
-  }
-
-  history->FinishTransaction();
-
-  m_pGradientEditor->FrameGradient();
-}
-*/
-
+//////////////////////////////////////////////////////////////////////////
 
 ezQtPropertyAnimAssetTreeView::ezQtPropertyAnimAssetTreeView(QWidget* parent)
   : QTreeView(parent)
 {
   setContextMenuPolicy(Qt::ContextMenuPolicy::DefaultContextMenu);
+}
+
+void ezQtPropertyAnimAssetTreeView::initialize()
+{
+  connect(model(), &QAbstractItemModel::modelAboutToBeReset, this, &ezQtPropertyAnimAssetTreeView::onBeforeModelReset);
+  connect(model(), &QAbstractItemModel::modelReset, this, &ezQtPropertyAnimAssetTreeView::onAfterModelReset);
+}
+
+void ezQtPropertyAnimAssetTreeView::storeExpandState(const QModelIndex& parent)
+{
+  const QAbstractItemModel* pModel = model();
+
+  const ezUInt32 numRows = pModel->rowCount(parent);
+  for (ezUInt32 row = 0; row < numRows; ++row)
+  {
+    QModelIndex idx = pModel->index(row, 0, parent);
+
+    const bool expanded = isExpanded(idx);
+
+    QString path = pModel->data(idx, ezQtPropertyAnimModel::UserRoles::Path).toString();
+
+    if (!expanded)
+      m_notExpandedState.insert(path);
+
+    storeExpandState(idx);
+  }
+}
+
+void ezQtPropertyAnimAssetTreeView::restoreExpandState(const QModelIndex& parent, QModelIndexList& newSelection)
+{
+  const QAbstractItemModel* pModel = model();
+
+  const ezUInt32 numRows = pModel->rowCount(parent);
+  for (ezUInt32 row = 0; row < numRows; ++row)
+  {
+    QModelIndex idx = pModel->index(row, 0, parent);
+
+    QString path = pModel->data(idx, ezQtPropertyAnimModel::UserRoles::Path).toString();
+
+    const bool notExpanded = m_notExpandedState.contains(path);
+
+    if (!notExpanded)
+      setExpanded(idx, true);
+
+    if (m_selectedItems.contains(path))
+      newSelection.append(idx);
+
+    restoreExpandState(idx, newSelection);
+  }
+}
+
+void ezQtPropertyAnimAssetTreeView::onBeforeModelReset()
+{
+  m_notExpandedState.clear();
+  m_selectedItems.clear();
+
+  storeExpandState(QModelIndex());
+
+  const QAbstractItemModel* pModel = model();
+
+  for (QModelIndex idx : selectionModel()->selectedRows())
+  {
+    QString path = pModel->data(idx, ezQtPropertyAnimModel::UserRoles::Path).toString();
+    m_selectedItems.insert(path);
+  }
+}
+
+void ezQtPropertyAnimAssetTreeView::onAfterModelReset()
+{
+  QModelIndexList newSelection;
+  restoreExpandState(QModelIndex(), newSelection);
+
+  // changing the selection is not possible in onAfterModelReset, probably because the items are not yet fully valid
+  // has to be done shortly after
+  QTimer::singleShot(0, this, [this, newSelection]()
+  {
+    selectionModel()->clearSelection();
+    for (const auto& idx : newSelection)
+    {
+      selectionModel()->select(idx, QItemSelectionModel::SelectionFlag::Select | QItemSelectionModel::SelectionFlag::Rows);
+    }
+  });
 }
 
 void ezQtPropertyAnimAssetTreeView::keyPressEvent(QKeyEvent* e)
@@ -1158,12 +1173,14 @@ void ezQtPropertyAnimAssetTreeView::contextMenuEvent(QContextMenuEvent *event)
   QMenu m;
   QAction* pFrameAction = m.addAction("Frame Curve");
   QAction* pRemoveAction = m.addAction("Remove Track");
+  QAction* pBindingAction = m.addAction("Change Binding...");
   m.setDefaultAction(pFrameAction);
 
   pRemoveAction->setShortcut(Qt::Key_Delete);
 
   connect(pFrameAction, &QAction::triggered, this, [this](bool) { emit FrameSelectedItemsEvent(); });
   connect(pRemoveAction, &QAction::triggered, this, [this](bool) { emit DeleteSelectedItemsEvent(); });
+  connect(pBindingAction, &QAction::triggered, this, [this](bool) { emit RebindSelectedItemsEvent(); });
 
   m.exec(QCursor::pos());
 }
