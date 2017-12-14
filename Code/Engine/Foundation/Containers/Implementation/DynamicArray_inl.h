@@ -123,6 +123,18 @@ void ezDynamicArrayBase<T>::Compact()
 }
 
 template <typename T>
+EZ_ALWAYS_INLINE T* ezDynamicArrayBase<T>::GetElementsPtr()
+{
+  return this->m_pElements;
+}
+
+template <typename T>
+EZ_ALWAYS_INLINE const T* ezDynamicArrayBase<T>::GetElementsPtr() const
+{
+  return this->m_pElements;
+}
+
+template <typename T>
 ezUInt64 ezDynamicArrayBase<T>::GetHeapMemoryUsage() const
 {
   return (ezUInt64) this->m_uiCapacity * (ezUInt64) sizeof(T);

@@ -42,7 +42,6 @@ class ezAccessorSetProperty : public ezTypedSetProperty<Type>
 {
 public:
   typedef typename ezTypeTraits<Container>::NonConstReferenceType ContainerType;
-  typedef typename ezContainerSubTypeResolver<ContainerType>::Type ContainerSubType;
   typedef typename ezTypeTraits<Type>::NonConstReferenceType RealType;
 
   typedef void (Class::*InsertFunc)(Type value);

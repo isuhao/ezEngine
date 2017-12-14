@@ -54,7 +54,7 @@ SET (ADDITIONAL_DEPENDENCIES
   ShaderCompiler
   RecastPlugin
   InputXBox360
-  ProtonPlugin
+  NetworkPlugin
 )
 
 include (${CMAKE_SOURCE_DIR}/Code/BuildSystem/CMake/CMAKE_Application.txt)

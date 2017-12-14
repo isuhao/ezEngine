@@ -31,7 +31,7 @@ SET (ADDITIONAL_DEPENDENCIES
   ShaderCompilerHLSL
   InspectorPlugin
   FmodPlugin
-  ProtonPlugin
+  NetworkPlugin
 )
 
 AddPhysX(FALSE)
