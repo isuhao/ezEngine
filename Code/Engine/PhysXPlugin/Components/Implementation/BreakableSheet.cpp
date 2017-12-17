@@ -27,12 +27,9 @@ EZ_END_DYNAMIC_REFLECTED_TYPE
 // TODOs:
 // - Switch to box extents so box manipulator could be used OR
 // - Switch to breakable asset and breakable component, in theory most of the code in this class (except fracture generation) would be the same for different fracture types
-// - Look at unifying parts of OnExtractRenderData since it's similar to mesh component stuff
 // - Once we have skinned meshes & instancing working together the batch id generation needs to be fixed
-// - PhysX surface material support
 // - Better breaking behavior
 // - Only spawn X actors per frame to reduce the spike of actor spawning
-// - Implement disappear timeout (e.g. remove actors and set piece scale to 0)
 
 EZ_BEGIN_COMPONENT_TYPE(ezBreakableSheetComponent, 1, ezComponentMode::Dynamic)
 {
@@ -44,6 +41,7 @@ EZ_BEGIN_COMPONENT_TYPE(ezBreakableSheetComponent, 1, ezComponentMode::Dynamic)
     EZ_ACCESSOR_PROPERTY("Width", GetWidth, SetWidth)->AddAttributes(new ezDefaultValueAttribute(1.0f), new ezClampValueAttribute(0.001f, ezVariant()), new ezSuffixAttribute(" m")),
     EZ_ACCESSOR_PROPERTY("Height", GetHeight, SetHeight)->AddAttributes(new ezDefaultValueAttribute(1.0f), new ezClampValueAttribute(0.001f, ezVariant()), new ezSuffixAttribute(" m")),
     EZ_ACCESSOR_PROPERTY("Thickness", GetThickness, SetThickness)->AddAttributes(new ezDefaultValueAttribute(0.05f), new ezClampValueAttribute(0.001f, ezVariant()), new ezSuffixAttribute(" m")),
+    EZ_ACCESSOR_PROPERTY("Density", GetDensity, SetDensity)->AddAttributes(new ezDefaultValueAttribute(1500.0f), new ezClampValueAttribute(1.0f, ezVariant()), new ezSuffixAttribute(" kg/m^3")),
     EZ_ACCESSOR_PROPERTY("NumPieces", GetNumPieces, SetNumPieces)->AddAttributes(new ezDefaultValueAttribute(32), new ezClampValueAttribute(5, 1024)),
     EZ_ACCESSOR_PROPERTY("DisappearTimeout", GetDisappearTimeout, SetDisappearTimeout)->AddAttributes(new ezClampValueAttribute(0.0f, ezVariant()), new ezMinValueTextAttribute("Never"), new ezSuffixAttribute(" s")),
     EZ_ACCESSOR_PROPERTY("BreakImpulseStrength", GetBreakImpulseStrength, SetBreakImpulseStrength)->AddAttributes(new ezDefaultValueAttribute(25.0f), new ezClampValueAttribute(0.0f, ezVariant())),
@@ -69,6 +67,7 @@ EZ_BEGIN_COMPONENT_TYPE(ezBreakableSheetComponent, 1, ezComponentMode::Dynamic)
     EZ_MESSAGE_HANDLER(ezExtractRenderDataMessage, OnExtractRenderData),
     EZ_MESSAGE_HANDLER(ezBuildNavMeshMessage, OnBuildNavMesh),
     EZ_MESSAGE_HANDLER(ezCollisionMessage, OnCollision),
+    EZ_MESSAGE_HANDLER(ezPhysicsAddImpulseMsg, AddImpulseAtPos),
   }
   EZ_END_MESSAGEHANDLERS
 }
@@ -80,7 +79,6 @@ ezBreakableSheetComponent::ezBreakableSheetComponent()
 {
   m_vExtents = ezVec3(m_fWidth, m_fThickness, m_fHeight);
 }
-
 
 void ezBreakableSheetComponent::Update()
 {
@@ -97,6 +95,35 @@ void ezBreakableSheetComponent::Update()
     {
       m_bPiecesMovedThisFrame = false;
     }
+
+    // If this breakable sheet has a disappear timeout set we decrement the time since it was broken
+    if (m_fDisappearTimeout.AsFloat() > 0.0f && m_fTimeUntilDisappear > 0.0f)
+    {
+      m_fTimeUntilDisappear -= GetWorld()->GetClock().GetTimeDiff().AsFloat();
+
+      if (m_fTimeUntilDisappear <= 0.0f)
+      {
+        DestroyPiecesPhysicsObjects();
+
+        // If this instance has a fixed border we need to set the scale of all pieces
+        // to 0 so the border is still rendered, otherwise we can deactivate the component
+        if (m_bFixedBorder)
+        {
+          ezMat4 scaleMatrix;
+          scaleMatrix.SetScalingMatrix(ezVec3(0, 0, 0));
+          for (ezUInt32 i = 1; i < m_PieceTransforms.GetCount(); ++i)
+          {
+            m_PieceTransforms[i] = m_PieceTransforms[i] * scaleMatrix;
+          }
+
+          m_bPiecesMovedThisFrame = true;
+        }
+        else
+        {
+          Deactivate();
+        }
+      }
+    }
   }
 }
 
@@ -108,6 +135,7 @@ void ezBreakableSheetComponent::SerializeComponent(ezWorldWriter& stream) const
   s << m_fWidth;
   s << m_fHeight;
   s << m_fThickness;
+  s << m_fDensity;
   s << m_fBreakImpulseStrength;
   s << m_fDisappearTimeout;
   s << m_bFixedBorder;
@@ -128,6 +156,7 @@ void ezBreakableSheetComponent::DeserializeComponent(ezWorldReader& stream)
   s >> m_fWidth;
   s >> m_fHeight;
   s >> m_fThickness;
+  s >> m_fDensity;
   s >> m_fBreakImpulseStrength;
   s >> m_fDisappearTimeout;
   s >> m_bFixedBorder;
@@ -196,20 +225,6 @@ void ezBreakableSheetComponent::Initialize()
   }
 
   CreateMeshes();
-
-  // Create the buffer for the skinning matrices
-  ezGALBufferCreationDescription BufferDesc;
-  BufferDesc.m_uiStructSize = sizeof(ezMat4);
-  BufferDesc.m_uiTotalSize = BufferDesc.m_uiStructSize * m_PieceTransforms.GetCount();
-  BufferDesc.m_bUseAsStructuredBuffer = true;
-  BufferDesc.m_bAllowShaderResourceView = true;
-  BufferDesc.m_ResourceAccess.m_bImmutable = false;
-
-  m_hPieceTransformsBuffer = ezGALDevice::GetDefaultDevice()->CreateBuffer(BufferDesc, ezArrayPtr<ezUInt8>(reinterpret_cast<ezUInt8*>(m_PieceTransforms.GetData()), BufferDesc.m_uiTotalSize));
-  if (m_hPieceTransformsBuffer.IsInvalidated())
-  {
-    ezLog::Warning("Couldn't allocate buffer for piece transforms of breakable sheet.");
-  }
 }
 
 void ezBreakableSheetComponent::OnSimulationStarted()
@@ -221,14 +236,7 @@ void ezBreakableSheetComponent::Deinitialize()
 {
   SUPER::Deinitialize();
 
-  DestroyUnbrokenPhysicsObject();
-  DestroyPiecesPhysicsObjects();
-
-  if (!m_hPieceTransformsBuffer.IsInvalidated())
-  {
-    ezGALDevice::GetDefaultDevice()->DestroyBuffer(m_hPieceTransformsBuffer);
-    m_hPieceTransformsBuffer.Invalidate();
-  }
+  Cleanup();
 }
 
 void ezBreakableSheetComponent::OnExtractRenderData(ezExtractRenderDataMessage& msg) const
@@ -294,7 +302,6 @@ void ezBreakableSheetComponent::OnExtractRenderData(ezExtractRenderDataMessage& 
 
   ezRenderData::Category category = msg.m_OverrideCategory;
 
-  // TODO: This is copy pasted from the mesh component, should this be a common utility?
   if (category == ezInvalidIndex)
   {
     if (hMaterial.IsValid())
@@ -339,14 +346,44 @@ void ezBreakableSheetComponent::OnCollision(ezCollisionMessage& msg)
   }
 }
 
+void ezBreakableSheetComponent::AddImpulseAtPos(ezPhysicsAddImpulseMsg& msg)
+{
+  if (msg.m_uiShapeId == ezInvalidIndex)
+    return;
+
+  if (!m_bBroken)
+  {
+    if (msg.m_vImpulse.GetLength() > m_fBreakImpulseStrength)
+    {
+      ezCollisionMessage fakeMsg;
+      fakeMsg.m_vPosition = msg.m_vGlobalPosition;
+      fakeMsg.m_vImpulse = msg.m_vImpulse;
+
+      Break(&fakeMsg);
+    }
+  }
+  else
+  {
+    physx::PxRigidDynamic* pActor = m_ShapeIDsToActors.GetValueOrDefault(msg.m_uiShapeId, nullptr);
+
+    if (pActor != nullptr)
+    {
+      EZ_PX_WRITE_LOCK(*pActor->getScene());
+
+      PxRigidBodyExt::addForceAtPos(*pActor, ezPxConversionUtils::ToVec3(msg.m_vImpulse), ezPxConversionUtils::ToVec3(msg.m_vGlobalPosition), PxForceMode::eIMPULSE);
+    }
+  }
+}
+
 void ezBreakableSheetComponent::SetWidth(float fWidth)
 {
   if (fWidth <= 0.0f)
     return;
 
   m_fWidth = fWidth;
-
   m_vExtents = ezVec3(m_fWidth, m_fThickness, m_fHeight);
+
+  ReinitMeshes();
 }
 
 float ezBreakableSheetComponent::GetWidth() const
@@ -361,6 +398,8 @@ void ezBreakableSheetComponent::SetHeight(float fHeight)
 
   m_fHeight = fHeight;
   m_vExtents = ezVec3(m_fWidth, m_fThickness, m_fHeight);
+
+  ReinitMeshes();
 }
 
 float ezBreakableSheetComponent::GetHeight() const
@@ -375,11 +414,26 @@ void ezBreakableSheetComponent::SetThickness(float fThickness)
 
   m_fThickness = fThickness;
   m_vExtents = ezVec3(m_fWidth, m_fThickness, m_fHeight);
+
+  ReinitMeshes();
 }
 
 float ezBreakableSheetComponent::GetThickness() const
 {
   return m_fThickness;
+}
+
+void ezBreakableSheetComponent::SetDensity(float fDensity)
+{
+  if (fDensity <= 0.0f)
+    return;
+
+  m_fDensity = fDensity;
+}
+
+float ezBreakableSheetComponent::GetDensity() const
+{
+  return m_fDensity;
 }
 
 void ezBreakableSheetComponent::SetBreakImpulseStrength(float fBreakImpulseStrength)
@@ -395,22 +449,27 @@ float ezBreakableSheetComponent::GetBreakImpulseStrength() const
   return m_fBreakImpulseStrength;
 }
 
-void ezBreakableSheetComponent::SetDisappearTimeout(float fDisappearTimeout)
+void ezBreakableSheetComponent::SetDisappearTimeout(ezTime fDisappearTimeout)
 {
-  if (fDisappearTimeout < 0.0f)
+  if (fDisappearTimeout.AsFloat() < 0.0f)
     return;
 
   m_fDisappearTimeout = fDisappearTimeout;
 }
 
-float ezBreakableSheetComponent::GetDisappearTimeout() const
+ezTime ezBreakableSheetComponent::GetDisappearTimeout() const
 {
   return m_fDisappearTimeout;
 }
 
 void ezBreakableSheetComponent::SetFixedBorder(bool bFixedBorder)
 {
+  if (bFixedBorder == m_bFixedBorder)
+    return;
+
   m_bFixedBorder = bFixedBorder;
+
+  ReinitMeshes();
 }
 
 bool ezBreakableSheetComponent::GetFixedBorder() const
@@ -420,7 +479,12 @@ bool ezBreakableSheetComponent::GetFixedBorder() const
 
 void ezBreakableSheetComponent::SetFixedRandomSeed(ezUInt32 uiFixedRandomSeed)
 {
+  if (m_uiFixedRandomSeed == uiFixedRandomSeed)
+    return;
+
   m_uiFixedRandomSeed = uiFixedRandomSeed;
+
+  ReinitMeshes();
 }
 
 ezUInt32 ezBreakableSheetComponent::GetFixedRandomSeed() const
@@ -430,10 +494,12 @@ ezUInt32 ezBreakableSheetComponent::GetFixedRandomSeed() const
 
 void ezBreakableSheetComponent::SetNumPieces(ezUInt32 uiNumPieces)
 {
-  if (m_uiNumPieces < 3)
+  if (m_uiNumPieces < 3 || uiNumPieces == m_uiNumPieces)
     return;
 
   m_uiNumPieces = uiNumPieces;
+
+  ReinitMeshes();
 }
 
 ezUInt32 ezBreakableSheetComponent::GetNumPieces() const
@@ -497,6 +563,9 @@ void ezBreakableSheetComponent::Break(const ezCollisionMessage* pMessage /*= nul
     return;
 
   m_bBroken = true;
+
+  m_fTimeUntilDisappear = m_fDisappearTimeout.AsFloat();
+
   DestroyUnbrokenPhysicsObject();
   CreatePiecesPhysicsObjects(pMessage ? pMessage->m_vImpulse : ezVec3::ZeroVector(), pMessage ? pMessage->m_vPosition : ezVec3::ZeroVector());
 
@@ -523,7 +592,7 @@ void ezBreakableSheetComponent::CreateMeshes()
   // Deal with the unbroken mesh first
   {
     ezStringBuilder unbrokenMeshName;
-    unbrokenMeshName.Format("ezBreakableSheetComponent_unbroken_{0}_{1}_{2}.createdAtRuntime.ezMesh", m_fWidth, m_fThickness, m_fHeight);
+    unbrokenMeshName.Format("ezBreakableSheetComponent_unbroken_{0}_{1}_{2}_{3}.createdAtRuntime.ezMesh", m_fWidth, m_fThickness, m_fHeight, m_bFixedBorder);
 
     m_hUnbrokenMesh = ezResourceManager::GetExistingResource<ezMeshResource>(unbrokenMeshName);
 
@@ -547,7 +616,7 @@ void ezBreakableSheetComponent::CreateMeshes()
   // Build broken mesh
   {
     ezStringBuilder piecesMeshName;
-    piecesMeshName.Format("ezBreakableSheetComponent_pieces_{0}_{1}_{2}_{3}_{4}.createdAtRuntime.ezMesh", m_fWidth, m_fThickness, m_fHeight, m_uiNumPieces, m_uiRandomSeedUsed);
+    piecesMeshName.Format("ezBreakableSheetComponent_pieces_{0}_{1}_{2}_{3}_{4}_{5}.createdAtRuntime.ezMesh", m_fWidth, m_fThickness, m_fHeight, m_uiNumPieces, m_uiRandomSeedUsed, m_bFixedBorder);
 
     m_hPiecesMesh = ezResourceManager::GetExistingResource<ezMeshResource>(piecesMeshName);
 
@@ -735,6 +804,19 @@ void ezBreakableSheetComponent::CreateMeshes()
     }
   }
 
+  // Create the buffer for the skinning matrices
+  ezGALBufferCreationDescription BufferDesc;
+  BufferDesc.m_uiStructSize = sizeof(ezMat4);
+  BufferDesc.m_uiTotalSize = BufferDesc.m_uiStructSize * m_PieceTransforms.GetCount();
+  BufferDesc.m_bUseAsStructuredBuffer = true;
+  BufferDesc.m_bAllowShaderResourceView = true;
+  BufferDesc.m_ResourceAccess.m_bImmutable = false;
+
+  m_hPieceTransformsBuffer = ezGALDevice::GetDefaultDevice()->CreateBuffer(BufferDesc, ezArrayPtr<ezUInt8>(reinterpret_cast<ezUInt8*>(m_PieceTransforms.GetData()), BufferDesc.m_uiTotalSize));
+  if (m_hPieceTransformsBuffer.IsInvalidated())
+  {
+    ezLog::Warning("Couldn't allocate buffer for piece transforms of breakable sheet.");
+  }
 }
 
 void ezBreakableSheetComponent::AddSkirtPolygons(ezVec2 Point0, ezVec2 Point1, float fHalfThickness, ezInt32 iPieceMatrixIndex, ezGeometry& Geometry) const
@@ -940,7 +1022,9 @@ void ezBreakableSheetComponent::CreatePiecesPhysicsObjects(ezVec3 vImpulse, ezVe
   EZ_ASSERT_DEV(m_PieceActors.IsEmpty(), "Trying to create piece physics objects while already there. Probable logic bug.");
 
   m_PieceActors.SetCount(m_PieceTransforms.GetCount());
+  m_PieceShapeIds.SetCount(m_PieceTransforms.GetCount());
   m_PieceUserDatas.SetCount(m_PieceTransforms.GetCount());
+
 
   ezPhysXWorldModule* pModule = GetWorld()->GetOrCreateModule<ezPhysXWorldModule>();
   const ezSimdTransform& globalTransform = GetOwner()->GetGlobalTransformSimd();
@@ -948,6 +1032,9 @@ void ezBreakableSheetComponent::CreatePiecesPhysicsObjects(ezVec3 vImpulse, ezVe
   physx::PxMaterial* pPhysXMat = GetPxMaterial(m_hBrokenMaterial);
 
   ezVec3 vScale = ezSimdConversion::ToVec3(globalTransform.m_Scale.Abs());
+
+  ezRandom r;
+  r.Initialize(0);
 
   for (ezUInt32 i = 0; i < m_PieceActors.GetCount(); ++i)
   {
@@ -983,7 +1070,9 @@ void ezBreakableSheetComponent::CreatePiecesPhysicsObjects(ezVec3 vImpulse, ezVe
     box.halfExtents = ezPxConversionUtils::ToVec3(m_PieceBoundingBoxes[i].GetHalfExtents().CompMul(vScale));
     physx::PxShape* pShape = pActor->createShape(box, *pPhysXMat);
 
-    PxFilterData filterData = ezPhysX::CreateFilterData(m_uiCollisionLayerBrokenPieces);
+    m_PieceShapeIds[i] = pModule->CreateShapeId();
+    m_ShapeIDsToActors.Insert(m_PieceShapeIds[i], pActor);
+    PxFilterData filterData = ezPhysX::CreateFilterData(m_uiCollisionLayerBrokenPieces, m_PieceShapeIds[i]);
 
     pShape->setSimulationFilterData(filterData);
     pShape->setQueryFilterData(filterData);
@@ -994,13 +1083,10 @@ void ezBreakableSheetComponent::CreatePiecesPhysicsObjects(ezVec3 vImpulse, ezVe
     pActor->setAngularDamping(0.05f);
     pActor->setMaxDepenetrationVelocity(pModule->GetMaxDepenetrationVelocity());
 
-    PxRigidBodyExt::updateMassAndInertia(*pActor, 1.0f /* density - TODO */, nullptr /* Center of mass = center of box */);
+    PxRigidBodyExt::updateMassAndInertia(*pActor, m_fDensity, nullptr /* Center of mass = center of box */);
 
     pActor->setActorFlag(PxActorFlag::eDISABLE_GRAVITY, false);
     pActor->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC, false);
-
-    ezRandom r;
-    r.Initialize(0);
 
     m_PieceActors[i] = pActor;
     const float fExtentsLength = m_vExtents.GetLength();
@@ -1013,11 +1099,12 @@ void ezBreakableSheetComponent::CreatePiecesPhysicsObjects(ezVec3 vImpulse, ezVe
       {
         const ezVec3 BoundingBoxCenter = m_PieceBoundingBoxes[i].GetCenter();
         ezVec3 vec(BoundingBoxCenter - vPointOfBreakage);
-        float fStrength = ezMath::Max(1.0f - (vec.GetLength() / fExtentsLength), 0.2f) * static_cast<float>(r.DoubleMinMax(0.5, 1.0));
+        float fStrength = static_cast<float>(r.DoubleMinMax(0.5, 1.0));
 
-        vec.SetLength(fImpulseStrength * fStrength);
+        ezVec3 modifiedImpulse = vImpulse;
+        modifiedImpulse.SetLength(fImpulseStrength * fStrength);
 
-        PxRigidBodyExt::addForceAtPos(*pActor, ezPxConversionUtils::ToVec3(vec), ezPxConversionUtils::ToVec3(BoundingBoxCenter), PxForceMode::eIMPULSE);
+        PxRigidBodyExt::addForceAtPos(*pActor, ezPxConversionUtils::ToVec3(modifiedImpulse), ezPxConversionUtils::ToVec3(BoundingBoxCenter), PxForceMode::eIMPULSE);
       }
     }
   }
@@ -1035,9 +1122,39 @@ void ezBreakableSheetComponent::DestroyPiecesPhysicsObjects()
     }
   }
 
+  ezPhysXWorldModule* pModule = GetWorld()->GetOrCreateModule<ezPhysXWorldModule>();
+  for (ezUInt32 uiShapeId : m_PieceShapeIds)
+  {
+    pModule->DeleteShapeId(uiShapeId);
+  }
+
   m_PieceActors.Clear();
+  m_PieceShapeIds.Clear();
+  m_ShapeIDsToActors.Clear();
   m_PieceUserDatas.Clear();
   m_uiNumActiveBrokenPieceActors = 0;
+}
+
+void ezBreakableSheetComponent::ReinitMeshes()
+{
+  // Is this safe?
+  if (!m_PieceTransforms.IsEmpty())
+  {
+    Cleanup();
+    CreateMeshes();
+  }
+}
+
+void ezBreakableSheetComponent::Cleanup()
+{
+  DestroyUnbrokenPhysicsObject();
+  DestroyPiecesPhysicsObjects();
+
+  if (!m_hPieceTransformsBuffer.IsInvalidated())
+  {
+    ezGALDevice::GetDefaultDevice()->DestroyBuffer(m_hPieceTransformsBuffer);
+    m_hPieceTransformsBuffer.Invalidate();
+  }
 }
 
 void ezBreakableSheetComponent::SetPieceTransform(const physx::PxTransform& transform, void* pAdditionalUserData)
